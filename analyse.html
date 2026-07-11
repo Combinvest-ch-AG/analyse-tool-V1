@@ -40,9 +40,9 @@
   .steps{display:flex;gap:8px;flex-wrap:wrap}
   .nav .spacer{flex:1}
   .lang{font-weight:800;font-size:12px;letter-spacing:.12em;color:var(--ink-2)}
-  .brand{display:flex;align-items:center;gap:7px;font-weight:900;font-size:22px;letter-spacing:-.02em}
-  .brand-mark{width:28px;height:28px;display:grid;place-items:center;clip-path:polygon(25% 5%,75% 5%,100% 50%,75% 95%,25% 95%,0 50%);background:var(--royal);color:#fff;font-size:14px;font-weight:900;letter-spacing:-.08em}
-  .brand .b1{color:var(--ink)} .brand .b2{color:var(--royal)}
+  .brand{display:flex;align-items:center;font-weight:900;font-size:28px;line-height:.7;letter-spacing:-.065em}
+  .brand-mark{display:none}.brand-word{display:flex;flex-direction:column;gap:1px}
+  .brand .b1{color:#05080f;display:block}.brand .b2{color:#23488d;display:block}
 
   main{padding:24px 0 70px}
   .panel{animation:fade .25s ease}
@@ -140,29 +140,21 @@
 
   /* ===== Step 3 themes ===== */
   .themes{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
-  .tile{grid-column:span 3;background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
-    overflow:hidden;display:flex;flex-direction:column;min-height:210px;transition:transform .16s,box-shadow .16s;cursor:pointer}
-  .tile:hover{transform:translateY(-3px);box-shadow:0 16px 36px rgba(46,62,120,.16)}
-  .tile.big{grid-column:span 6}
-  .tile .cover{flex:1;position:relative}
-  .tile .cover .rank{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.92);color:var(--royal);font-weight:900;
-    font-size:12px;border-radius:8px;padding:3px 8px;letter-spacing:.04em}
-  .tile .info{background:#fff;padding:16px 18px;display:flex;align-items:center;gap:14px;border-top:1px solid var(--line)}
-  .tile .info h3{margin:0;font-size:14px;font-weight:900;letter-spacing:.02em;text-transform:uppercase}
-  .tile .info .start{display:block;margin-top:5px;font-size:11.5px;font-weight:800;color:var(--royal);letter-spacing:.06em;text-transform:uppercase}
-  .miniring{--p:0;width:44px;height:44px;border-radius:50%;flex:none;position:relative;
+  .tile{grid-column:span 3;background:#fff;border:0;border-radius:3px;box-shadow:none;overflow:hidden;display:flex;flex-direction:column;min-height:255px;transition:transform .16s,box-shadow .16s;cursor:pointer}
+  .tile:hover{transform:translateY(-3px);box-shadow:0 16px 34px rgba(27,58,109,.16)}
+  .tile.big{grid-column:span 6;min-height:385px}.tile:nth-child(2){grid-column:span 3;min-height:385px}
+  .tile .cover{flex:1;position:relative;overflow:hidden}.tile .cover:after{content:"";position:absolute;width:180px;height:180px;border:30px solid rgba(255,255,255,.12);border-radius:50%;right:-58px;top:-52px}.tile.big .cover:before{content:"";position:absolute;width:46%;height:86%;left:28%;bottom:-10%;border-radius:48% 48% 8% 8%;background:linear-gradient(90deg,rgba(7,20,45,.55),rgba(7,20,45,.08));filter:blur(1px)}
+  .tile .cover .rank{display:none}
+  .tile .info{position:relative;margin:-68px 20px 20px;background:rgba(255,255,255,.93);padding:16px 18px;display:flex;align-items:center;gap:14px;min-height:74px;z-index:1}
+  .tile.big .info{margin:-86px 32px 32px;padding:20px 22px;min-height:98px}
+  .tile .info h3{margin:0;font-size:13px;font-weight:900;letter-spacing:.02em;text-transform:uppercase}.tile.big .info h3{font-size:16px}
+  .tile .info .start{display:block;margin-top:5px;font-size:11px;font-weight:800;color:var(--royal);letter-spacing:.06em;text-transform:uppercase}
+  .miniring{--p:0;width:46px;height:46px;border-radius:50%;flex:none;position:relative;
     background:conic-gradient(var(--c,#ccc) calc(var(--p)*1turn),#E9ECF5 0)}
   .miniring::before{content:"";position:absolute;inset:6px;border-radius:50%;background:#fff}
   @media(max-width:900px){.tile,.tile.big{grid-column:span 6}}
   @media(max-width:560px){.tile,.tile.big{grid-column:span 12}}
-  .c-pensiongap{background:linear-gradient(135deg,#5566d8,#33409e)}
-  .c-investment{background:linear-gradient(135deg,#3A57F5,#2231a8)}
-  .c-property-creation{background:linear-gradient(135deg,#5b78e0,#37509c)}
-  .c-health{background:linear-gradient(135deg,#6ec6cf,#3a95a3)}
-  .c-real-estate{background:linear-gradient(135deg,#2aa6dd,#1577b3)}
-  .c-children{background:linear-gradient(135deg,#9aa8bd,#6b7a91)}
-  .c-tax-advantage{background:linear-gradient(135deg,#57c9c2,#2f9c95)}
-  .c-values-protection{background:linear-gradient(135deg,#59b9ea,#2f8fd0)}
+  .c-pensiongap{background:#dce5fa}.c-investment{background:#4e7cf7}.c-property-creation{background:#6b82ce}.c-health{background:#96d2e9}.c-real-estate{background:#22a9da}.c-children{background:#aac4d7}.c-tax-advantage{background:#87dddd}.c-values-protection{background:#51c0e7}
 </style>
 </head>
 <body>
@@ -176,7 +168,7 @@
       <button class="step" data-step="3"><small>Schritt 3</small><b>Risikoanalyse</b></button>
     </nav>
     <span class="spacer"></span>
-    <span class="brand" aria-label="Combinvest"><span class="brand-mark" aria-hidden="true">c</span><span class="b1">comb</span><span class="b2">invest</span></span>
+    <span class="brand" aria-label="Combinvest"><span class="brand-word"><span class="b1">comb</span><span class="b2">invest</span></span></span>
   </div>
 </header>
 

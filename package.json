@@ -1,0 +1,29 @@
+{
+  "name": "combinvest-advisory-engine",
+  "version": "1.0.0",
+  "description": "Schweizer Finanzberatungs-Plattform mit deterministischen Engines",
+  "type": "module",
+  "scripts": {
+    "test": "node --test engine/**/*.test.mjs",
+    "test:pension": "node --test engine/pension-engine.test.mjs",
+    "test:affordability": "node --test engine/affordability-engine.test.mjs",
+    "serve": "python3 -m http.server 3000",
+    "lint": "eslint . --ignore-pattern node_modules",
+    "dev": "npm run serve & npm run test:watch"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0"
+  },
+  "author": "Ermisalper + Claude + Codex",
+  "license": "MIT",
+  "keywords": [
+    "schweiz",
+    "finanzberatung",
+    "vorsorge",
+    "immobilien",
+    "versicherung"
+  ]
+}

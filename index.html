@@ -6,8 +6,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <title>Combinvest — Schweizer Finanzberatung & Vermögensplanung</title>
-  <meta name="description" content="Combinvest Advisory Engine: Personalisierte Finanzstrategie für Vorsorge, Vermögen und Versicherung. Schweizer Finanzberatung auf Augenhöhe.">
+  <title>combinvest — Schweizer Finanzberatung & Vermögensplanung</title>
+  <meta name="description" content="combinvest Advisory Engine: Personalisierte Finanzstrategie für Vorsorge, Vermögen und Versicherung. Schweizer Finanzberatung auf Augenhöhe.">
   <meta name="theme-color" content="#3A57F5">
   <style>
     :root {
@@ -119,14 +119,30 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-weight: 700;
-      font-size: 20px;
+      gap: 9px;
+      font-weight: 900;
+      font-size: 24px;
       color: var(--text-dark);
-      letter-spacing: -0.03em;
+      letter-spacing: -0.055em;
+      line-height: .72;
     }
 
-    .brand span {
+    .brand-mark {
+      width: 34px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      clip-path: polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);
+      background: var(--royal-blue);
+      color: #fff;
+      font-size: 17px;
+      letter-spacing: 0;
+      line-height: 1;
+    }
+
+    .brand-name{display:flex;flex-direction:column;gap:1px}
+    .brand-name b{font:inherit}
+    .brand-name b:last-child {
       color: var(--royal-blue);
     }
 
@@ -537,8 +553,9 @@
   <!-- ========== Header ========== -->
   <header>
     <div class="header-inner">
-      <div class="brand">
-        Combin<span>vest</span>
+      <div class="brand" aria-label="combinvest">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <span class="brand-name"><b>comb</b><b>invest</b></span>
       </div>
       <nav class="nav-pills">
         <a href="#features" class="pill">Funktionen</a>
@@ -554,7 +571,7 @@
       <div class="hero-content">
         <h1>Deine Finanzstrategie,<br>massgeschneidert für die Schweiz</h1>
         <p class="hero-subtitle">
-          Kombinvest analysiert Ihre finanzielle Situation ganzheitlich. Von der Vorsorge über Vermögensaufbau bis zur Versicherung – erhalten Sie personalisierte Empfehlungen basierend auf Ihren Zielen und der Schweizer Regulierung.
+          combinvest analysiert Ihre finanzielle Situation ganzheitlich. Von der Vorsorge über Vermögensaufbau bis zur Versicherung – erhalten Sie personalisierte Empfehlungen basierend auf Ihren Zielen und der Schweizer Regulierung.
         </p>
         <div class="btn-group">
           <a href="analyse.html" class="btn btn-primary">
@@ -702,15 +719,15 @@
         </div>
 
         <div class="footer-col">
-          <h4>Über Combinvest</h4>
+          <h4>Über combinvest</h4>
           <p style="color: rgba(255, 255, 255, 0.7); font-size: 14px; line-height: 1.6;">
-            Combinvest ist ein Open-Source Finanzberater für die Schweiz. Entwickelt mit Fokus auf Sicherheit, Transparenz und Deterministische Engines.
+            combinvest ist ein Open-Source Finanzberater für die Schweiz. Entwickelt mit Fokus auf Sicherheit, Transparenz und deterministische Engines.
           </p>
         </div>
       </div>
 
       <div class="footer-bottom">
-        <div class="footer-brand">© 2026 Combinvest</div>
+        <div class="footer-brand">© 2026 combinvest</div>
         <div>
           Made with ❤️ for Swiss Financial Freedom
         </div>

@@ -6,8 +6,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<title>Combinvest — Finanzstatus Check</title>
-<meta name="description" content="Combinvest Analysetool: Finanzstatus Check mit Live-Risikoberechnung, Vertragscheck und persönlicher Empfehlung.">
+<title>combinvest — Finanzstatus Check</title>
+<meta name="description" content="combinvest Analysetool: Finanzstatus Check mit Live-Risikoberechnung, Vertragscheck und persönlicher Empfehlung.">
 <style>
   :root{
     --royal:#4285F4; --royal-deep:#2F6FD9; --royal-050:#F1F6FF; --royal-100:#DCEAFF;
@@ -40,8 +40,8 @@
   .steps{display:flex;gap:8px;flex-wrap:wrap}
   .nav .spacer{flex:1}
   .lang{font-weight:800;font-size:12px;letter-spacing:.12em;color:var(--ink-2)}
-  .brand{display:flex;align-items:center;font-weight:900;font-size:28px;line-height:.7;letter-spacing:-.065em}
-  .brand-mark{display:none}.brand-word{display:flex;flex-direction:column;gap:1px}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:900;font-size:25px;line-height:.72;letter-spacing:-.055em}
+  .brand-mark{display:grid;width:34px;height:38px;place-items:center;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);background:var(--royal);color:#fff;font-size:17px;line-height:1;letter-spacing:0}.brand-word{display:flex;flex-direction:column;gap:1px}
   .brand .b1{color:#05080f;display:block}.brand .b2{color:#23488d;display:block}
 
   main{padding:24px 0 70px}
@@ -146,7 +146,7 @@
   .tile .cover{flex:1;position:relative;overflow:hidden;background-color:#4264c7;background-size:cover;background-position:center;isolation:isolate;transition:transform .45s ease}
   .tile:hover .cover{transform:scale(1.025)}
   .tile .cover:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(135deg,rgba(15,27,54,.76),rgba(58,87,245,.42) 58%,rgba(30,181,211,.28));mix-blend-mode:multiply}
-  .tile .cover:after{content:"";position:absolute;width:180px;height:180px;border:30px solid rgba(255,255,255,.14);border-radius:50%;right:-58px;top:-52px;z-index:0}
+  .tile .cover:after{display:none}
   .tile .cover .rank{display:none}
   .tile .info{position:relative;margin:-68px 20px 20px;background:rgba(255,255,255,.93);padding:16px 18px;display:flex;align-items:center;gap:14px;min-height:74px;z-index:1}
   .tile.big .info{margin:-86px 32px 32px;padding:20px 22px;min-height:98px}
@@ -171,7 +171,7 @@
       <button class="step" data-step="3"><small>Schritt 3</small><b>Risikoanalyse</b></button>
     </nav>
     <span class="spacer"></span>
-    <span class="brand" aria-label="Combinvest"><span class="brand-word"><span class="b1">comb</span><span class="b2">invest</span></span></span>
+    <span class="brand" aria-label="combinvest"><span class="brand-mark" aria-hidden="true">C</span><span class="brand-word"><span class="b1">comb</span><span class="b2">invest</span></span></span>
   </div>
 </header>
 
@@ -180,7 +180,7 @@
   <!-- ===================== STEP 1 : Finanzstatus Check (Wizard) ===================== -->
   <section id="panel1" class="panel">
     <div class="head">
-      <div class="kicker">Combinvest · Finanzstatus Check</div>
+      <div class="kicker">combinvest · Finanzstatus Check</div>
     </div>
     <div class="wizgrid">
       <section class="card" aria-label="Fragebogen">
@@ -270,7 +270,7 @@
 (function(){
   "use strict";
 
-  /* =============== Fragenkatalog (Combinvest Finanzstatus Check, 19 Fragen) =============== */
+  /* =============== Fragenkatalog (combinvest Finanzstatus Check, 19 Fragen) =============== */
   var Q = [
     {id:"geschlecht", t:"Geschlecht", type:"single", opts:[["M","Männlich"],["W","Weiblich"]]},
     {id:"alter", t:"Wann sind Sie geboren?", sub:"Ihr Alter in Jahren", type:"slider", min:18, max:80, def:35, fmt:function(v){return v+" Jahre";}},
@@ -590,7 +590,7 @@
     var contracts=Object.keys(chosen).length?Object.keys(chosen).map(function(p){return "<li><b>"+esc(p)+"</b> — Pol.-Nr. "+esc(chosen[p].pol||"—")+", Ablauf "+esc(chosen[p].abl||"—")+"</li>";}).join(""):"<li>Keine bestehenden Produkte erfasst</li>";
     var w=window.open("","_blank");
     if(!w){alert("Bitte Pop-ups erlauben, um das PDF zu erstellen.");return;}
-    w.document.write('<!doctype html><html lang="de-CH"><head><meta charset="utf-8"><title>Combinvest Beratungsprotokoll</title><style>@page{size:A4;margin:16mm}body{font:12px Arial;color:#0f1b36}h1{color:#3a57f5;margin-bottom:2px}h2{margin-top:24px;border-bottom:2px solid #dce3ff;padding-bottom:5px}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #e4e9f5;padding:7px}th{width:48%}.meta{color:#51607a}.no-print{margin:16px 0;padding:10px 16px;background:#3a57f5;color:white;border:0;border-radius:6px}@media print{.no-print{display:none}}</style></head><body><button class="no-print" onclick="window.print()">Als PDF speichern</button><h1>Combinvest Beratungsprotokoll</h1><div class="meta">Erstellt am '+esc(profile.erstellt_am)+' · Profil-ID '+esc(profile.id)+'</div><h2>Prioritäten & Empfehlungen</h2><table><tr><th>Rang</th><th>Bereich</th><th>Score</th><th>Relevanz</th></tr>'+scoreRows+'</table><h2>Antworten (19 Fragen)</h2><table>'+answerRows+'</table><h2>Bestehende Verträge</h2><ul>'+contracts+'</ul><p class="meta">Hinweis: Dieses Protokoll dokumentiert das Profiling und ersetzt keine persönliche Finanz- oder Versicherungsberatung.</p><script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script></body></html>');
+    w.document.write('<!doctype html><html lang="de-CH"><head><meta charset="utf-8"><title>combinvest Beratungsprotokoll</title><style>@page{size:A4;margin:16mm}body{font:12px Arial;color:#0f1b36}h1{color:#3a57f5;margin-bottom:2px}h2{margin-top:24px;border-bottom:2px solid #dce3ff;padding-bottom:5px}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #e4e9f5;padding:7px}th{width:48%}.meta{color:#51607a}.no-print{margin:16px 0;padding:10px 16px;background:#3a57f5;color:white;border:0;border-radius:6px}@media print{.no-print{display:none}}</style></head><body><button class="no-print" onclick="window.print()">Als PDF speichern</button><h1>combinvest Beratungsprotokoll</h1><div class="meta">Erstellt am '+esc(profile.erstellt_am)+' · Profil-ID '+esc(profile.id)+'</div><h2>Prioritäten & Empfehlungen</h2><table><tr><th>Rang</th><th>Bereich</th><th>Score</th><th>Relevanz</th></tr>'+scoreRows+'</table><h2>Antworten (19 Fragen)</h2><table>'+answerRows+'</table><h2>Bestehende Verträge</h2><ul>'+contracts+'</ul><p class="meta">Hinweis: Dieses Protokoll dokumentiert das Profiling und ersetzt keine persönliche Finanz- oder Versicherungsberatung.</p><script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script></body></html>');
     w.document.close();
   }
   document.getElementById("finishBtn").addEventListener("click",function(){ saveState(); window.location.href="index.html"; });

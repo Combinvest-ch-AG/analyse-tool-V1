@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<title>Combinvest — Vorsorgerechner</title>
+<title>combinvest — Vorsorgerechner</title>
 <meta name="description" content="Zwei-Phasen-Vorsorgerechner: benötigte Sparrate für Ihre Wunschrente, mit Kapitalverlauf.">
 <style>
   :root{
@@ -31,7 +31,7 @@
   .step.active{background:var(--ink);border-color:var(--ink)}.step.active small{color:#9fb0c9}.step.active b{color:#fff}
   .steps{display:flex;gap:8px;flex-wrap:wrap}.nav .spacer{flex:1}
   .lang{font-weight:800;font-size:12px;letter-spacing:.12em;color:var(--ink-2)}
-  .brand{display:flex;align-items:baseline;gap:1px;font-weight:900;font-size:21px;letter-spacing:-.02em}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:900;font-size:22px;line-height:.72;letter-spacing:-.04em}.brand-mark{display:grid;width:32px;height:36px;place-items:center;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);background:var(--accent);color:#fff;font-size:15px;letter-spacing:0}.brand-word{display:flex;flex-direction:column}
   .brand .b1{color:var(--ink)}.brand .b2{color:var(--accent)}
 
   .head{padding:52px 0 8px}
@@ -97,7 +97,7 @@
       <span class="step active"><small>Rechner</small><b>Vorsorgerechner</b></span>
     </nav>
     <span class="spacer"></span>
-    <span class="brand"><span class="b1">comb</span><span class="b2">invest</span></span>
+    <span class="brand" aria-label="combinvest"><span class="brand-mark" aria-hidden="true">C</span><span class="brand-word"><span class="b1">comb</span><span class="b2">invest</span></span></span>
   </div>
 </header>
 

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>Combinvest — Budgetrechner</title>
+<meta name="description" content="Budgetrechner mit Geldfluss-Diagramm: Einnahmen und Ausgaben erfassen, Sparquote und Überschuss auf einen Blick.">
+<style>
+  :root{
+    --royal:#3A57F5; --royal-deep:#2C3ED9; --royal-050:#EEF1FF; --royal-100:#DCE3FF;
+    --page:#F3F5FC; --surface:#ffffff; --surface-2:#F6F8FF;
+    --ink:#0F1B36; --ink-2:#51607A; --muted:#8A97AC;
+    --line:#E4E9F5; --grid:#EDF1FB;
+    --good:#188A57; --crit:#E5392B;
+    --radius:18px; --shadow:0 1px 2px rgba(15,27,54,.04),0 10px 30px rgba(46,62,120,.08);
+    --focus:#3A57F5;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:Manrope,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--page);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .num{font-variant-numeric:tabular-nums}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 22px}
+
+  /* ---- header: pill step nav (identisch zu den anderen Rechnern) ---- */
+  header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+  .nav{display:flex;align-items:center;gap:8px;padding:12px 0;flex-wrap:wrap}
+  .step{display:flex;flex-direction:column;justify-content:center;gap:1px;background:#fff;border:1px solid var(--line);
+    border-radius:12px;padding:8px 15px;min-width:118px;text-align:left;font:inherit}
+  .step small{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .step b{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:800}
+  .step.home{border:0;background:transparent;min-width:auto;padding-left:2px}
+  .step.home b{color:var(--royal)}
+  .step.active{background:var(--royal);border-color:var(--royal)}
+  .step.active small{color:#c7d0ff} .step.active b{color:#fff}
+  .steps{display:flex;gap:8px;flex-wrap:wrap}
+  .nav .spacer{flex:1}
+  .brand{display:flex;align-items:baseline;gap:1px;font-weight:900;font-size:22px;letter-spacing:-.02em}
+  .brand .b1{color:var(--ink)} .brand .b2{color:var(--royal)}
+
+  main{padding:26px 0 70px}
+  .head{padding:8px 0 4px}
+  .kicker{color:var(--royal);font-weight:800;font-size:12px;letter-spacing:.18em;text-transform:uppercase}
+  h1{font-size:clamp(24px,3.6vw,36px);margin:.28em 0 .1em;letter-spacing:-.02em;font-weight:900;line-height:1.06}
+  .lead{color:var(--ink-2);font-size:15.5px;max-width:62ch;margin:.2em 0 20px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:24px}
+
+  /* ---- Kennzahlen ---- */
+  .bdg-metrics{display:flex;gap:12px;margin:0 0 16px}
+  .bdg-metric{flex:1;border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:var(--surface)}
+  .bdg-metric .ml{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .bdg-metric .mv{font-size:23px;font-weight:900;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .bdg-metric.pos .mv{color:var(--good)}
+  .bdg-metric.neg .mv{color:var(--crit)}
+  @media(max-width:560px){.bdg-metrics{flex-direction:column}}
+
+  /* ---- Geldfluss / Sankey ---- */
+  .bdg-flowcard{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);padding:18px 20px;margin-bottom:16px}
+  .bdg-flowhead{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--royal);box-shadow:0 0 0 0 rgba(58,87,245,.5);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(58,87,245,.4)}70%{box-shadow:0 0 0 8px rgba(58,87,245,0)}100%{box-shadow:0 0 0 0 rgba(58,87,245,0)}}
+  .bdg-sankey-wrap{width:100%;min-height:300px}
+  .bdg-sankey-wrap svg{width:100%;height:auto;display:block}
+  .bdg-empty{padding:46px 12px;text-align:center;color:var(--muted);font-size:14px}
+  .bdg-tip{position:fixed;z-index:9999;pointer-events:none;opacity:0;transition:opacity .12s;background:var(--ink);color:#fff;font-size:12px;line-height:1.45;padding:7px 10px;border-radius:9px;box-shadow:0 4px 14px rgba(15,27,54,.22);max-width:250px}
+  .bdg-tip b{font-weight:800}
+
+  /* ---- Hinweisbox ---- */
+  .bdg-advice{margin:0 0 16px;border:1px solid var(--line);border-left-width:4px;border-radius:14px;padding:16px 18px;background:var(--surface);box-shadow:var(--shadow)}
+  .bdg-advice.pos{border-left-color:var(--good)}
+  .bdg-advice.neg{border-left-color:var(--crit)}
+  .bdg-advice .bt{font-size:15px;font-weight:900;color:var(--ink);margin-bottom:4px}
+  .bdg-advice .bd{font-size:13.5px;color:var(--ink-2);margin-bottom:12px}
+  .btn{border-radius:12px;padding:11px 20px;font:inherit;font-weight:800;cursor:pointer;letter-spacing:.05em;text-transform:uppercase;font-size:12px;border:0;display:inline-block}
+  .btn-primary{background:var(--royal);color:#fff;box-shadow:0 6px 16px rgba(58,87,245,.3)}
+  .btn-primary:hover{background:var(--royal-deep)}
+  .btn-ghost{background:#fff;color:var(--ink-2);border:1px solid var(--line)}
+  .btn-ghost:hover{border-color:var(--royal);color:var(--royal)}
+
+  /* ---- Formular ---- */
+  .bdg-toolbar{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap;justify-content:flex-end}
+  .bdg-form{display:flex;flex-direction:column;gap:14px}
+  .bdg-group{border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;background:var(--surface);box-shadow:var(--shadow)}
+  .bdg-cat{border-left:4px solid var(--cc,var(--line))}
+  .bdg-ghead{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .bdg-gname{font-size:14px;font-weight:900;letter-spacing:.02em;text-transform:uppercase;color:var(--ink)}
+  .bdg-cname{flex:1;min-width:0;font-size:14px;font-weight:900;letter-spacing:.02em;text-transform:uppercase;color:var(--ink);background:transparent;border:none;border-bottom:1px solid transparent;padding:2px 0;font-family:inherit}
+  .bdg-cname:focus{outline:none;border-bottom-color:var(--royal)}
+  .bdg-gtot{margin-left:auto;font-size:14px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bdg-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .bdg-name{flex:1;min-width:0;font-size:14px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-weight:600;font-family:inherit}
+  .bdg-name:focus,.bdg-amt:focus{outline:none;border-color:var(--royal)}
+  .bdg-stepper{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);flex:none}
+  .bdg-amt{width:92px;text-align:right;border:none;background:transparent;color:var(--ink);font-size:14px;padding:9px 8px;font-variant-numeric:tabular-nums;font-weight:700;font-family:inherit;-moz-appearance:textfield}
+  .bdg-amt::-webkit-outer-spin-button,.bdg-amt::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .bdg-step{width:32px;border:none;background:var(--surface-2);color:var(--ink-2);font-size:17px;line-height:1;cursor:pointer;font-weight:600}
+  .bdg-step:hover{background:var(--royal-050);color:var(--royal)}
+  .bdg-del{flex:none;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer}
+  .bdg-del:hover{color:var(--crit);background:#FDECEA}
+  .bdg-del svg{width:15px;height:15px}
+  .bdg-add{margin-top:10px;border:1px dashed var(--line);background:transparent;color:var(--ink-2);font:inherit;font-weight:800;font-size:12.5px;border-radius:10px;padding:9px 12px;cursor:pointer;width:100%;text-align:left}
+  .bdg-add:hover{border-color:var(--royal);color:var(--royal)}
+  .note{margin-top:16px;color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="step home" href="index.html"><small>Zur</small><b>Startseite</b></a>
+    <nav class="steps">
+      <a class="step" href="index.html"><small>Bereich</small><b>Privatkunde</b></a>
+      <span class="step active"><small>Schnellanalyse</small><b>Budgetrechner</b></span>
+    </nav>
+    <span class="spacer"></span>
+    <span class="brand"><span class="b1">comb</span><span class="b2">invest</span></span>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="head">
+    <div class="kicker">Haushalt &middot; Einnahmen &amp; Ausgaben</div>
+    <h1>Wohin fliesst Ihr Geld?</h1>
+    <p class="lead">Erfassen Sie Einnahmen und Ausgaben &mdash; das Geldfluss-Diagramm, Ihre Sparquote
+      und der monatliche &Uuml;berschuss aktualisieren sich in Echtzeit. Alle Daten bleiben in diesem Browser.</p>
+  </div>
+
+  <div class="bdg-metrics" id="bdgMetrics"></div>
+
+  <div class="bdg-flowcard">
+    <div class="bdg-flowhead"><span class="live-dot"></span> Geldfluss</div>
+    <div class="bdg-sankey-wrap" id="bdgSankeyWrap"><div class="bdg-empty">L&auml;dt &hellip;</div></div>
+  </div>
+
+  <div class="bdg-advice" id="bdgAdvice" hidden></div>
+
+  <div class="bdg-toolbar">
+    <button type="button" class="btn btn-ghost" id="bdgReset">Zur&uuml;cksetzen</button>
+  </div>
+  <div class="bdg-form" id="bdgForm"></div>
+
+  <p class="note">Richtwert: Eine Sparquote ab 15&ndash;20&nbsp;% gilt als solide Basis. Betr&auml;ge werden gerundet dargestellt, intern wird exakt gerechnet.</p>
+</main>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(id){return document.getElementById(id);};
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+  function fmt0(n){ return "CHF "+Math.round(Number(n)||0).toLocaleString("de-CH"); }
+
+  var KEY="combinvest.budget.v1";
+  var PROFILE_KEY="combinvest.customerProfile.v1";
+  var COL={inc:"#188A57",budget:"#3A57F5"};
+  var PAL=["#EE6A20","#256ABF","#7C5CBF","#159B8A","#C2554E","#3F7CC0"];
+  var TRASH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2"/><path d="M6 7l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13"/></svg>';
+
+  function defData(){
+    var lohn=4500;
+    /* Vorbefuellung aus dem Finanzstatus Check (Jahresbrutto / 12), falls vorhanden */
+    try{
+      var prof=JSON.parse(localStorage.getItem(PROFILE_KEY)||"null");
+      var brutto=prof && prof.answers ? Number(prof.answers.brutto) : 0;
+      if(isFinite(brutto) && brutto>0) lohn=Math.round(brutto/12/50)*50;
+    }catch(e){}
+    return {income:[{name:"Lohn (netto)",amount:lohn},{name:"Nebeneinkommen",amount:0}],
+      cats:[
+        {name:"Fixkosten",color:PAL[0],subs:[{name:"Miete",amount:1500},{name:"Krankenkasse",amount:400},{name:"Steuern",amount:800}]},
+        {name:"Leben",color:PAL[1],subs:[{name:"Essen",amount:600},{name:"Transport",amount:400},{name:"Hobbys",amount:300}]},
+        {name:"Sparen",color:PAL[2],subs:[{name:"Sparkonto",amount:200},{name:"3a / ETF-Sparplan",amount:500}]}
+      ]};
+  }
+
+  var data=null, d3p=null, d3ok=false;
+
+  function clampAmt(v){ v=Number(v); if(!isFinite(v)||v<0) v=0; if(v>1e8) v=1e8; return v; }
+  function valid(o){ return o && Array.isArray(o.income) && Array.isArray(o.cats); }
+  function catTotal(c){ var t=0; (c.subs||[]).forEach(function(s){ t+=clampAmt(s.amount); }); return t; }
+  function totals(){ var inc=0,exp=0; data.income.forEach(function(x){ inc+=clampAmt(x.amount); }); data.cats.forEach(function(c){ exp+=catTotal(c); }); return {inc:inc,exp:exp,bal:inc-exp}; }
+  function nextColor(){ return PAL[data.cats.length % PAL.length]; }
+
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} }
+  function loadData(){
+    try{ var raw=localStorage.getItem(KEY); if(raw){ var p=JSON.parse(raw); if(valid(p)) return p; } }catch(e){}
+    return defData();
+  }
+
+  function loadScript(url){ return new Promise(function(res,rej){ var sc=document.createElement("script"); sc.src=url; sc.async=true; sc.onload=function(){res();}; sc.onerror=function(){rej(new Error("load "+url));}; document.head.appendChild(sc); }); }
+  function ensureD3(){
+    if(d3ok) return Promise.resolve();
+    if(!d3p) d3p=loadScript("https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js")
+      .then(function(){ return loadScript("https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"); })
+      .then(function(){ d3ok=(typeof d3!=="undefined" && typeof d3.sankey==="function"); if(!d3ok) throw new Error("d3-sankey"); });
+    return d3p;
+  }
+
+  function getByPath(p){ var a=p.split("."), o=data; for(var i=0;i<a.length;i++){ o=o[a[i]]; if(o==null) return null; } return o; }
+  function setByPath(p,v){ var a=p.split("."), o=data; for(var i=0;i<a.length-1;i++) o=o[a[i]]; o[a[a.length-1]]=v; }
+  function delPath(p){ var a=p.split("."), idx=+a.pop(); var parent=a.length?getByPath(a.join(".")):null; if(Array.isArray(parent)) parent.splice(idx,1); }
+
+  function row(path,name,amount){
+    return '<div class="bdg-row">'+
+      '<input class="bdg-name" type="text" data-path="'+path+'.name" value="'+esc(name)+'" aria-label="Bezeichnung">'+
+      '<div class="bdg-stepper">'+
+        '<button type="button" class="bdg-step" data-act="step" data-path="'+path+'.amount" data-d="-50" aria-label="Minus">&ndash;</button>'+
+        '<input class="bdg-amt num" type="number" inputmode="numeric" min="0" step="50" data-path="'+path+'.amount" value="'+clampAmt(amount)+'" aria-label="Betrag">'+
+        '<button type="button" class="bdg-step" data-act="step" data-path="'+path+'.amount" data-d="50" aria-label="Plus">+</button>'+
+      '</div>'+
+      '<button type="button" class="bdg-del" data-act="del" data-path="'+path+'" aria-label="L&ouml;schen" title="L&ouml;schen">'+TRASH+'</button>'+
+    '</div>';
+  }
+  function buildForm(){
+    var h='<div class="bdg-group bdg-inc"><div class="bdg-ghead"><span class="bdg-gname">Einkommen</span><span class="bdg-gtot num" data-tot="inc"></span></div>';
+    data.income.forEach(function(x,i){ h+=row("income."+i,x.name,x.amount); });
+    h+='<button type="button" class="bdg-add" data-act="add-inc">+ Einkommen hinzuf&uuml;gen</button></div>';
+    data.cats.forEach(function(c,ci){
+      h+='<div class="bdg-group bdg-cat" style="--cc:'+c.color+'"><div class="bdg-ghead"><input class="bdg-cname" type="text" data-path="cats.'+ci+'.name" value="'+esc(c.name)+'" aria-label="Kategorie"><span class="bdg-gtot num" data-tot="cat-'+ci+'"></span><button type="button" class="bdg-del" data-act="del" data-path="cats.'+ci+'" aria-label="Kategorie l&ouml;schen" title="Kategorie l&ouml;schen">'+TRASH+'</button></div>';
+      c.subs.forEach(function(sx,si){ h+=row("cats."+ci+".subs."+si,sx.name,sx.amount); });
+      h+='<button type="button" class="bdg-add" data-act="add-sub" data-ci="'+ci+'">+ Unterkategorie hinzuf&uuml;gen</button></div>';
+    });
+    h+='<button type="button" class="bdg-add" data-act="add-cat">+ Kategorie hinzuf&uuml;gen</button>';
+    $("bdgForm").innerHTML=h;
+    updateTotalsUI();
+  }
+  function updateTotalsUI(){
+    var inc=0; data.income.forEach(function(x){ inc+=clampAmt(x.amount); });
+    var ie=document.querySelector('#bdgForm [data-tot="inc"]'); if(ie) ie.textContent=fmt0(inc);
+    data.cats.forEach(function(c,ci){ var el=document.querySelector('#bdgForm [data-tot="cat-'+ci+'"]'); if(el) el.textContent=fmt0(catTotal(c)); });
+  }
+
+  function renderMetrics(){
+    var T=totals(), m=$("bdgMetrics"); if(!m) return;
+    function card(l,v,cls){ return '<div class="bdg-metric '+(cls||"")+'"><div class="ml">'+l+'</div><div class="mv num">'+v+'</div></div>'; }
+    var cls=T.bal>0?"pos":(T.bal<0?"neg":"");
+    var quote=T.inc>0?Math.round(Math.max(0,T.bal)/T.inc*100):0;
+    m.innerHTML=card("Einkommen / Monat",fmt0(T.inc),"")+card("Ausgaben / Monat",fmt0(T.exp),"")+card("&Uuml;berschuss ("+quote+"&nbsp;% Sparquote)",fmt0(T.bal),cls);
+  }
+  function renderAdvice(){
+    var T=totals(), el=$("bdgAdvice"); if(!el) return;
+    if(T.bal>0.5){
+      el.hidden=false; el.className="bdg-advice pos";
+      el.innerHTML='<div class="bt">Sie haben monatlich '+fmt0(T.bal)+' &uuml;brig.</div>'+
+        '<div class="bd">Pr&uuml;fen Sie im Finanzstatus Check, welche Vorsorge- und Anlagethemen f&uuml;r Sie die h&ouml;chste Relevanz haben &mdash; statt das Geld auf dem Konto der Inflation zu &uuml;berlassen.</div>'+
+        '<a class="btn btn-primary" href="analyse.html">Finanzstatus Check starten</a>';
+    } else if(T.bal<-0.5){
+      el.hidden=false; el.className="bdg-advice neg";
+      el.innerHTML='<div class="bt">Ihre Ausgaben &uuml;bersteigen Ihr Einkommen um '+fmt0(-T.bal)+'.</div>'+
+        '<div class="bd">Fixkosten wie Krankenkasse und Versicherungen sind oft der gr&ouml;sste Hebel &mdash; der Franchise-Vergleich zeigt Ihr Sparpotenzial.</div>'+
+        '<a class="btn btn-primary" href="franchise.html">Franchise-Vergleich &ouml;ffnen</a>';
+    } else { el.hidden=true; el.innerHTML=""; }
+  }
+
+  /* ---- Sankey ---- */
+  function buildGraph(){
+    var nodes=[], links=[], map={};
+    function nid(key,label,color,col){ if(!(key in map)){ map[key]=nodes.length; nodes.push({key:key,label:label,color:color,col:col}); } return map[key]; }
+    var bi=nid("budget","Budget",COL.budget,1);
+    data.income.forEach(function(x,i){ var a=clampAmt(x.amount); if(a<=0) return; var n=nid("inc"+i,x.name||"Einnahme",COL.inc,0); links.push({source:n,target:bi,value:a,scol:COL.inc,tcol:COL.budget,kind:"inc"}); });
+    data.cats.forEach(function(c,ci){ var ct=catTotal(c); if(ct<=0) return; var cn=nid("cat"+ci,c.name||"Kategorie",c.color,2); links.push({source:bi,target:cn,value:ct,scol:COL.budget,tcol:c.color,kind:"cat",ci:ci}); c.subs.forEach(function(sx,si){ var a=clampAmt(sx.amount); if(a<=0) return; var sn=nid("sub"+ci+"_"+si,sx.name||"Posten",c.color,3); links.push({source:cn,target:sn,value:a,scol:c.color,tcol:c.color,kind:"sub",ci:ci}); }); });
+    return {nodes:nodes,links:links};
+  }
+  function pctOf(d){
+    var T=totals();
+    if(d.kind==="inc") return T.inc>0?Math.round(d.value/T.inc*100):0;
+    if(d.kind==="cat") return T.exp>0?Math.round(d.value/T.exp*100):0;
+    if(d.kind==="sub"){ var ct=catTotal(data.cats[d.ci]); return ct>0?Math.round(d.value/ct*100):0; }
+    return 0;
+  }
+  function ctxLabel(d){ if(d.kind==="inc") return "vom Einkommen"; if(d.kind==="cat") return "der Ausgaben"; if(d.kind==="sub") return "von "+((data.cats[d.ci]||{}).name||"Kategorie"); return ""; }
+
+  function tipEl(){ var t=$("bdgTip"); if(!t){ t=document.createElement("div"); t.id="bdgTip"; t.className="bdg-tip"; document.body.appendChild(t); } return t; }
+
+  function drawSankey(){
+    var wrap=$("bdgSankeyWrap"); if(!wrap) return;
+    if(!d3ok){ ensureD3().then(drawSankey).catch(function(){ wrap.innerHTML='<div class="bdg-empty">Diagramm konnte nicht geladen werden (Internetverbindung n&ouml;tig).</div>'; }); return; }
+    var g=buildGraph();
+    if(!g.links.length){ wrap.innerHTML='<div class="bdg-empty">Geben Sie Einnahmen und Ausgaben ein, um den Geldfluss zu sehen.</div>'; return; }
+    var W=wrap.clientWidth||640; if(W<280) W=280;
+    var colCount={}, maxNodes=1;
+    g.nodes.forEach(function(n){ colCount[n.col]=(colCount[n.col]||0)+1; if(colCount[n.col]>maxNodes) maxNodes=colCount[n.col]; });
+    var H=Math.max(300, Math.min(maxNodes*64+30, 640));
+    wrap.innerHTML="";
+    var svg=d3.select(wrap).append("svg").attr("width","100%").attr("height",H).attr("viewBox","0 0 "+W+" "+H).attr("preserveAspectRatio","xMidYMid meet").style("display","block").style("overflow","visible");
+    var sankey=d3.sankey().nodeWidth(13).nodePadding(16).extent([[6,12],[W-6,H-12]]);
+    var graph;
+    try{ graph=sankey({nodes:g.nodes.map(function(d){return Object.assign({},d);}), links:g.links.map(function(d){return Object.assign({},d);})}); }
+    catch(e){ wrap.innerHTML='<div class="bdg-empty">Diagramm konnte nicht berechnet werden.</div>'; return; }
+    var defs=svg.append("defs");
+    graph.links.forEach(function(l,i){
+      var gid="bdgg"+i;
+      var lg=defs.append("linearGradient").attr("id",gid).attr("gradientUnits","userSpaceOnUse").attr("x1",l.source.x1).attr("x2",l.target.x0);
+      lg.append("stop").attr("offset","0%").attr("stop-color",l.scol);
+      lg.append("stop").attr("offset","100%").attr("stop-color",l.tcol);
+      l.gid=gid;
+    });
+    var linkSel=svg.append("g").attr("fill","none").selectAll("path").data(graph.links).join("path")
+      .attr("d",d3.sankeyLinkHorizontal())
+      .attr("stroke",function(d){ return "url(#"+d.gid+")"; })
+      .attr("stroke-width",function(d){ return Math.max(1,d.width); })
+      .attr("stroke-opacity",0.42).style("cursor","pointer").style("transition","stroke-opacity .12s");
+    var nodeSel=svg.append("g").selectAll("rect").data(graph.nodes).join("rect")
+      .attr("x",function(d){return d.x0;}).attr("y",function(d){return d.y0;})
+      .attr("width",function(d){return Math.max(1,d.x1-d.x0);}).attr("height",function(d){return Math.max(1,d.y1-d.y0);})
+      .attr("fill",function(d){return d.color;}).attr("rx",2).style("cursor","pointer");
+    svg.append("g").style("font","12px Manrope,system-ui,-apple-system,sans-serif").selectAll("text").data(graph.nodes).join("text")
+      .attr("x",function(d){ return d.x0<W/2 ? d.x1+7 : d.x0-7; })
+      .attr("y",function(d){ return (d.y0+d.y1)/2; })
+      .attr("dy","0.32em")
+      .attr("text-anchor",function(d){ return d.x0<W/2 ? "start" : "end"; })
+      .attr("fill","#0F1B36")
+      .each(function(d){ var t=d3.select(this); t.append("tspan").style("font-weight","700").text(d.label); t.append("tspan").attr("fill","#51607A").attr("dx",6).text(fmt0(d.value||0)); });
+    var tip=tipEl();
+    function move(ev){ tip.style.left=(ev.clientX+14)+"px"; tip.style.top=(ev.clientY+14)+"px"; }
+    function hide(){ tip.style.opacity="0"; }
+    linkSel.on("mouseover",function(ev,d){ linkSel.attr("stroke-opacity",0.10); d3.select(this).attr("stroke-opacity",0.78); tip.innerHTML="<b>"+esc(d.source.label)+" &rarr; "+esc(d.target.label)+"</b><br>"+fmt0(d.value)+" &middot; "+pctOf(d)+"% "+ctxLabel(d); tip.style.opacity="1"; move(ev); })
+      .on("mousemove",move).on("mouseout",function(){ linkSel.attr("stroke-opacity",0.42); hide(); });
+    nodeSel.on("mouseover",function(ev,d){ linkSel.attr("stroke-opacity",function(l){ return (l.source===d||l.target===d)?0.72:0.10; }); var io=0,oo=0; graph.links.forEach(function(l){ if(l.target===d) io+=l.value; if(l.source===d) oo+=l.value; }); tip.innerHTML="<b>"+esc(d.label)+"</b><br>"+fmt0(Math.max(io,oo)); tip.style.opacity="1"; move(ev); })
+      .on("mousemove",move).on("mouseout",function(){ linkSel.attr("stroke-opacity",0.42); hide(); });
+  }
+
+  function recalc(){ updateTotalsUI(); renderMetrics(); renderAdvice(); drawSankey(); save(); }
+
+  /* ---- Events ---- */
+  var form=$("bdgForm");
+  form.addEventListener("input",function(e){
+    var t=e.target, p=t.dataset.path; if(!p) return;
+    if(t.classList.contains("bdg-amt")) setByPath(p,clampAmt(t.value));
+    else setByPath(p,t.value);
+    if(t.classList.contains("bdg-cname")||t.classList.contains("bdg-name")){ updateTotalsUI(); renderMetrics(); renderAdvice(); drawSankey(); save(); }
+    else recalc();
+  });
+  form.addEventListener("click",function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    var act=b.dataset.act;
+    if(act==="step"){ var p=b.dataset.path, cur=clampAmt(getByPath(p)); setByPath(p,clampAmt(cur+Number(b.dataset.d))); var inp=form.querySelector('input[data-path="'+p+'"]'); if(inp) inp.value=clampAmt(getByPath(p)); recalc(); }
+    else if(act==="del"){ delPath(b.dataset.path); buildForm(); recalc(); }
+    else if(act==="add-inc"){ data.income.push({name:"Einnahme",amount:0}); buildForm(); recalc(); }
+    else if(act==="add-sub"){ var ci=+b.dataset.ci; data.cats[ci].subs.push({name:"Posten",amount:0}); buildForm(); recalc(); }
+    else if(act==="add-cat"){ data.cats.push({name:"Neue Kategorie",color:nextColor(),subs:[{name:"Posten",amount:0}]}); buildForm(); recalc(); }
+  });
+  $("bdgReset").addEventListener("click",function(){
+    try{ localStorage.removeItem(KEY); }catch(e){}
+    data=defData(); buildForm(); recalc();
+  });
+  window.addEventListener("resize",function(){ drawSankey(); });
+
+  /* ---- Init ---- */
+  data=loadData();
+  buildForm(); renderMetrics(); renderAdvice(); save();
+  ensureD3().then(drawSankey).catch(function(){ var w=$("bdgSankeyWrap"); if(w) w.innerHTML='<div class="bdg-empty">Diagramm konnte nicht geladen werden (Internetverbindung n&ouml;tig).</div>'; });
+})();
+</script>
+</body>
+</html>

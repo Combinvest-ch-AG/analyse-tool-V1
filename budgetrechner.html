@@ -243,7 +243,7 @@
       el.hidden=false; el.className="bdg-advice pos";
       el.innerHTML='<div class="bt">Sie haben monatlich '+fmt0(T.bal)+' &uuml;brig.</div>'+
         '<div class="bd">Pr&uuml;fen Sie im Finanzstatus Check, welche Vorsorge- und Anlagethemen f&uuml;r Sie die h&ouml;chste Relevanz haben &mdash; statt das Geld auf dem Konto der Inflation zu &uuml;berlassen.</div>'+
-        '<a class="btn btn-primary" href="analyse.html">Finanzstatus Check starten</a>';
+        '<a class="btn btn-primary" href="analyse.html?step=3">Zur Risikoanalyse</a>';
     } else if(T.bal<-0.5){
       el.hidden=false; el.className="bdg-advice neg";
       el.innerHTML='<div class="bt">Ihre Ausgaben &uuml;bersteigen Ihr Einkommen um '+fmt0(-T.bal)+'.</div>'+

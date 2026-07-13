@@ -130,6 +130,7 @@
   .row2 .del{color:var(--muted)}
   .empty{color:var(--muted);font-size:14px;padding:14px 0}
   .actions{display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;padding:20px 0 0}
+  .next-choice{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:14px}.choice{display:flex;align-items:center;gap:15px;border:1px solid var(--line);border-radius:16px;padding:18px;background:#fff;transition:.16s;font:inherit;text-align:left;cursor:pointer}.choice:hover{border-color:var(--royal);transform:translateY(-2px);box-shadow:var(--shadow)}.choice-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:13px;background:var(--royal-050);color:var(--royal);font-size:22px;flex:none}.choice b{display:block;font-size:14px}.choice small{display:block;color:var(--muted);margin-top:3px}.choice.primary-choice{background:var(--royal);color:#fff;border-color:var(--royal)}.choice.primary-choice .choice-icon{background:rgba(255,255,255,.16);color:#fff}.choice.primary-choice small{color:#d9e0ff}@media(max-width:700px){.next-choice{grid-template-columns:1fr}}
 
   /* ===== Vertragsdialog ===== */
   .modal-backdrop{position:fixed;inset:0;background:rgba(15,27,54,.45);display:grid;place-items:center;padding:22px;z-index:90;backdrop-filter:blur(3px)}
@@ -219,9 +220,12 @@
       <div class="prodgrid" id="prodGrid"></div>
       <div class="rows" id="rows"><div class="empty">Noch keine Produkte gewählt — tippen Sie oben auf Ihre bestehenden Verträge.</div></div>
     </div>
+    <div class="next-choice" aria-label="Nächster Schritt">
+      <a class="choice" href="budgetrechner.html"><span class="choice-icon">↗</span><span><b>Budget zuerst analysieren</b><small>Optionaler Sankey-Rechner für Geldfluss, Sparquote und Überschuss</small></span></a>
+      <button class="choice primary-choice" data-go="3"><span class="choice-icon">→</span><span><b>Direkt zur Risikoanalyse</b><small>Budget überspringen und Empfehlungen anzeigen</small></span></button>
+    </div>
     <div class="actions">
       <button class="btn btn-ghost" data-go="1">← Zum Profiling</button>
-      <button class="btn btn-primary" data-go="3">Zur Risikoanalyse →</button>
     </div>
   </section>
 
@@ -597,7 +601,8 @@
   document.getElementById("pdfBtn").addEventListener("click",exportPdf);
 
   /* init */
-  renderQ(); updateTachos(); renderProducts(); renderRows(); go(state.step);
+  var requestedStep=+(new URLSearchParams(window.location.search).get("step"));
+  renderQ(); updateTachos(); renderProducts(); renderRows(); go(requestedStep>=1&&requestedStep<=3?requestedStep:state.step);
 })();
 </script>
 </body>

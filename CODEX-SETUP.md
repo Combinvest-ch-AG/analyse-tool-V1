@@ -104,14 +104,55 @@ Bevor du commitest, checke:
 7. **Claude pullst**, testet, gibt Feedback
 8. **Iterate** bis fertig
 
+## 🔐 WICHTIG: Sicheres Speichern (ab sofort verbindlich)
+
+**Nicht mehr `localStorage` direkt für Kundendaten!** Es gibt jetzt eine
+gemeinsame, verschlüsselte Speicherschicht (`assets/combinvest-secure.js`,
+AES-GCM-256). Details: `SECURITY.md`.
+
+**So bindest du sie in eine Seite ein:**
+
+```html
+<!-- vor deinem App-<script> laden -->
+<script src="assets/combinvest-secure.js"></script>
+<script>
+(window.Combinvest ? window.Combinvest.ready : Promise.resolve()).then(function(){
+  "use strict";
+  var Store = (window.Combinvest && window.Combinvest.store) || {
+    get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},
+    set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}},
+    remove:function(k){try{localStorage.removeItem(k);}catch(e){}}
+  };
+
+  // statt localStorage.getItem/setItem/removeItem:
+  var raw = Store.get(KEY);          // entschlüsselt (sync)
+  Store.set(KEY, JSON.stringify(o)); // verschlüsselt persistiert
+  Store.remove(KEY);
+  Store.clearAll();                  // alle PII löschen (für "Daten löschen"-Button)
+
+  // ... dein bisheriger Code ...
+});
+</script>
+```
+
+- `analyse.html` und `budgetrechner.html` sind bereits umgestellt — schau dort
+  als Vorlage.
+- Legacy-Klartext (`combinvest.customerProfile.v1`, `combinvest.budget.v1`)
+  wird beim ersten Laden automatisch migriert & gelöscht — du musst nichts tun.
+- **Immer `git pull origin main` VOR dem Editieren von `analyse.html`** — ich
+  habe dort den `ready`-Gate + Store eingebaut; sonst gibt es Konflikte.
+- Keine neuen externen `<script src="http…">` (CSP `script-src 'self'`). Wenn
+  du eine Library brauchst → self-hosten unter `assets/` (wie d3 im Budget).
+
 ## 📞 Wenn du stuck bist
 
 - **Types unklar?** → Lies `types/combinvest.ts` Zeile-für-Zeile
 - **Relevanz-Engine?** → Schau die Blueprint-Logik in Claude's Kommentar
 - **HTML-Struktur?** → Open `analyse.html` im Browser, inspect elements
+- **Speichern/Security?** → `SECURITY.md` + `assets/combinvest-secure.js`
 
 ---
 
-**Ready?** Clone → branch → code → push → tell Claude!
+**Ready?** Pull → branch → code → push → tell Claude!
 
-🚀 Let's build this together!
+🚀 Let's build this together — jetzt secure by default.

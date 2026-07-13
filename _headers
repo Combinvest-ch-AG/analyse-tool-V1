@@ -1,0 +1,24 @@
+## Sicherheits-HTTP-Header (Netlify / Cloudflare Pages Format)
+## Ergänzt die <meta>-CSP in jedem HTML — Header, die als Meta nicht möglich sind.
+
+/*
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  X-Permitted-Cross-Domain-Policies: none
+
+## HTML-Seiten tragen personenbezogene Daten → nicht durch Proxies/Shared-Caches speichern
+/*.html
+  Cache-Control: no-store, max-age=0
+
+/
+  Cache-Control: no-store, max-age=0
+
+## Statische Assets (JS/Fonts) dürfen lange gecacht werden — sie enthalten keine PII
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

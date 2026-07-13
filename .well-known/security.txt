@@ -1,0 +1,6 @@
+# Combinvest — Security Contact (RFC 9116)
+Contact: mailto:security@combinvest.ch
+Preferred-Languages: de, en
+Canonical: https://combinvest.ch/.well-known/security.txt
+Policy: https://combinvest.ch/SECURITY.md
+Expires: 2027-01-01T00:00:00.000Z

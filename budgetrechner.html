@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self'; upgrade-insecure-requests">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <title>Combinvest — Budgetrechner</title>
 <meta name="description" content="Budgetrechner mit Geldfluss-Diagramm: Einnahmen und Ausgaben erfassen, Sparquote und Überschuss auf einen Blick.">
@@ -144,10 +146,13 @@
   <p class="note">Richtwert: Eine Sparquote ab 15&ndash;20&nbsp;% gilt als solide Basis. Betr&auml;ge werden gerundet dargestellt, intern wird exakt gerechnet.</p>
 </main>
 
+<script src="assets/combinvest-secure.js"></script>
 <script>
 (function(){
   "use strict";
   var $=function(id){return document.getElementById(id);};
+  var Store=(window.Combinvest&&window.Combinvest.store)||{get:function(k){try{return localStorage.getItem(k);}catch(e){return null;}},set:function(k,v){try{localStorage.setItem(k,v);}catch(e){}},remove:function(k){try{localStorage.removeItem(k);}catch(e){}}};
+  var Ready=(window.Combinvest&&window.Combinvest.ready)||Promise.resolve();
   function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
   function fmt0(n){ return "CHF "+Math.round(Number(n)||0).toLocaleString("de-CH"); }
 
@@ -161,7 +166,7 @@
     var lohn=4500;
     /* Vorbefuellung aus dem Finanzstatus Check (Jahresbrutto / 12), falls vorhanden */
     try{
-      var prof=JSON.parse(localStorage.getItem(PROFILE_KEY)||"null");
+      var prof=JSON.parse(Store.get(PROFILE_KEY)||"null");
       var brutto=prof && prof.answers ? Number(prof.answers.brutto) : 0;
       if(isFinite(brutto) && brutto>0) lohn=Math.round(brutto/12/50)*50;
     }catch(e){}
@@ -181,17 +186,17 @@
   function totals(){ var inc=0,exp=0; data.income.forEach(function(x){ inc+=clampAmt(x.amount); }); data.cats.forEach(function(c){ exp+=catTotal(c); }); return {inc:inc,exp:exp,bal:inc-exp}; }
   function nextColor(){ return PAL[data.cats.length % PAL.length]; }
 
-  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(data)); }catch(e){} }
+  function save(){ try{ Store.set(KEY, JSON.stringify(data)); }catch(e){} }
   function loadData(){
-    try{ var raw=localStorage.getItem(KEY); if(raw){ var p=JSON.parse(raw); if(valid(p)) return p; } }catch(e){}
+    try{ var raw=Store.get(KEY); if(raw){ var p=JSON.parse(raw); if(valid(p)) return p; } }catch(e){}
     return defData();
   }
 
   function loadScript(url){ return new Promise(function(res,rej){ var sc=document.createElement("script"); sc.src=url; sc.async=true; sc.onload=function(){res();}; sc.onerror=function(){rej(new Error("load "+url));}; document.head.appendChild(sc); }); }
   function ensureD3(){
     if(d3ok) return Promise.resolve();
-    if(!d3p) d3p=loadScript("https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js")
-      .then(function(){ return loadScript("https://unpkg.com/d3-sankey@0.12.3/dist/d3-sankey.min.js"); })
+    if(!d3p) d3p=loadScript("assets/d3.min.js")
+      .then(function(){ return loadScript("assets/d3-sankey.min.js"); })
       .then(function(){ d3ok=(typeof d3!=="undefined" && typeof d3.sankey==="function"); if(!d3ok) throw new Error("d3-sankey"); });
     return d3p;
   }
@@ -341,15 +346,17 @@
     else if(act==="add-cat"){ data.cats.push({name:"Neue Kategorie",color:nextColor(),subs:[{name:"Posten",amount:0}]}); buildForm(); recalc(); }
   });
   $("bdgReset").addEventListener("click",function(){
-    try{ localStorage.removeItem(KEY); }catch(e){}
+    try{ Store.remove(KEY); }catch(e){}
     data=defData(); buildForm(); recalc();
   });
   window.addEventListener("resize",function(){ drawSankey(); });
 
-  /* ---- Init ---- */
-  data=loadData();
-  buildForm(); renderMetrics(); renderAdvice(); save();
-  ensureD3().then(drawSankey).catch(function(){ var w=$("bdgSankeyWrap"); if(w) w.innerHTML='<div class="bdg-empty">Diagramm konnte nicht geladen werden (Internetverbindung n&ouml;tig).</div>'; });
+  /* ---- Init (nach Entschluesselung des sicheren Speichers) ---- */
+  Ready.then(function(){
+    data=loadData();
+    buildForm(); renderMetrics(); renderAdvice(); save();
+    ensureD3().then(drawSankey).catch(function(){ var w=$("bdgSankeyWrap"); if(w) w.innerHTML='<div class="bdg-empty">Diagramm konnte nicht geladen werden (Internetverbindung n&ouml;tig).</div>'; });
+  });
 })();
 </script>
 </body>

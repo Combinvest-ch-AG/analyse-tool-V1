@@ -141,6 +141,8 @@
 
   /* ===== Step 3 themes ===== */
   .themes{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
+  .service-block{margin-top:20px;padding:24px;border-radius:18px;background:linear-gradient(125deg,#071d29,#0c3940);color:#fff;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;box-shadow:var(--shadow)}
+  .service-block small{color:#32dbc9;font-weight:900;letter-spacing:.15em;text-transform:uppercase}.service-block h2{margin:6px 0;font-size:25px}.service-block p{margin:0;color:#c7dde0;max-width:70ch}.service-block .service-btn{display:inline-flex;padding:13px 18px;border-radius:10px;background:#19d5c3;color:#062029;font-weight:900;text-decoration:none;white-space:nowrap}
   .tile{grid-column:span 3;background:#fff;border:0;border-radius:3px;box-shadow:none;overflow:hidden;display:flex;flex-direction:column;min-height:255px;transition:transform .16s,box-shadow .16s;cursor:pointer}
   .tile:hover{transform:translateY(-3px);box-shadow:0 16px 34px rgba(27,58,109,.16)}
   .tile.big{grid-column:span 6;min-height:385px}.tile:nth-child(2){grid-column:span 3;min-height:385px}
@@ -158,6 +160,7 @@
   .miniring::before{content:"";position:absolute;inset:6px;border-radius:50%;background:#fff}
   @media(max-width:900px){.tile,.tile.big{grid-column:span 6}}
   @media(max-width:560px){.tile,.tile.big{grid-column:span 12}}
+  @media(max-width:720px){.service-block{grid-template-columns:1fr}.service-block .service-btn{justify-content:center}}
   .c-pensiongap{background-color:#dce5fa}.c-investment{background-color:#4e7cf7}.c-property-creation{background-color:#6b82ce}.c-health{background-color:#96d2e9}.c-real-estate{background-color:#22a9da}.c-children{background-color:#aac4d7}.c-tax-advantage{background-color:#87dddd}.c-values-protection{background-color:#51c0e7}
 </style>
 </head>
@@ -239,6 +242,10 @@
     <div class="card">
       <div class="themes" id="themes"></div>
     </div>
+    <section class="service-block" aria-labelledby="sealthServiceTitle">
+      <div><small>Fester Beratungsbaustein · Self · Health · Wealth</small><h2 id="sealthServiceTitle">Service & Betreuung mit Sealth</h2><p>Ermitteln Sie unabhängig vom Risikoprofil, welches Service-Paket zu den persönlichen Bedürfnissen des Kunden passt und welchen finanziellen Nutzen es bieten kann.</p></div>
+      <a class="service-btn" href="sealth-check.html">Sealth-Bedarfscheck starten →</a>
+    </section>
     <div class="actions" style="justify-content:space-between">
       <button class="btn btn-ghost" data-go="2">← Zurück</button>
       <span style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
@@ -347,7 +354,6 @@
     {key:"children",         name:"Kinder absichern"},
     {key:"property-creation",name:"Lebensstandard beibehalten"},
     {key:"tax-advantage",    name:"Steuervorteile nutzen"}
-    ,{key:"sealth",         name:"Sealth Service-Paket"}
   ];
   var LABELS = ["SEHR GERING","GERING","MITTEL","HOCH","HOCH","SEHR HOCH"];
   var COLORS = ["var(--r0)","var(--r1)","var(--r2)","var(--r3)","var(--r4)","var(--r5)"];
@@ -385,8 +391,6 @@
 
     s["tax-advantage"] = clamp((brutto>=80000?1:0) + (brutto>=130000?2:brutto>=100000?1:0)
       + (has("ziele","steuer")?2:0) + (A.wohnen==="eigentum"?1:0));
-    s.sealth = clamp(2 + (has("ziele","steuer")?1:0) + (has("ziele","vermoegensaufbau")?1:0)
-      + (A.sport==="regelmaessig"?1:0) + (A.fixkosten==="unter3"?1:0));
     return s;
   }
 

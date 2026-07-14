@@ -347,6 +347,7 @@
     {key:"children",         name:"Kinder absichern"},
     {key:"property-creation",name:"Lebensstandard beibehalten"},
     {key:"tax-advantage",    name:"Steuervorteile nutzen"}
+    ,{key:"sealth",         name:"Sealth Service-Paket"}
   ];
   var LABELS = ["SEHR GERING","GERING","MITTEL","HOCH","HOCH","SEHR HOCH"];
   var COLORS = ["var(--r0)","var(--r1)","var(--r2)","var(--r3)","var(--r4)","var(--r5)"];
@@ -384,6 +385,8 @@
 
     s["tax-advantage"] = clamp((brutto>=80000?1:0) + (brutto>=130000?2:brutto>=100000?1:0)
       + (has("ziele","steuer")?2:0) + (A.wohnen==="eigentum"?1:0));
+    s.sealth = clamp(2 + (has("ziele","steuer")?1:0) + (has("ziele","vermoegensaufbau")?1:0)
+      + (A.sport==="regelmaessig"?1:0) + (A.fixkosten==="unter3"?1:0));
     return s;
   }
 
@@ -536,7 +539,7 @@
   removeContract.addEventListener("click",function(){if(editingProduct){delete chosen[editingProduct];renderProducts();renderRows();saveState();closeContract();}});
 
   /* =============== Step 3: Auswertung =============== */
-  var CALC_LINK = { "health":"franchise.html", "pensiongap":"vorsorgerechner.html", "real-estate":"immobilienrechner.html" };
+  var CALC_LINK = { "health":"franchise.html", "pensiongap":"vorsorgerechner.html", "real-estate":"immobilienrechner.html", "sealth":"sealth-check.html" };
   var THEME_IMAGES={
     "pensiongap":"https://images.unsplash.com/photo-1474978528675-4a50a4508dc3?auto=format&fit=crop&w=1400&q=82",
     "investment":"https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1400&q=82",
@@ -545,7 +548,8 @@
     "real-estate":"https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1400&q=82",
     "children":"https://images.unsplash.com/photo-1602030028438-4cf153cbae9e?auto=format&fit=crop&w=1400&q=82",
     "tax-advantage":"https://images.unsplash.com/photo-1554224154-26032ffc0d07?auto=format&fit=crop&w=1400&q=82",
-    "values-protection":"https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1400&q=82"
+    "values-protection":"https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1400&q=82",
+    "sealth":"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1400&q=82"
   };
   function renderThemes(){
     var s=scores();
@@ -555,7 +559,9 @@
       var a=item.a, v=item.v, p=(v/5).toFixed(3), col=COLORS[v];
       var t=document.createElement("a");
       t.className="tile"+(i===0?" big":"");
-      if(a.key==="health"){
+      if(a.key==="sealth"){
+        t.href="sealth-check.html";
+      }else if(a.key==="health"){
         var yob=A.alter?(new Date()).getFullYear()-Number(A.alter):"";
         t.href="franchise.html?plz="+encodeURIComponent(A.plz||"")+"&yob="+encodeURIComponent(yob)+"&franchise=300&model=base";
       }else t.href="thema.html?t="+a.key;

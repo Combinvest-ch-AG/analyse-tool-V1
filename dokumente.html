@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Beratungsabschluss | comb invest</title>
+  <style>
+    :root{--blue:#397af2;--navy:#10223f;--ink:#172238;--muted:#69758a;--line:#dce4ef;--soft:#f4f7fb;--green:#149b68}
+    *{box-sizing:border-box}body{margin:0;background:var(--soft);color:var(--ink);font:15px/1.5 Inter,Arial,sans-serif}button,input{font:inherit}
+    header{height:78px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 5vw;position:sticky;top:0;z-index:5}
+    .brand{font-size:24px;font-weight:800;line-height:.85;color:#050b16}.brand span{color:var(--blue)}.step{color:var(--blue);font-weight:800;text-transform:uppercase;letter-spacing:.1em;font-size:12px}
+    main{max-width:1240px;margin:34px auto;padding:0 22px 60px}.hero{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:24px}.hero h1{font-size:clamp(28px,4vw,44px);margin:5px 0}.hero p{margin:0;color:var(--muted);max-width:720px}
+    .grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(320px,.8fr);gap:22px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 8px 30px #1736600b}.card h2{margin:0 0 6px;font-size:20px}.hint{color:var(--muted);margin:0 0 20px}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}label{font-size:13px;font-weight:700}input{width:100%;margin-top:6px;border:1px solid #cbd6e4;border-radius:9px;padding:11px;background:#fff;color:var(--ink)}
+    .doc{display:grid;grid-template-columns:auto 1fr auto;gap:13px;align-items:start;padding:16px 0;border-top:1px solid var(--line)}.doc input{width:19px;height:19px;margin-top:3px;accent-color:var(--blue)}.doc strong{display:block}.doc small{color:var(--muted)}.tag{display:inline-block;margin-top:5px;padding:3px 8px;border-radius:99px;background:#eaf2ff;color:#245fc6;font-size:11px;font-weight:800}.open{color:var(--blue);text-decoration:none;font-size:13px;font-weight:800;white-space:nowrap}
+    .sign{position:sticky;top:100px}.canvas-wrap{border:1px dashed #9babc0;border-radius:12px;background:#fbfcfe;overflow:hidden;margin:14px 0 10px}canvas{width:100%;height:190px;display:block;touch-action:none}.sign-row{display:flex;justify-content:space-between;align-items:center;gap:10px}.clear{border:0;background:none;color:var(--blue);cursor:pointer;font-weight:700}.consent{display:flex;gap:10px;align-items:flex-start;margin:18px 0;font-weight:400}.consent input{width:18px;height:18px;margin:3px 0 0;flex:0 0 auto}.legal{background:#fff7e8;border:1px solid #f1d59e;border-radius:10px;padding:12px;font-size:12px;color:#735619;margin:14px 0}
+    .btn{width:100%;border:0;border-radius:10px;padding:13px 16px;background:var(--blue);color:#fff;font-weight:800;cursor:pointer}.btn:disabled{opacity:.55}.secondary{display:block;text-align:center;margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:11px;color:var(--ink);text-decoration:none;font-weight:700}.status{display:none;border-radius:10px;padding:12px;margin-top:14px;background:#eaf9f2;color:#08744c;font-weight:700}.status.show{display:block}.back{color:var(--blue);font-weight:800;text-decoration:none}.meta{font-size:12px;color:var(--muted);margin-top:12px}
+    @media(max-width:850px){.grid{grid-template-columns:1fr}.sign{position:static}.hero{display:block}.form-grid{grid-template-columns:1fr}.doc{grid-template-columns:auto 1fr}.open{grid-column:2}}
+    @media print{header,.hero,.open,.clear,.btn,.secondary,.legal{display:none!important}body{background:#fff}.grid{display:block}.card{box-shadow:none;margin-bottom:18px}.sign{position:static}}
+  </style>
+</head>
+<body>
+<header><a class="back" href="analyse.html?step=3">← Risikoanalyse</a><div class="brand">comb<br><span>invest</span></div></header>
+<main>
+  <section class="hero"><div><div class="step">Schritt 4 · Beratungsabschluss</div><h1>Dokumente & Unterschrift</h1><p>Benötigte Unterlagen auswählen, mit dem Kunden prüfen und den Abschluss im Kundenprofil dokumentieren.</p></div><div id="customerRef" class="meta"></div></section>
+  <div class="grid">
+    <section class="card">
+      <h2>Beratungsdaten</h2><p class="hint">Diese Angaben werden gemeinsam mit dem Dokumentstatus gespeichert.</p>
+      <div class="form-grid">
+        <label>Kundin / Kunde<input id="customerName" autocomplete="name" placeholder="Vorname Nachname"></label>
+        <label>Beraterin / Berater<input id="advisorName" placeholder="Name"></label>
+        <label>Ort<input id="place" placeholder="z. B. Zürich"></label>
+        <label>Datum<input id="date" type="date"></label>
+      </div>
+      <h2>Benötigte Dokumente</h2><p class="hint">Die Auswahl kann je nach Beratung angepasst werden.</p>
+      <div id="documents"></div>
+    </section>
+    <aside class="card sign">
+      <h2>Bestätigung durch den Kunden</h2><p class="hint">Bitte nach gemeinsamer Prüfung der ausgewählten Dokumente unterschreiben.</p>
+      <div class="canvas-wrap"><canvas id="signature" aria-label="Unterschriftsfeld"></canvas></div>
+      <div class="sign-row"><span class="meta">Unterschrift im Feld erfassen</span><button class="clear" id="clear" type="button">Neu zeichnen</button></div>
+      <label class="consent"><input id="consent" type="checkbox"><span>Ich bestätige, dass die ausgewählten Unterlagen besprochen wurden und ich deren Inhalt zur Kenntnis genommen habe.</span></label>
+      <div class="legal"><strong>Hinweis:</strong> Diese lokal erfasste Unterschrift ist eine einfache elektronische Signatur und keine qualifizierte elektronische Signatur nach ZertES. Für formbedürftige Dokumente ist später ein zertifizierter Signaturdienst anzubinden.</div>
+      <button class="btn" id="complete" type="button">Abschluss im Kundenprofil speichern</button>
+      <a class="secondary" href="https://combinvest.paperform.co/" target="_blank" rel="noopener">Paperform öffnen ↗</a>
+      <button class="secondary" id="print" type="button" style="width:100%;background:#fff;cursor:pointer">Abschlussübersicht drucken</button>
+      <div class="status" id="status"></div>
+    </aside>
+  </div>
+</main>
+<script src="crm-session.js"></script>
+<script>
+(function(){
+  var docs=[
+    {id:"protocol",name:"Beratungsprotokoll",note:"Dokumentation von Situation, Bedürfnissen, Empfehlung und Entscheid",tag:"In jeder Beratung",file:"documents/templates/beratungsprotokoll-vorlage.pdf",checked:true},
+    {id:"vag",name:"VAG-Informationspflicht",note:"Informationen über Vermittler, Zusammenarbeit und Datenschutz",tag:"Bei Versicherungsberatung",file:"documents/templates/vag-informationspflicht.pdf"},
+    {id:"private",name:"Maklermandat Privatkunden",note:"Mandat für natürliche Personen",tag:"Privatkunde",file:"documents/templates/maklermandat-privat.pdf"},
+    {id:"company",name:"Maklermandat Firmenkunden",note:"Mandat für juristische Personen",tag:"Firmenkunde",file:"documents/templates/maklermandat-firma.pdf"},
+    {id:"pension",name:"Vollmacht Vorsorgeinformationen",note:"Einholen von Vorsorge- und Versicherungsinformationen",tag:"Bei Vorsorgeanalyse",file:"documents/templates/vollmacht-vorsorgeinformationen.pdf"},
+    {id:"pk",name:"PK-Gelder einholen",note:"Anfrage nach Guthaben aus der beruflichen Vorsorge",tag:"Bei vermuteten PK-Guthaben",file:"documents/templates/pk-gelder-einholen.pdf"}
+  ];
+  var root=document.getElementById("documents");
+  root.innerHTML=docs.map(function(d){return '<label class="doc"><input type="checkbox" data-doc="'+d.id+'" '+(d.checked?'checked':'')+'><span><strong>'+d.name+'</strong><small>'+d.note+'</small><em class="tag">'+d.tag+'</em></span><a class="open" target="_blank" href="'+d.file+'">Original öffnen ↗</a></label>';}).join("");
+  var crm=window.CombinvestCRM, saved=crm.data("document-closing",{});
+  document.getElementById("customerRef").textContent="Kundenprofil: "+crm.customerId;
+  document.getElementById("customerName").value=saved.customerName||"";
+  document.getElementById("advisorName").value=saved.advisorName||"";
+  document.getElementById("place").value=saved.place||"";
+  document.getElementById("date").value=saved.date||new Date().toISOString().slice(0,10);
+  if(saved.selected){root.querySelectorAll("[data-doc]").forEach(function(el){el.checked=saved.selected.indexOf(el.dataset.doc)>-1;});}
+  var canvas=document.getElementById("signature"),ctx=canvas.getContext("2d"),drawing=false,hasSignature=false;
+  function resize(){var r=canvas.getBoundingClientRect(),ratio=Math.max(window.devicePixelRatio||1,1);canvas.width=r.width*ratio;canvas.height=r.height*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.lineWidth=2.2;ctx.lineCap="round";ctx.strokeStyle="#10223f";hasSignature=false;}
+  function point(e){var r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+  canvas.addEventListener("pointerdown",function(e){drawing=true;hasSignature=true;canvas.setPointerCapture(e.pointerId);var p=point(e);ctx.beginPath();ctx.moveTo(p.x,p.y);});
+  canvas.addEventListener("pointermove",function(e){if(!drawing)return;var p=point(e);ctx.lineTo(p.x,p.y);ctx.stroke();});
+  canvas.addEventListener("pointerup",function(){drawing=false;});canvas.addEventListener("pointercancel",function(){drawing=false;});
+  document.getElementById("clear").onclick=function(){ctx.clearRect(0,0,canvas.width,canvas.height);hasSignature=false;};
+  window.addEventListener("resize",resize);resize();
+  async function hash(value){if(!crypto.subtle)return "unavailable";var data=new TextEncoder().encode(value),digest=await crypto.subtle.digest("SHA-256",data);return Array.from(new Uint8Array(digest)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");}
+  document.getElementById("complete").onclick=async function(){
+    var name=document.getElementById("customerName").value.trim(), consent=document.getElementById("consent").checked;
+    if(!name){alert("Bitte den Kundennamen erfassen.");return}if(!hasSignature){alert("Bitte die Unterschrift erfassen.");return}if(!consent){alert("Bitte die Bestätigung aktivieren.");return}
+    var selected=Array.from(root.querySelectorAll("[data-doc]:checked")).map(function(el){return el.dataset.doc;});if(!selected.length){alert("Bitte mindestens ein Dokument auswählen.");return}
+    var btn=this;btn.disabled=true;btn.textContent="Wird gespeichert …";
+    var record={customerName:name,advisorName:document.getElementById("advisorName").value.trim(),place:document.getElementById("place").value.trim(),date:document.getElementById("date").value,selected:selected,documents:docs.filter(function(d){return selected.indexOf(d.id)>-1;}).map(function(d){return d.name;}),status:"locally-signed",signedAt:new Date().toISOString(),signatureHash:await hash(canvas.toDataURL("image/png"))};
+    var ok=crm.save("document-closing",record),status=document.getElementById("status");status.textContent=ok?"Beratungsabschluss wurde im Kundenprofil gespeichert.":"Speichern war nicht möglich.";status.classList.add("show");btn.disabled=false;btn.textContent="Abschluss aktualisieren";
+  };
+  document.getElementById("print").onclick=function(){window.print();};
+})();
+</script>
+</body>
+</html>

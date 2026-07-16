@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analyse.combinvest.swiss/schemas/catalyst-client-context-v1.json",
+  "title": "Catalyst client context",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "client", "permissions", "contracts", "relationships", "files"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "client": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["catalystClientId", "displayName"],
+      "properties": {
+        "catalystClientId": { "type": "string", "minLength": 1 },
+        "displayName": { "type": "string", "minLength": 1 },
+        "birthdate": { "type": ["string", "null"], "format": "date" },
+        "phone": { "type": ["string", "null"] },
+        "email": { "type": ["string", "null"], "format": "email" },
+        "address": { "type": ["object", "null"] },
+        "monthlyIncome": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "required": ["advisorUserId", "canRead", "canWrite"],
+      "properties": {
+        "advisorUserId": { "type": "string", "minLength": 1 },
+        "canRead": { "type": "boolean" },
+        "canWrite": { "type": "boolean" }
+      }
+    },
+    "contracts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["catalystContractId", "type", "status"],
+        "properties": {
+          "catalystContractId": { "type": "string" },
+          "policyNumber": { "type": ["string", "null"] },
+          "type": { "type": "string" },
+          "provider": { "type": ["string", "null"] },
+          "grossPremium": { "type": ["number", "null"], "minimum": 0 },
+          "premiumInterval": { "type": ["string", "null"] },
+          "status": { "type": "string" },
+          "notes": { "type": ["string", "null"] },
+          "startDate": { "type": ["string", "null"], "format": "date" }
+        }
+      }
+    },
+    "relationships": { "type": "array", "items": { "type": "object" } },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["catalystFileId", "name", "contentType", "accessUrl"],
+        "properties": {
+          "catalystFileId": { "type": "string" },
+          "name": { "type": "string" },
+          "contentType": { "type": "string" },
+          "accessUrl": { "type": "string", "format": "uri" },
+          "expiresAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    }
+  }
+}

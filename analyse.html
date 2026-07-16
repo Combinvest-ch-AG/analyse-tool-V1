@@ -43,6 +43,9 @@
   .brand{display:flex;align-items:center;gap:8px;font-weight:900;font-size:25px;line-height:.72;letter-spacing:-.055em}
   .brand-mark{display:grid;width:34px;height:38px;place-items:center;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);background:var(--royal);color:#fff;font-size:17px;line-height:1;letter-spacing:0}.brand-word{display:flex;flex-direction:column;gap:1px}
   .brand .b1{color:#05080f;display:block}.brand .b2{color:#23488d;display:block}
+  .customer-context{display:flex;align-items:center;padding:7px 11px;border-radius:11px;background:var(--royal-050);border:1px solid var(--royal-100)}
+  .customer-context span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);font-weight:800}
+  .customer-context b{display:block;font-size:12px}
 
   main{padding:24px 0 70px}
   .panel{animation:fade .25s ease}
@@ -168,13 +171,14 @@
 
 <header>
   <div class="wrap nav">
-    <a class="step home" href="index.html"><small>Zur</small><b>Startseite</b></a>
+    <a class="step home" href="dashboard.html"><small>Zur</small><b>Übersicht</b></a>
     <nav class="steps" id="steps">
       <button class="step active" data-step="1"><small>Schritt 1</small><b>Profiling</b></button>
       <button class="step" data-step="2"><small>Schritt 2</small><b>Vertragscheck</b></button>
       <button class="step" data-step="3"><small>Schritt 3</small><b>Risikoanalyse</b></button>
     </nav>
     <span class="spacer"></span>
+    <div class="customer-context"><div><span>Aktiver Kunde</span><b id="activeCustomerName">Wird geladen</b></div></div>
     <span class="brand" aria-label="combinvest"><span class="brand-mark" aria-hidden="true">C</span><span class="brand-word"><span class="b1">comb</span><span class="b2">invest</span></span></span>
   </div>
 </header>
@@ -278,6 +282,9 @@
   </section>
 </div>
 
+<script src="advisors-data.js"></script>
+<script src="advisor-store.js"></script>
+<script>CombinvestAdvisor.requireAuth();</script>
 <script src="crm-session.js"></script>
 <script>
 (function(){
@@ -311,12 +318,27 @@
       opts:[["unter3","Unter 3 Monate"],["3bis6","3–6 Monate"],["ueber6","Über 6 Monate"]]}
   ];
 
-  var STORAGE_KEY=window.CombinvestCRM?CombinvestCRM.storageKey("analysis"):"combinvest.customerProfile.v1";
+  var ANALYSIS_ID=(new URLSearchParams(window.location.search).get("analysisId")||"current").replace(/[^a-zA-Z0-9_-]/g,"_");
+  var STORAGE_KEY=window.CombinvestCRM?CombinvestCRM.storageKey("analysis."+ANALYSIS_ID):"combinvest.customerProfile.v1";
+  var ACTIVE_CUSTOMER=window.CombinvestAdvisor&&window.CombinvestCRM?CombinvestAdvisor.customer(CombinvestCRM.customerId):null;
+  if(!ACTIVE_CUSTOMER){location.href="dashboard.html";}
+  document.getElementById("activeCustomerName").textContent=ACTIVE_CUSTOMER?ACTIVE_CUSTOMER.firstName+" "+ACTIVE_CUSTOMER.lastName:"Unbekannter Kunde";
   var state={step:1,question:0,answers:{},answered:{},contracts:{},notizen:[],updatedAt:null};
   function defaults(){
     Q.forEach(function(q){
       state.answers[q.id]=q.type==="slider"?q.def:q.type==="multi"?new Set():null;
     });
+    if(ACTIVE_CUSTOMER){
+      if(ACTIVE_CUSTOMER.postcode){state.answers.plz=ACTIVE_CUSTOMER.postcode;state.answered.plz=true;}
+      if(ACTIVE_CUSTOMER.birthdate){
+        var born=new Date(ACTIVE_CUSTOMER.birthdate),today=new Date();
+        if(!Number.isNaN(born.valueOf())){
+          var age=today.getFullYear()-born.getFullYear();
+          if(today<new Date(today.getFullYear(),born.getMonth(),born.getDate()))age--;
+          state.answers.alter=Math.max(18,Math.min(80,age));state.answered.alter=true;
+        }
+      }
+    }
   }
   function loadState(){
     defaults();
@@ -340,6 +362,7 @@
       notizen:state.notizen,updatedAt:new Date().toISOString(),answers:{}};
     Q.forEach(function(q){var v=state.answers[q.id];serial.answers[q.id]=v instanceof Set?Array.from(v):v;});
     try{localStorage.setItem(STORAGE_KEY,JSON.stringify(serial));}catch(err){console.warn("Profil konnte nicht gespeichert werden.",err);}
+    if(window.CombinvestAdvisor&&window.CombinvestCRM)CombinvestAdvisor.touchAnalysis(CombinvestCRM.customerId,{analysisId:ANALYSIS_ID,step:serial.step,question:serial.question});
   }
   loadState();
   var A=state.answers;
@@ -612,7 +635,9 @@
     w.document.close();
   }
   document.getElementById("finishBtn").addEventListener("click",function(){
-    saveState();this.textContent="✓ Im Kundenprofil gespeichert";this.disabled=true;
+    saveState();
+    if(window.CombinvestAdvisor&&window.CombinvestCRM)CombinvestAdvisor.touchAnalysis(CombinvestCRM.customerId,{analysisId:ANALYSIS_ID,step:3,question:Q.length-1,completed:true});
+    this.textContent="✓ Analyse abgeschlossen";this.disabled=true;
     var self=this;setTimeout(function(){self.disabled=false;self.textContent="▢ Profiling erneut speichern";},1800);
   });
   document.getElementById("pdfBtn").addEventListener("click",exportPdf);

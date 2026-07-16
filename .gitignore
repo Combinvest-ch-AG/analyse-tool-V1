@@ -10,3 +10,4 @@ build/
 *.swo
 *~
 .vscode/settings.json
+reports/migration/

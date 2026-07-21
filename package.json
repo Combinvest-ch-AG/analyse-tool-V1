@@ -2,23 +2,34 @@
   "name": "combinvest-advisory-engine",
   "version": "1.0.0",
   "description": "Schweizer Finanzberatungs-Plattform mit deterministischen Engines",
-  "type": "module",
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "test": "node --test engine/**/*.test.mjs",
     "test:migration": "node --test tools/migration/*.test.mjs",
     "migration:profile": "node tools/migration/profile-riskine-export.mjs",
     "migration:check-mapping": "node tools/migration/check-riskine-mapping.mjs",
     "test:pension": "node --test engine/pension-engine.test.mjs",
-    "test:affordability": "node --test engine/affordability-engine.test.mjs",
-    "serve": "python3 -m http.server 3000",
-    "lint": "eslint . --ignore-pattern node_modules",
-    "dev": "npm run serve & npm run test:watch"
+    "test:affordability": "node --test engine/affordability-engine.test.mjs"
   },
   "dependencies": {
-    "chart.js": "^4.4.1"
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.10",
+    "chart.js": "^4.4.1",
+    "lucide-react": "^0.468.0",
+    "next": "16.0.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
   },
   "devDependencies": {
-    "eslint": "^8.0.0"
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.7.2"
   },
   "author": "Ermisalper + Claude + Codex",
   "license": "MIT",

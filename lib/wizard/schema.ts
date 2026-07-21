@@ -1,164 +1,203 @@
-// Data-driven definition of the analysis wizard. Adding/moving questions here
-// automatically updates rendering, progress, autosave, and the live gauge.
+// Data-driven definition of the Combinvest "Finanzstatus Check" wizard.
+// Ported 1:1 from the legacy analyse.html so the deterministic relevance
+// engine, the 19-question flow, the contract check and the risk cockpit all
+// stay faithful to the original advisory tool.
 
-export type FieldType = "radio" | "select" | "date" | "currency" | "number" | "relevance" | "scale" | "multiselect"
+export type FieldType = "single" | "multi" | "slider" | "text"
 
-export type Option = { value: string; label: string }
+export type Option = [value: string, label: string]
 
 export type Question = {
-  key: string
-  label: string
-  help?: string
+  id: string
+  t: string
+  sub?: string
   type: FieldType
-  options?: Option[]
+  opts?: Option[]
+  exclusive?: string
   min?: number
   max?: number
   step?: number
-  suffix?: string
-  /** relevance questions feed the live "Handlungsbedarf" gauge */
-  weightsGauge?: boolean
+  def?: number
+  fmt?: (v: number) => string
+  placeholder?: string
+  inputmode?: "numeric" | "text"
+  maxlength?: number
 }
 
-export type Step = {
-  id: string
-  title: string
-  subtitle: string
-  questions: Question[]
-}
+const chf = (v: number) => "CHF " + Number(v).toLocaleString("de-CH")
 
-export const CANTONS: Option[] = [
-  "AG","AI","AR","BE","BL","BS","FR","GE","GL","GR","JU","LU","NE","NW","OW",
-  "SG","SH","SO","SZ","TG","TI","UR","VD","VS","ZG","ZH",
-].map((c) => ({ value: c, label: c }))
-
-export const WIZARD_STEPS: Step[] = [
+/* =============== Fragenkatalog (19 Fragen) =============== */
+export const QUESTIONS: Question[] = [
+  { id: "geschlecht", t: "Geschlecht", type: "single", opts: [["M", "Männlich"], ["W", "Weiblich"]] },
+  { id: "alter", t: "Wann sind Sie geboren?", sub: "Ihr Alter in Jahren", type: "slider", min: 18, max: 80, def: 35, fmt: (v) => v + " Jahre" },
+  { id: "sport", t: "Betreiben Sie regelmässig Sport?", type: "single", opts: [["nein", "Nein"], ["gelegentlich", "Gelegentlich"], ["regelmaessig", "Regelmässig"]] },
+  { id: "rauchen", t: "Rauchen Sie?", type: "single", opts: [["nein", "Nein"], ["ja", "Ja"]] },
+  { id: "zivilstand", t: "Zivilstand", type: "single", opts: [["ledig", "Ledig"], ["partnerschaft", "Partnerschaft"], ["verheiratet", "Verheiratet"], ["geschieden", "Geschieden"]] },
+  { id: "kinder", t: "Haben Sie Kinder?", type: "single", opts: [["nein", "Nein"], ["ja", "Ja"]] },
   {
-    id: "profil",
-    title: "Profil",
-    subtitle: "Grunddaten für eine präzise Berechnung.",
-    questions: [
-      {
-        key: "geschlecht",
-        label: "Geschlecht",
-        type: "radio",
-        options: [
-          { value: "M", label: "Männlich" },
-          { value: "W", label: "Weiblich" },
-        ],
-      },
-      { key: "geburtsdatum", label: "Geburtsdatum", type: "date" },
-      { key: "wohnort_plz", label: "Postleitzahl", type: "number", suffix: "PLZ" },
-      { key: "kanton", label: "Kanton", type: "select", options: CANTONS },
-      {
-        key: "erwerbsstatus",
-        label: "Erwerbsstatus",
-        type: "radio",
-        options: [
-          { value: "angestellt", label: "Angestellt" },
-          { value: "selbststaendig", label: "Selbstständig" },
-        ],
-      },
-      { key: "einkommen_brutto_jahr", label: "Bruttoeinkommen pro Jahr", type: "currency" },
-      { key: "einkommen_netto_monat", label: "Nettoeinkommen pro Monat", type: "currency" },
-      {
-        key: "wohnsituation",
-        label: "Wohnsituation",
-        type: "radio",
-        options: [
-          { value: "miete", label: "Zur Miete" },
-          { value: "eigentum", label: "Wohneigentum" },
-        ],
-      },
-    ],
+    id: "abhaengige", t: "Sind Personen finanziell von Ihnen abhängig?", sub: "Mehrfachauswahl möglich", type: "multi",
+    opts: [["nein", "Nein"], ["partner", "Partner/in"], ["kinder", "Kinder"], ["andere", "Andere"]], exclusive: "nein",
+  },
+  { id: "motorfahrzeug", t: "Motorfahrzeug vorhanden?", type: "single", opts: [["nein", "Nein"], ["ja", "Ja"]] },
+  { id: "haustiere", t: "Haustiere?", type: "single", opts: [["nein", "Nein"], ["ja", "Ja"]] },
+  { id: "wohnen", t: "Wohnsituation", type: "single", opts: [["miete", "Miete"], ["eigentum", "Eigentum"], ["familie", "Bei Familie"]] },
+  { id: "plz", t: "Wie lautet Ihre Adresse?", sub: "Postleitzahl genügt", type: "text", placeholder: "z. B. 3250", inputmode: "numeric", maxlength: 4 },
+  { id: "ausbildung", t: "Höchste Ausbildung", type: "single", opts: [["obligatorisch", "Obligatorisch"], ["lehre", "Lehre / EFZ"], ["hf", "HF / FH"], ["uni", "Universität"]] },
+  { id: "konfession", t: "Konfession", type: "single", opts: [["keine", "Keine"], ["christlich", "Christlich"], ["muslimisch", "Muslimisch"], ["andere", "Andere"]] },
+  { id: "erwerb", t: "Erwerbssituation", type: "single", opts: [["angestellt", "Angestellt"], ["selbstaendig", "Selbständig"], ["student", "Student"], ["keine", "Nicht erwerbstätig"]] },
+  { id: "brutto", t: "Jahresbruttoeinkommen", sub: "Brutto pro Jahr in CHF", type: "slider", min: 0, max: 400000, step: 5000, def: 90000, fmt: chf },
+  {
+    id: "kk_prio", t: "Krankenversicherung — was ist Ihnen wichtig?", sub: "Mehrfachauswahl möglich", type: "multi",
+    opts: [["arztwahl", "Freie Arztwahl"], ["spitalwahl", "Freie Spitalwahl (CH)"], ["privat", "Privat / Halbprivat"], ["preis", "Bestes Preis-Leistungs-Verhältnis"], ["deckung", "Maximale Deckung"]],
   },
   {
-    id: "lebensbereiche",
-    title: "Lebensbereiche",
-    subtitle: "Wie relevant sind diese acht Bereiche für den Kunden?",
-    questions: [
-      { key: "rel_pensiongap", label: "Vorsorge & Rentenlücke", type: "relevance", weightsGauge: true },
-      { key: "rel_investment", label: "Vermögensaufbau & Anlegen", type: "relevance", weightsGauge: true },
-      { key: "rel_property_creation", label: "Lebensstandard sichern", type: "relevance", weightsGauge: true },
-      { key: "rel_health", label: "Krankenkasse & Gesundheit", type: "relevance", weightsGauge: true },
-      { key: "rel_real_estate", label: "Wohneigentum & Tragbarkeit", type: "relevance", weightsGauge: true },
-      { key: "rel_children", label: "Kinder & Ausbildung", type: "relevance", weightsGauge: true },
-      { key: "rel_tax_advantage", label: "Steuern optimieren", type: "relevance", weightsGauge: true },
-      { key: "rel_values_protection", label: "Absicherung & Verträge", type: "relevance", weightsGauge: true },
-    ],
+    id: "zukunft", t: "Finanzielle Zukunft — was ist Ihnen wichtig?", sub: "Mehrfachauswahl möglich", type: "multi",
+    opts: [["einkommensverluste", "Geringe Einkommensverluste"], ["staat", "Unabhängig vom Staat"], ["familie", "Unabhängig von Familie"], ["lebensstandard", "Lebensstandard sichern"], ["vermoegen", "Vermögen ausbauen"]],
   },
   {
-    id: "risikoprofil",
-    title: "Risikoprofil",
-    subtitle: "Anlagehorizont und Risikobereitschaft.",
-    questions: [
-      {
-        key: "anlagehorizont_jahre",
-        label: "Anlagehorizont",
-        type: "scale",
-        min: 1,
-        max: 40,
-        step: 1,
-        suffix: "Jahre",
-      },
-      {
-        key: "risikoklasse",
-        label: "Risikobereitschaft",
-        help: "1 = sehr sicherheitsorientiert, 7 = sehr risikofreudig",
-        type: "scale",
-        min: 1,
-        max: 7,
-        step: 1,
-      },
-      {
-        key: "ziele",
-        label: "Finanzielle Ziele",
-        help: "Mehrfachauswahl möglich",
-        type: "multiselect",
-        options: [
-          { value: "wealth_building", label: "Vermögen aufbauen" },
-          { value: "high_returns", label: "Hohe Renditen" },
-          { value: "retirement", label: "Vorsorge / Rente" },
-          { value: "protection_family", label: "Familie absichern" },
-          { value: "tax_advantages", label: "Steuervorteile" },
-        ],
-      },
-    ],
+    id: "ziele", t: "Finanzielle Ziele", sub: "Mehrfachauswahl möglich", type: "multi",
+    opts: [["vermoegensaufbau", "Vermögensaufbau"], ["eigenheim", "Eigenheim"], ["rendite", "Renditeobjekt"], ["fruehpension", "Frühpensionierung"], ["steuer", "Steueroptimierung"], ["freiheit", "Finanzielle Freiheit"]],
   },
+  { id: "fixkosten", t: "Wie lange könnten Sie Ihre Fixkosten ohne Einkommen decken?", type: "single", opts: [["unter3", "Unter 3 Monate"], ["3bis6", "3–6 Monate"], ["ueber6", "Über 6 Monate"]] },
 ]
 
-export const ALL_QUESTIONS: Question[] = WIZARD_STEPS.flatMap((s) => s.questions)
-export const TOTAL_QUESTIONS = ALL_QUESTIONS.length
-export const GAUGE_KEYS = ALL_QUESTIONS.filter((q) => q.weightsGauge).map((q) => q.key)
+export const TOTAL_QUESTIONS = QUESTIONS.length
 
-export const RELEVANCE_LABELS: Record<number, string> = {
-  1: "Sehr gering",
-  2: "Gering",
-  3: "Mittel",
-  4: "Erhöht",
-  5: "Hoch",
-  6: "Sehr hoch",
+/* =============== Relevanz-Modell (transparent, 0–5) =============== */
+export type AreaKey =
+  | "health" | "pensiongap" | "investment" | "real-estate"
+  | "values-protection" | "children" | "property-creation" | "tax-advantage"
+
+export type Area = {
+  key: AreaKey
+  name: string
+  image: string
+  recommendation: string
 }
+
+export const AREAS: Area[] = [
+  { key: "health", name: "Gesundheit", image: "/assets/risk/health.webp", recommendation: "Franchise, Versicherungsmodell und Gesundheitskosten gemeinsam prüfen." },
+  { key: "pensiongap", name: "Vorsorge", image: "/assets/risk/pension.webp", recommendation: "Leistungen bei Invalidität, Pensionierung und Tod der gewünschten Absicherung gegenüberstellen." },
+  { key: "investment", name: "Vermögen aufbauen", image: "/assets/risk/investment.webp", recommendation: "Liquiditätsreserve, Anlagehorizont und geeignetes Risikoprofil bestimmen." },
+  { key: "real-estate", name: "Immobilien", image: "/assets/risk/real-estate.webp", recommendation: "Eigenkapital, Tragbarkeit und langfristige Finanzierung beurteilen." },
+  { key: "values-protection", name: "Versicherungen", image: "/assets/risk/insurance.webp", recommendation: "Bestehende Sach- und Haftpflichtrisiken auf Lücken und Doppelversicherungen prüfen." },
+  { key: "children", name: "Kinder absichern", image: "/assets/risk/children.webp", recommendation: "Versorgung der Kinder bei Erwerbsunfähigkeit und Todesfall kontrollieren." },
+  { key: "property-creation", name: "Lebensstandard beibehalten", image: "/assets/risk/living-standard.webp", recommendation: "Einkommensausfall und notwendigen Lebensstandard als Jahresbedarf berechnen." },
+  { key: "tax-advantage", name: "Steuervorteile nutzen", image: "/assets/risk/tax.webp", recommendation: "Steuerpotenzial von Vorsorge, Vermögen und Wohneigentum strukturiert prüfen." },
+]
+
+// index 0–5 → label + color (yellow = low relevance, red = high relevance)
+export const RELEVANCE_LABELS = ["SEHR GERING", "GERING", "MITTEL", "HOCH", "HOCH", "SEHR HOCH"]
+export const RELEVANCE_COLORS = ["#F4CE3A", "#F2B807", "#F08C00", "#EE6A20", "#E5502B", "#E5392B"]
 
 /** Answers are stored as a flat map inside analyses.latest_snapshot.answers */
 export type WizardAnswers = Record<string, string | number | string[] | null>
 
+function has(answers: WizardAnswers, id: string, v: string): boolean {
+  const a = answers[id]
+  return Array.isArray(a) ? a.includes(v) : a === v
+}
+const clamp = (n: number) => Math.max(0, Math.min(5, Math.round(n)))
+
+/** Deterministic relevance engine — 8 area scores (0–5) from the profile. */
+export function scores(answers: WizardAnswers): Record<AreaKey, number> {
+  const age = Number(answers.alter) || 35
+  const brutto = Number(answers.brutto) || 0
+  const famVerantwortung = has(answers, "abhaengige", "partner") || has(answers, "abhaengige", "kinder") || has(answers, "abhaengige", "andere")
+  const kinderJa = answers.kinder === "ja"
+
+  return {
+    health: clamp(2 + (age > 50 ? 1 : 0) + (age > 65 ? 1 : 0) + (answers.rauchen === "ja" ? 1 : 0)
+      + (answers.sport === "nein" ? 1 : 0) - (answers.sport === "regelmaessig" ? 1 : 0)
+      + (has(answers, "kk_prio", "privat") || has(answers, "kk_prio", "deckung") ? 1 : 0)),
+
+    pensiongap: clamp(2 + (age >= 30 ? 1 : 0) + (age >= 48 ? 1 : 0)
+      + (answers.erwerb === "selbstaendig" ? 1 : 0)
+      + (has(answers, "zukunft", "staat") || has(answers, "ziele", "fruehpension") ? 1 : 0)),
+
+    investment: clamp(1 + (brutto >= 80000 ? 1 : 0) + (brutto >= 150000 ? 1 : 0)
+      + (has(answers, "ziele", "vermoegensaufbau") || has(answers, "ziele", "freiheit") ? 1 : 0)
+      + (has(answers, "zukunft", "vermoegen") ? 1 : 0) + (age < 45 ? 1 : 0)),
+
+    "real-estate": clamp((has(answers, "ziele", "eigenheim") ? 2 : 0) + (has(answers, "ziele", "rendite") ? 1 : 0)
+      + (answers.wohnen === "eigentum" ? 1 : 0) + (answers.wohnen === "miete" && brutto >= 120000 ? 1 : 0) + (brutto >= 200000 ? 1 : 0)),
+
+    "values-protection": clamp(1 + (famVerantwortung ? 1 : 0) + (answers.wohnen === "eigentum" ? 1 : 0)
+      + (answers.motorfahrzeug === "ja" ? 1 : 0) + (answers.haustiere === "ja" ? 1 : 0) + (answers.zivilstand === "verheiratet" ? 1 : 0)),
+
+    children: clamp(kinderJa ? (3 + (has(answers, "abhaengige", "kinder") ? 1 : 0) + (brutto < 80000 ? 1 : 0)) : 0),
+
+    "property-creation": clamp(1 + (answers.fixkosten === "unter3" ? 2 : answers.fixkosten === "3bis6" ? 1 : 0)
+      + (has(answers, "zukunft", "lebensstandard") || has(answers, "zukunft", "einkommensverluste") ? 1 : 0)
+      + (answers.erwerb === "selbstaendig" ? 1 : 0) + (famVerantwortung ? 1 : 0)),
+
+    "tax-advantage": clamp((brutto >= 80000 ? 1 : 0) + (brutto >= 130000 ? 2 : brutto >= 100000 ? 1 : 0)
+      + (has(answers, "ziele", "steuer") ? 2 : 0) + (answers.wohnen === "eigentum" ? 1 : 0)),
+  }
+}
+
+/* =============== Vertragscheck =============== */
+export const PRODUCTS = [
+  "Vorsorgeversicherung", "VorsorgeBank 3a", "Hypothek", "Private Haftpflicht", "Sparplan", "Krankenkasse",
+  "Gebäude", "Rechtsschutz", "Hausrat", "Motorfahrzeug", "Kindersparplan", "Todesfall", "Erwerbsunfähigkeit", "Kredit",
+]
+
+export const INTERVALS: Record<string, string> = {
+  monthly: "Monatlich", quarterly: "Vierteljährlich", semiannual: "Halbjährlich", annual: "Jährlich", oneoff: "Einmalig",
+}
+
+export const COMPANIES = [
+  "Agrisano", "Allianz Suisse", "Appenzeller Versicherungen", "Assura", "Atupri", "AXA", "Baloise", "Basler Kantonalbank",
+  "Bank Cler", "Banque Cantonale Vaudoise", "Banque Cantonale de Genève", "Cembra Money Bank", "Concordia", "CSS",
+  "Die Mobiliar", "EGK", "elipsLife", "Generali Schweiz", "Glarner Kantonalbank", "Groupe Mutuel", "Helsana", "Helvetia",
+  "Hypothekarbank Lenzburg", "KPT", "Luzerner Kantonalbank", "Migros Bank", "Neon", "Obwaldner Kantonalbank", "ÖKK", "Pax",
+  "PostFinance", "Protekta", "Raiffeisen", "Sanitas", "Schwyzer Kantonalbank", "Simpego", "Smile", "Solothurner Kantonalbank",
+  "St. Galler Kantonalbank", "Swiss Life", "Swissquote", "Sympany", "Thurgauer Kantonalbank", "UBS", "Valiant", "Vaudoise",
+  "Visana", "Zuger Kantonalbank", "Zürcher Kantonalbank", "Zurich Versicherung",
+].sort((a, b) => a.localeCompare(b, "de-CH"))
+
+export type Contract = {
+  company?: string
+  pol?: string
+  start?: string
+  abl?: string
+  premium?: number
+  interval?: string
+  notes?: string
+}
+export type Contracts = Record<string, Contract>
+export type ThemeStatus = "open" | "progress" | "done"
+
+/* =============== Helpers =============== */
+export function isAnswered(q: Question, answers: WizardAnswers): boolean {
+  const v = answers[q.id]
+  if (q.type === "multi") return Array.isArray(v) && v.length > 0
+  if (q.type === "slider") return true
+  if (q.type === "text") return !!(v && String(v).trim())
+  return v != null
+}
+
 export function countAnswered(answers: WizardAnswers): number {
-  return ALL_QUESTIONS.reduce((n, q) => {
-    const v = answers[q.key]
-    if (v == null || v === "") return n
-    if (Array.isArray(v)) return v.length > 0 ? n + 1 : n
-    return n + 1
-  }, 0)
+  return QUESTIONS.reduce((n, q) => (isAnswered(q, answers) ? n + 1 : n), 0)
 }
 
 export function progressPercent(answers: WizardAnswers): number {
   return Math.round((countAnswered(answers) / TOTAL_QUESTIONS) * 100)
 }
 
-/** 0–100 "Handlungsbedarf" derived from the 8 relevance sliders (avg of 1–6 → %). */
+/** 0–100 overall "Handlungsbedarf" = average of the 8 area scores. */
 export function needScore(answers: WizardAnswers): number {
-  const vals = GAUGE_KEYS.map((k) => Number(answers[k])).filter((n) => !Number.isNaN(n) && n > 0)
-  if (vals.length === 0) return 0
+  const s = scores(answers)
+  const vals = AREAS.map((a) => s[a.key])
   const avg = vals.reduce((a, b) => a + b, 0) / vals.length
-  return Math.round(((avg - 1) / 5) * 100)
+  return Math.round((avg / 5) * 100)
+}
+
+export function answerLabel(q: Question, value: WizardAnswers[string]): string {
+  if (Array.isArray(value)) return value.map((v) => answerLabel(q, v)).join(", ")
+  const option = (q.opts || []).find((o) => o[0] === value)
+  if (option) return option[1]
+  if (value == null || value === "") return "—"
+  if (q.type === "slider" && q.fmt) return q.fmt(Number(value))
+  return String(value)
 }

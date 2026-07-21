@@ -58,3 +58,52 @@
     -webkit-font-smoothing: antialiased;
   }
 }
+
+/*
+  Live relevance rings ("Tachos") for the analysis wizard.
+  Registering --p lets the conic-gradient animate smoothly when a score changes.
+*/
+@property --cv-p {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+.cv-ring {
+  --cv-p: 0;
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: conic-gradient(var(--cv-c, #ccc) calc(var(--cv-p) * 1turn), #e9ecf5 0);
+  transition: --cv-p 0.7s cubic-bezier(0.22, 0.8, 0.36, 1);
+}
+.cv-ring::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: #fff;
+}
+.cv-ring > span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  color: var(--cv-c, #999);
+  padding: 0 10px;
+  text-align: center;
+  line-height: 1.2;
+}
+.cv-ring.cv-bump {
+  animation: cv-bump 0.5s ease;
+}
+@keyframes cv-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.09); }
+  100% { transform: scale(1); }
+}

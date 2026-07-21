@@ -29,7 +29,14 @@ const chf = new Intl.NumberFormat("de-CH", {
   maximumFractionDigits: 0,
 })
 
-export function formatCHF(value?: number | null): string {
+const chf2 = new Intl.NumberFormat("de-CH", {
+  style: "currency",
+  currency: "CHF",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+export function formatCHF(value?: number | null, decimals: 0 | 2 = 0): string {
   if (value == null || Number.isNaN(value)) return "–"
-  return chf.format(value)
+  return (decimals === 2 ? chf2 : chf).format(value)
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowUpRight } from "lucide-react"
+import { ArrowUpRight, Download } from "lucide-react"
 import {
   AREAS,
   RELEVANCE_LABELS,
@@ -96,6 +96,27 @@ export function RiskCockpit({
 
   return (
     <div>
+      {/* Header + report export */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-extrabold text-foreground">Risikoanalyse & Handlungsfelder</h2>
+          <p className="text-[13px] text-muted-foreground">
+            Nach Relevanz sortiert. Öffnen Sie die passenden Rechner oder erstellen Sie den Beratungsbericht.
+          </p>
+        </div>
+        {analysisId ? (
+          <a
+            href={`/analyse/${analysisId}/report.pdf`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2.5 text-[13px] font-extrabold text-primary-foreground transition-colors hover:bg-primary-deep"
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            PDF-Beratungsbericht
+          </a>
+        ) : null}
+      </div>
+
       {/* Overview */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
         <div className="rounded-2xl border border-border bg-card p-4">

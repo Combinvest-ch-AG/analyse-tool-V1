@@ -74,14 +74,27 @@ export function CalcActionBar({
         {pending ? "Wird übernommen …" : "In Analyse übernehmen"}
       </button>
 
-      <button
-        type="button"
-        onClick={() => window.print()}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-[13px] font-bold text-foreground transition-colors hover:bg-muted"
-      >
-        <Download className="h-3.5 w-3.5" aria-hidden="true" />
-        PDF-Bericht
-      </button>
+      {ctx.analysisId ? (
+        <a
+          href={`/analyse/${ctx.analysisId}/report.pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-[13px] font-bold text-foreground transition-colors hover:bg-muted"
+        >
+          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+          PDF-Bericht
+        </a>
+      ) : (
+        <button
+          type="button"
+          disabled
+          title="Rechner aus einer Kundenanalyse öffnen"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-[13px] font-bold text-foreground opacity-45"
+        >
+          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+          PDF-Bericht
+        </button>
+      )}
 
       <Link
         href={backHref}

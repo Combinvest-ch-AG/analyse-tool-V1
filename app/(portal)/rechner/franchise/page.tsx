@@ -7,7 +7,12 @@ export const metadata: Metadata = {
   description: "Franchise-Vergleich mit den offiziellen BAG-Prämien 2026 für den gewählten Wohnort und Versicherer.",
 }
 
-export default function FranchisePage() {
+export default async function FranchisePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plz?: string; birthYear?: string }>
+}) {
+  const sp = await searchParams
   return (
     <CalcShell
       eyebrow="Grundversicherung"
@@ -17,7 +22,7 @@ export default function FranchisePage() {
       backLabel="Rechner"
       chip="BAG-Prämien 2026"
     >
-      <FranchiseCalc />
+      <FranchiseCalc defaults={{ plz: sp.plz, birthYear: sp.birthYear }} />
     </CalcShell>
   )
 }

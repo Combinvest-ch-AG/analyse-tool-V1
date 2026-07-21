@@ -30,14 +30,14 @@ const fetcher = (url: string) => fetch(url).then((r) => {
 
 const offerKey = (o: Offer) => [o.i, o.y, o.t, o.n, o.s].join("|")
 
-export function FranchiseCalc() {
+export function FranchiseCalc({ defaults }: { defaults?: { plz?: string; birthYear?: string } }) {
   const { data: locations } = useSWR<Location[]>("/data/priminfo-2026/locations.json", fetcher)
   const { data: insurers } = useSWR<Insurers>("/data/priminfo-2026/insurers.json", fetcher)
 
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState(defaults?.plz ?? "")
   const [location, setLocation] = useState<Location | null>(null)
   const [showResults, setShowResults] = useState(false)
-  const [birthYear, setBirthYear] = useState("")
+  const [birthYear, setBirthYear] = useState(defaults?.birthYear ?? "")
   const [accident, setAccident] = useState<"MIT" | "OHNE">("MIT")
   const [insurerId, setInsurerId] = useState("")
   const [tariffKey, setTariffKey] = useState("")

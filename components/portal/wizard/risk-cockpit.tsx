@@ -1,6 +1,8 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
+import { ArrowUpRight } from "lucide-react"
 import {
   AREAS,
   RELEVANCE_LABELS,
@@ -11,6 +13,37 @@ import {
 } from "@/lib/wizard/schema"
 
 type Filter = "all" | ThemeStatus
+
+// Which risk areas map to an available calculator (Phase 4).
+const AREA_CALCULATORS: Partial<Record<AreaKey, { base: string; label: string }>> = {
+  health: { base: "/rechner/franchise", label: "Franchise vergleichen" },
+  pensiongap: { base: "/rechner/vorsorge", label: "Vorsorgelücke berechnen" },
+  "real-estate": { base: "/rechner/tragbarkeit", label: "Tragbarkeit prüfen" },
+}
+
+/** Builds a calculator href, prefilled with what we already know from the profiling. */
+function calculatorHref(key: AreaKey, answers: WizardAnswers): string | null {
+  const calc = AREA_CALCULATORS[key]
+  if (!calc) return null
+  const params = new URLSearchParams()
+  const salary = Number(answers.brutto) || 0
+  const age = Number(answers.alter) || 0
+  const hasChildren = answers.kinder === "ja"
+  const plz = typeof answers.plz === "string" ? answers.plz : ""
+
+  if (key === "pensiongap") {
+    if (salary) params.set("salary", String(salary))
+    if (age) params.set("age", String(age))
+    params.set("children", hasChildren ? "2" : "0")
+  } else if (key === "real-estate") {
+    if (salary) params.set("income", String(salary))
+  } else if (key === "health") {
+    if (plz) params.set("plz", plz)
+    if (age) params.set("birthYear", String(new Date().getFullYear() - age))
+  }
+  const qs = params.toString()
+  return qs ? `${calc.base}?${qs}` : calc.base
+}
 
 const STATUS_LABELS: Record<ThemeStatus, string> = {
   open: "Offen",
@@ -138,6 +171,21 @@ export function RiskCockpit({
                       <option value="done">Abgeschlossen</option>
                     </select>
                   </label>
+
+                  {(() => {
+                    const href = calculatorHref(a.key, answers)
+                    const calc = AREA_CALCULATORS[a.key]
+                    if (!href || !calc) return null
+                    return (
+                      <Link
+                        href={href}
+                        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-sm font-extrabold text-primary-foreground transition-colors hover:bg-primary-deep"
+                      >
+                        {calc.label}
+                        <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                      </Link>
+                    )
+                  })()}
                 </div>
               </article>
             )

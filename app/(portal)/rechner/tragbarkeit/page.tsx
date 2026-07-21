@@ -8,7 +8,13 @@ export const metadata: Metadata = {
     "Immobilien-Tragbarkeit nach Schweizer Standard: kalkulatorischer Zins 5 %, Nebenkosten 1 %, Limit 33.33 % des Bruttoeinkommens.",
 }
 
-export default function TragbarkeitPage() {
+export default async function TragbarkeitPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ income?: string }>
+}) {
+  const sp = await searchParams
+  const income = Number(sp.income) || undefined
   return (
     <CalcShell
       eyebrow="Wohneigentum · Tragbarkeit"
@@ -18,7 +24,7 @@ export default function TragbarkeitPage() {
       backLabel="Rechner"
       chip="Schweizer Standard"
     >
-      <AffordabilityCalc />
+      <AffordabilityCalc defaults={{ income }} />
     </CalcShell>
   )
 }

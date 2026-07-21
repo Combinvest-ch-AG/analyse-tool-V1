@@ -12,10 +12,10 @@ const SLIDERS: Record<Field, { min: number; max: number; step: number }> = {
   inc: { min: 60000, max: 400000, step: 5000 },
 }
 
-export function AffordabilityCalc() {
+export function AffordabilityCalc({ defaults }: { defaults?: { income?: number } }) {
   const [wert, setWert] = useState(1000000)
   const [ek, setEk] = useState(200000)
-  const [inc, setInc] = useState(150000)
+  const [inc, setInc] = useState(defaults?.income && defaults.income > 0 ? defaults.income : 150000)
 
   const r = useMemo(() => affordability({ wert, eigenkapital: ek, bruttoeinkommenJahr: inc }), [wert, ek, inc])
   const maxPrice = useMemo(() => maxAffordable(inc, ek), [inc, ek])

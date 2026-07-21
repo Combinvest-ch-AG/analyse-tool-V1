@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, LineChart, CalendarDays, UserPlus, Menu, X, LogOut } from "lucide-react"
+import { LayoutDashboard, Users, LineChart, CalendarDays, Calculator, UserPlus, Menu, X, LogOut } from "lucide-react"
 import { signOut } from "@/app/actions/auth"
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> }
@@ -13,6 +13,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", label: "Übersicht", icon: LayoutDashboard },
   { href: "/dashboard#kunden", label: "Kunden", icon: Users },
   { href: "/dashboard#analysen", label: "Analysen", icon: LineChart },
+  { href: "/rechner", label: "Rechner", icon: Calculator },
   { href: "/dashboard#termine", label: "Termine", icon: CalendarDays },
 ]
 

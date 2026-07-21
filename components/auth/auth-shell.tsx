@@ -25,10 +25,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
     <main className="flex min-h-screen flex-col lg:flex-row">
       {/* Brand panel */}
       <aside className="relative flex flex-col justify-between bg-primary px-8 py-10 text-primary-foreground lg:w-[46%] lg:px-14 lg:py-14">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-lg font-extrabold">
-            C
-          </span>
+        <div className="flex items-center">
           <Wordmark variant="light" />
         </div>
 

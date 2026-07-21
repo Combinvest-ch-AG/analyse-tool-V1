@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+:root{
+  --ci-blue:#3978f6;--ci-blue-dark:#245bd2;--ci-blue-soft:#edf4ff;
+  --ci-navy:#111d36;--ci-copy:#40506b;--ci-muted:#6c7890;
+  --ci-line:#dde5f0;--ci-page:#f4f7fb;--ci-white:#fff;
+  --ci-radius:16px;--ci-shadow:0 12px 34px rgba(20,43,83,.07);
+}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{font-family:Manrope,system-ui,-apple-system,"Segoe UI",sans-serif}
+body.ci-shell-active{background:radial-gradient(circle at 88% 2%,rgba(57,120,246,.065),transparent 25%),var(--ci-page)!important;color:var(--ci-navy)!important}
+body.ci-shell-active header{min-height:72px;background:rgba(255,255,255,.95)!important;border-bottom:1px solid var(--ci-line)!important;box-shadow:none!important;backdrop-filter:blur(16px)}
+body.ci-shell-active header .nav,body.ci-shell-active .topbar-inner{min-height:72px!important;height:auto!important}
+.ci-brand{display:inline-flex!important;align-items:center!important;gap:9px!important;text-decoration:none!important;color:var(--ci-navy)!important;line-height:1!important;margin-left:auto}
+.ci-brand-mark{width:31px;height:35px;display:grid;place-items:center;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);background:linear-gradient(145deg,#5592ff,#326fe6);color:#fff;font-size:13px;font-weight:900;filter:drop-shadow(0 5px 8px rgba(43,108,230,.18))}
+.ci-brand-type{display:grid;line-height:.72;text-align:left;font-size:18px;font-weight:900;letter-spacing:-.045em}.ci-brand-type b{font:inherit}.ci-brand-type b:last-child{color:#356fd8}
+body.ci-shell-active main{animation:ci-enter .22s ease-out}
+body.ci-shell-active h1{color:var(--ci-navy)!important;font-weight:800!important;letter-spacing:-.045em!important;line-height:1.06!important}
+body.ci-shell-active h2,body.ci-shell-active h3{color:var(--ci-navy);letter-spacing:-.025em}
+body.ci-shell-active .hero{padding-top:34px!important;padding-bottom:22px!important}
+body.ci-shell-active .hero h1,body.ci-shell-active .page-heading h1{max-width:760px;margin-top:7px!important;margin-bottom:9px!important}
+body.ci-shell-active .hero>p,body.ci-shell-active .hero>div>p,body.ci-shell-active .page-heading>div>p{max-width:690px!important;color:var(--ci-muted)!important;font-size:13px!important;line-height:1.55!important}
+body.ci-shell-active .eyebrow{color:var(--ci-blue)!important;font-size:9px!important;font-weight:900!important;letter-spacing:.13em!important}
+body.ci-shell-active .card,body.ci-shell-active .input-panel,body.ci-shell-active .results-panel,body.ci-shell-active .tool,body.ci-shell-active .panel-card{border:1px solid var(--ci-line)!important;border-radius:var(--ci-radius)!important;box-shadow:var(--ci-shadow)!important;background:rgba(255,255,255,.97)!important}
+body.ci-shell-active .card h2,body.ci-shell-active .panel-heading h2{font-weight:800!important}
+body.ci-shell-active .intro,body.ci-shell-active .field-help,body.ci-shell-active .inline-note{color:var(--ci-muted)!important;line-height:1.5!important}
+body.ci-shell-active .btn,body.ci-shell-active button,body.ci-shell-active .primary-button,body.ci-shell-active .secondary-button,body.ci-shell-active .action{font-family:Manrope,system-ui,sans-serif;border-radius:10px;min-height:40px}
+body.ci-shell-active .btn-primary,body.ci-shell-active .primary-button,body.ci-shell-active .action.primary{background:linear-gradient(135deg,#4487ff,#316fe9)!important;color:#fff!important;border-color:transparent!important;box-shadow:0 8px 20px rgba(57,120,246,.2)!important}
+body.ci-shell-active input,body.ci-shell-active select,body.ci-shell-active textarea{font-family:Manrope,system-ui,sans-serif;border-radius:10px!important;border-color:var(--ci-line)!important;background:#fbfcfe!important}
+body.ci-shell-active input:focus,body.ci-shell-active select:focus,body.ci-shell-active textarea:focus{background:#fff!important;border-color:var(--ci-blue)!important;outline:0!important;box-shadow:0 0 0 4px rgba(57,120,246,.09)!important}
+body.ci-shell-active .notice{font-size:11px!important;line-height:1.5!important;padding:11px 13px!important}
+body.ci-shell-active .footer-note{max-width:760px;margin-top:16px!important}
+body.ci-shell-active .empty-state ol{display:none!important}
+body.ci-shell-active .empty-state p{max-width:520px;margin-left:auto;margin-right:auto}
+body.ci-shell-active .ci-format-hint,body.ci-shell-active .pension-guide-note,body.ci-shell-active .period-help{display:none!important}
+.ci-implementation-note{display:none!important}
+.ci-context{display:flex!important}
+.ci-form-save{display:none!important}.ci-form-save.saving,.ci-form-save.error{display:block!important}
+.ci-rail-logo{filter:drop-shadow(0 8px 13px rgba(38,102,225,.28))}
+.ci-rail-link span{font-size:8px}.ci-rail-link.active{box-shadow:inset 3px 0 0 #5d95ff,0 7px 18px rgba(0,0,0,.08)!important}
+body.ci-advisor-app .brand{letter-spacing:-.04em}body.ci-advisor-app .topbar p{max-width:570px;line-height:1.5}
+body.ci-advisor-app .sidebar .ci-brand,body.ci-login-page .ci-brand{margin-left:0!important}
+body.ci-login-page .demo{display:none}body.ci-login-page .login{padding:38px;border-radius:20px}body.ci-login-page .login>p{line-height:1.55}
+@keyframes ci-enter{from{opacity:.5;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media(max-width:760px){body.ci-shell-active{padding-bottom:78px!important}.ci-brand-type{font-size:16px}body.ci-shell-active .hero{padding-top:24px!important}}
+@media(prefers-reduced-motion:reduce){body.ci-shell-active main{animation:none}}

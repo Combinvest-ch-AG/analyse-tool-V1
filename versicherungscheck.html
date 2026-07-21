@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>combinvest – Sach- und Motorfahrzeug-Check</title>
+  <meta name="description" content="Gewünschte Deckungen für Hausrat, Privathaftpflicht und Motorfahrzeuge strukturiert erfassen.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="zusatzversicherung.css?v=1">
+  <link rel="stylesheet" href="versicherungscheck.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="back" href="versicherungsberatung.html">← <span>Versicherungsübersicht</span></a>
+      <a class="brand" href="analyse.html?step=3"><span class="brand-mark">C</span><span><b>comb</b><b>invest</b></span></a>
+      <span class="tag">Bedarfscheck</span>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="heading">
+      <p class="eyebrow">Sach- und Motorfahrzeugversicherung</p>
+      <h1>Welche Deckungen werden gewünscht?</h1>
+      <p>Wählen Sie die relevanten Bereiche aus. Über das <b>i</b> sehen Sie kurz, was eine Deckung ergänzt.</p>
+    </section>
+
+    <div class="layout">
+      <form id="insuranceForm" class="coverage-card">
+        <section class="coverage-section">
+          <div class="section-head">
+            <div><span class="section-index">1</span><h2>Hausrat</h2><button class="info-button" type="button" data-info="household" aria-label="Erklärung zur Hausratversicherung">i</button></div>
+            <div class="status-controls"><label class="existing-check"><input id="householdExisting" type="checkbox"><span>Bestehend</span></label><label class="switch"><input id="householdEnabled" type="checkbox"><span aria-hidden="true"></span><em>Gewünscht</em></label></div>
+          </div>
+          <p class="section-copy">Schutz für bewegliche Sachen im Haushalt.</p>
+          <div id="householdOptions" class="section-options" hidden>
+            <div class="compact-fields">
+              <label>Wohnsituation<select id="residence"><option value="tenant">Miete</option><option value="owner">Wohneigentum</option><option value="other">Andere</option></select></label>
+              <label>Personen im Haushalt<input id="householdSize" type="number" min="1" max="20" value="1"></label>
+              <label>Versicherungssumme (CHF)<input id="householdValue" type="number" min="0" step="1000" placeholder="Optional"></label>
+            </div>
+            <div class="coverage-columns" aria-hidden="true"><span>Deckung</span><span>Bestehend</span><span>Gewünscht</span></div><div class="coverage-grid" id="householdGrid"></div>
+          </div>
+        </section>
+
+        <section class="coverage-section">
+          <div class="section-head">
+            <div><span class="section-index">2</span><h2>Privathaftpflicht</h2><button class="info-button" type="button" data-info="liability" aria-label="Erklärung zur Privathaftpflicht">i</button></div>
+            <div class="status-controls"><label class="existing-check"><input id="liabilityExisting" type="checkbox"><span>Bestehend</span></label><label class="switch"><input id="liabilityEnabled" type="checkbox"><span aria-hidden="true"></span><em>Gewünscht</em></label></div>
+          </div>
+          <p class="section-copy">Schutz bei Schäden, die Sie anderen Personen oder Sachen zufügen.</p>
+          <div id="liabilityOptions" class="section-options" hidden><div class="coverage-columns" aria-hidden="true"><span>Deckung</span><span>Bestehend</span><span>Gewünscht</span></div><div class="coverage-grid" id="liabilityGrid"></div></div>
+        </section>
+
+        <section class="coverage-section">
+          <div class="section-head">
+            <div><span class="section-index">3</span><h2>Motorfahrzeug</h2><button class="info-button" type="button" data-info="motor" aria-label="Erklärung zur Motorfahrzeugversicherung">i</button></div>
+            <div class="status-controls"><label class="existing-check"><input id="motorExisting" type="checkbox"><span>Bestehend</span></label><label class="switch"><input id="motorEnabled" type="checkbox"><span aria-hidden="true"></span><em>Gewünscht</em></label></div>
+          </div>
+          <p class="section-copy">Gewünschter Schutz für das Fahrzeug und Schäden gegenüber Dritten.</p>
+          <div id="motorOptions" class="section-options" hidden>
+            <div class="compact-fields">
+              <label>1. Inverkehrsetzung<input id="vehicleYear" type="number" min="1950" max="2030" placeholder="Jahr"></label>
+              <label>Kaufpreis / Wert (CHF)<input id="vehicleValue" type="number" min="0" step="1000" placeholder="Optional"></label>
+              <label class="choice-field"><input id="leasing" type="checkbox"><span>Leasingfahrzeug</span></label>
+            </div>
+            <div class="coverage-columns" aria-hidden="true"><span>Deckung</span><span>Bestehend</span><span>Gewünscht</span></div><div class="coverage-grid" id="motorGrid"></div>
+          </div>
+        </section>
+
+        <section class="coverage-section note-section">
+          <label for="insuranceNotes">Bestehende Policen oder besondere Wünsche</label>
+          <textarea id="insuranceNotes" rows="3" placeholder="z. B. bestehender Versicherer, wertvolle Gegenstände oder mehrere Fahrzeuge"></textarea>
+        </section>
+      </form>
+
+      <aside class="summary-card">
+        <p class="eyebrow">Ihre Auswahl</p>
+        <div class="summary-count"><strong id="selectedCount">0</strong><span>gewünschte Deckungen</span></div>
+        <div class="gap-count"><span>Noch zu prüfen</span><b id="gapCount">0</b></div>
+        <div id="summaryEmpty" class="summary-empty">Noch keine Deckung ausgewählt.</div>
+        <div id="summaryGroups"></div>
+        <div id="checkHint" class="notice" hidden></div>
+        <button id="saveInsurance" class="primary" type="button">In Analyse übernehmen</button>
+        <a class="secondary" href="versicherungsberatung.html">Zur Versicherungsübersicht</a>
+        <p class="save-status" id="saveStatus"></p>
+      </aside>
+    </div>
+  </main>
+
+  <dialog id="infoDialog" aria-labelledby="infoTitle">
+    <div class="dialog-head"><span id="infoCategory"></span><button id="closeInfo" type="button" aria-label="Erklärung schliessen">×</button></div>
+    <h2 id="infoTitle"></h2>
+    <p id="infoDescription"></p>
+    <div class="info-box"><b>Was wird ergänzt?</b><p id="infoAdds"></p></div>
+    <div class="info-box watch"><b>Darauf achten</b><p id="infoWatch"></p></div>
+  </dialog>
+
+  <script src="crm-session.js?v=14"></script>
+  <script src="versicherungscheck.js?v=2"></script>
+</body>
+</html>

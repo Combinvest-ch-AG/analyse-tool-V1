@@ -91,14 +91,15 @@
   .btn-ghost:hover{border-color:var(--royal)}
   @media(max-width:640px){.sealth-inline{align-items:flex-start;flex-direction:column}.sealth-inline a{width:100%;text-align:center}}
 </style>
+<link rel="stylesheet" href="design-system.css?v=2">
 </head>
 <body>
 
 <header>
   <div class="wrap nav">
-    <a class="step home" href="index.html"><small>Zur</small><b>Startseite</b></a>
+    <a class="step home" href="analyse.html?step=3"><small>Zurück zur</small><b>Risikoanalyse</b></a>
     <nav class="steps">
-      <a class="step" href="analyse.html"><small>Bereich</small><b id="navBereich">Privatkunde</b></a>
+      <a class="step" href="analyse.html?step=3"><small>Beratung</small><b id="navBereich">Risikoanalyse</b></a>
       <span class="step active"><small>Schritt 1</small><b id="navTheme">Thema</b></span>
     </nav>
     <span class="spacer"></span>
@@ -129,12 +130,12 @@
   <aside class="sealth-inline"><div><small>In jeder Beratung verfügbar</small><h2>Sealth Service-Paket prüfen</h2><p>Self, Health und Wealth passend zur persönlichen Situation kombinieren.</p></div><a href="sealth-check.html">Bedarfscheck starten →</a></aside>
 
   <div class="footbar">
-    <a href="analyse.html"><button class="btn btn-ghost">← Zurück</button></a>
-    <a href="analyse.html"><button class="btn btn-primary">Themenfeld abschliessen</button></a>
+    <a href="analyse.html?step=3"><button class="btn btn-ghost">← Zur Risikoanalyse</button></a>
+    <a href="analyse.html?step=3"><button class="btn btn-primary">Themenfeld abschliessen</button></a>
   </div>
 </main>
 
-<script src="crm-session.js"></script>
+<script src="crm-session.js?v=14"></script>
 <script>
 (function(){
   "use strict";
@@ -163,22 +164,26 @@
     startwarten: {t:"Starten oder Warten", ic:"clock", d:"Welchen Unterschied macht es, sofort statt später mit dem Sparen zu beginnen?", href:"vermoegensrechner.html?tool=start", live:true},
     anleger:     {t:"Anlegerprofil",  ic:"gauge",  d:"Welche Anlageform passt zu Kenntnissen, Risikoneigung und finanzieller Situation?", href:"anlegerprofil.html", live:true},
     rente:       {t:"AHV-Rentenrechner",  ic:"doc",    d:"Schätzen Sie Ihre AHV-Rente mit durchschnittlichem Jahreseinkommen und Rentenskala 44.", href:"rentenrechner.html", live:true},
-    vorsorge:    {t:"Vorsorgerechner", ic:"target", d:"Wie viel bis zur Rente ansparen, um später Ihren Wunschbetrag entnehmen zu können?", href:"vorsorgerechner.html", live:true},
+    vorsorge:    {t:"Vorsorgelückenanalyse", ic:"target", d:"Invalidität, Pensionierung und Todesfall über AHV/IV, BVG, UVG und Säule 3a präzise vergleichen.", href:"vorsorgerechner.html", live:true},
     steuer3a:    {t:"Steuereffekte Einzahlung 3a", ic:"calc", d:"Welche Steuerwirkung hat die regelmässige Einzahlung in die Säule 3a?", href:"vermoegensrechner.html?tool=3a", live:true},
-    luecke:      {t:"Vorsorgelücke",  ic:"gauge",  d:"Vergleichen Sie AHV-Schätzung und gewünschten Ruhestandsbedarf.", href:"rentenrechner.html", live:true},
+    luecke:      {t:"Vorsorgelücke",  ic:"gauge",  d:"Leistungen aus AHV/IV, BVG, UVG und Säule 3a dem persönlichen Zielbedarf gegenüberstellen.", href:"vorsorgerechner.html", live:true},
     franchise:   {t:"Franchise-Vergleich", ic:"heart", d:"Vergleichen Sie Ihre Grundversicherungsprämie und sehen Sie Ihr Sparpotenzial.", href:"franchise.html", live:true},
+    zusatz:      {t:"Zusatzversicherungs-Check", ic:"shield", d:"Spital- und ambulante Ergänzungen auswählen und jede Deckung verständlich erklären.", href:"zusatzversicherung.html", live:true},
+    versicherungsberatung:{t:"Versicherungsübersicht", ic:"shield", d:"Grundversicherung, Zusatzversicherung und Sachdeckungen gemeinsam überblicken.", href:"versicherungsberatung.html", live:true},
+    sachmotor:   {t:"Hausrat, Haftpflicht & Auto", ic:"shield", d:"Gewünschte Deckungen auswählen, verständlich erklären und in der Analyse speichern.", href:"versicherungscheck.html", live:true},
     tragbar:     {t:"Wohnrechner — Tragbarkeit", ic:"home", d:"Können Sie sich die Finanzierung Ihrer Wunschimmobilie leisten?", href:"immobilienrechner.html", live:true},
     steuer:      {t:"Steuerwirkung",  ic:"calc",   d:"Schätzen Sie die Wirkung eines frei wählbaren Grenzsteuersatzes.", href:"vermoegensrechner.html?tool=steuer", live:true},
     inflation:   {t:"Inflationsrechner", ic:"chart", d:"Sehen Sie, wie Inflation die künftige Kaufkraft eines Betrags verändert.", href:"vermoegensrechner.html?tool=inflation", live:true},
     kosten:      {t:"Anlagekosten (TER)", ic:"calc", d:"Vergleichen Sie die Vermögensentwicklung vor und nach laufenden Produktkosten.", href:"vermoegensrechner.html?tool=kosten", live:true},
-    sparziel:    {t:"Sparzielrechner", ic:"target", d:"Berechnen Sie die monatliche Sparrate für Ihr persönliches Zielvermögen.", href:"vermoegensrechner.html?tool=ziel", live:true}
+    sparziel:    {t:"Sparzielrechner", ic:"target", d:"Berechnen Sie die monatliche Sparrate für Ihr persönliches Zielvermögen.", href:"vermoegensrechner.html?tool=ziel", live:true},
+    freizuegigkeit:{t:"Freizügigkeitskonto", ic:"doc", d:"Bereiten Sie eine Anfrage für Konto oder Depot strukturiert aus der Vermögensberatung vor.", href:"freizuegigkeitskonto.html", live:true}
   };
 
   /* --- theme config --- */
   var THEMES = {
     "investment": {name:"Vermögen aufbauen", figure:"chart", badge:"coins",
       slides:[{k:"Vermögen aufbauen", h:"Tiefe Zinsen"},{k:"Vermögen aufbauen", h:"Der Zinseszins‑Effekt"}],
-      tools:["budget","sparrechner","zins","startwarten","anleger","inflation","kosten","sparziel"]},
+      tools:["budget","sparrechner","zins","startwarten","anleger","freizuegigkeit","inflation","kosten","sparziel"]},
     "pensiongap": {name:"Pension vorsorgen", figure:"coins", badge:"tele",
       slides:[{k:"Altersvorsorge", bullets:["Alters­demografie","Sinkende Geburtenraten","Späterer Eintritt ins Berufsleben","Höhere Lebens­erwartung"]}],
       tools:["budget","rente","vorsorge","startwarten","sparrechner","steuer3a"]},
@@ -187,7 +192,7 @@
       tools:["budget","luecke","vorsorge","startwarten"]},
     "health": {name:"Gesundheit", figure:"heart", badge:"heart",
       slides:[{k:"Gesundheit", h:"Prämien senken ohne Leistungsverlust"}],
-      tools:["franchise","budget","luecke"]},
+      tools:["franchise","zusatz","budget","luecke"]},
     "real-estate": {name:"Immobilien", figure:"home", badge:"home",
       slides:[{k:"Immobilien", h:"Mieten oder kaufen?"}],
       tools:["tragbar","budget","startwarten"]},
@@ -196,7 +201,7 @@
       tools:["budget","sparrechner","vorsorge"]},
     "values-protection": {name:"Versicherungen", figure:"shield", badge:"shield",
       slides:[{k:"Versicherungen", h:"Nur absichern, was wirklich zählt"}],
-      tools:["franchise","budget","steuer"]},
+      tools:["versicherungsberatung","franchise","zusatz","sachmotor","budget","steuer"]},
     "tax-advantage": {name:"Steuervorteile nutzen", figure:"calc", badge:"calc",
       slides:[{k:"Steuervorteile nutzen", h:"Weniger Steuern, mehr Vorsorge"}],
       tools:["steuer3a","steuer","sparrechner"]}
@@ -205,6 +210,7 @@
   function qs(k){return new URLSearchParams(location.search).get(k);}
   var key = qs("t"); if(!THEMES[key]) key="investment";
   var T = THEMES[key];
+  var themeParent=qs("returnTo")||"",themeReturn="thema.html?t="+key+(themeParent?"&returnTo="+encodeURIComponent(themeParent):"");
 
   document.title = "combinvest — " + T.name;
   document.getElementById("navBereich").textContent = T.name;
@@ -240,7 +246,7 @@
   var host=document.getElementById("tools"); host.innerHTML="";
   T.tools.forEach(function(id){
     var x=TOOLS[id]; if(!x) return;
-    var a=document.createElement("a"); a.className="tool"+(x.live?" live":" soon"); a.href=x.href;
+    var a=document.createElement("a"); a.className="tool"+(x.live?" live":" soon"); a.href=x.href==="#"?"#":CombinvestCRM.url(x.href,{returnTo:themeReturn});
     if(x.href==="#") a.addEventListener("click",function(e){e.preventDefault();});
     a.innerHTML='<div class="ic">'+(IC[x.ic]||IC.calc)+'</div>'+
       '<h3>'+x.t+' '+(x.live?'<span class="tag live">Live</span>':'<span class="tag">In Kürze</span>')+'</h3>'+

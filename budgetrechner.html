@@ -104,14 +104,16 @@
   .bdg-add:hover{border-color:var(--royal);color:var(--royal)}
   .note{margin-top:16px;color:var(--muted);font-size:12.5px}
 </style>
+<link rel="stylesheet" href="design-system.css?v=2">
+<link rel="stylesheet" href="calculator-shell.css?v=5">
 </head>
 <body>
 
 <header>
   <div class="wrap nav">
-    <a class="step home" href="index.html"><small>Zur</small><b>Startseite</b></a>
+    <a class="step home" href="analyse.html?step=3"><small>Zurück zur</small><b>Risikoanalyse</b></a>
     <nav class="steps">
-      <a class="step" href="index.html"><small>Bereich</small><b>Privatkunde</b></a>
+      <a class="step" href="analyse.html?step=3"><small>Beratung</small><b>Risikoanalyse</b></a>
       <span class="step active"><small>Schnellanalyse</small><b>Budgetrechner</b></span>
     </nav>
     <span class="spacer"></span>
@@ -144,7 +146,7 @@
   <p class="note">Richtwert: Eine Sparquote ab 15&ndash;20&nbsp;% gilt als solide Basis. Betr&auml;ge werden gerundet dargestellt, intern wird exakt gerechnet.</p>
 </main>
 
-<script src="crm-session.js"></script>
+<script src="crm-session.js?v=14"></script>
 <script>
 (function(){
   "use strict";
@@ -353,5 +355,6 @@
   ensureD3().then(drawSankey).catch(function(){ var w=$("bdgSankeyWrap"); if(w) w.innerHTML='<div class="bdg-empty">Diagramm konnte nicht geladen werden (Internetverbindung n&ouml;tig).</div>'; });
 })();
 </script>
+<script src="calculator-shell.js?v=8"></script>
 </body>
 </html>

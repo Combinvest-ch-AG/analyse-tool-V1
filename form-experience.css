@@ -1,0 +1,6 @@
+.ci-required{display:inline-flex;align-items:center;gap:4px}.ci-required:after{content:'Pflichtfeld';border-radius:999px;padding:2px 6px;background:#edf4ff;color:#316de0;font-size:8px;font-weight:850;letter-spacing:.01em}
+.ci-field-invalid{border-color:#cf4b56!important;box-shadow:0 0 0 3px rgba(207,75,86,.09)!important}.ci-field-error{display:block;color:#b43a45;font:700 9px/1.45 Manrope,system-ui;margin-top:4px}.ci-format-hint{display:block;color:#68758c;font:650 9px/1.4 Manrope,system-ui;margin-top:4px}
+.ci-form-save{position:fixed;right:18px;bottom:18px;z-index:990;border:1px solid #dce5f0;border-radius:999px;background:rgba(255,255,255,.96);box-shadow:0 8px 24px rgba(20,43,83,.1);padding:8px 11px;color:#137a57;font:800 9px Manrope,system-ui}.ci-form-save.saving{color:#956100}.ci-form-save.error{color:#b43a45}
+.qgroup{scroll-margin-top:90px}.qgroup>.grid,.protocol>.grid{align-items:start}
+@media(max-width:760px){.ci-form-save{bottom:82px;right:14px}.ci-required:after{font-size:7px}}
+@media print{.ci-form-save,.ci-field-error,.ci-format-hint{display:none!important}}

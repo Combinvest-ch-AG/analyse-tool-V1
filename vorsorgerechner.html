@@ -1,295 +1,76 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de-CH">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<title>combinvest — Vorsorgerechner</title>
-<meta name="description" content="Zwei-Phasen-Vorsorgerechner: benötigte Sparrate für Ihre Wunschrente, mit Kapitalverlauf.">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>combinvest — Vorsorgelückenanalyse</title>
 <style>
-  :root{
-    --ink:#0B192C; --ink-2:#41506A; --muted:#7A8699;
-    --white:#fff; --paper:#FBFCFE; --line:#E9EDF3; --line-2:#F1F4F9;
-    --accent:#3A57F5; --gold:#B8923B;
-    --acc-line:#0B192C; --dec-line:#98A6BD;
-    --radius:14px;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
-  body{font-family:Manrope,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    background:var(--white);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
-  .num{font-variant-numeric:tabular-nums}
-  a{color:inherit;text-decoration:none}
-  .wrap{max-width:1120px;margin:0 auto;padding:0 26px}
-
-  header{border-bottom:1px solid var(--line)}
-  .nav{display:flex;align-items:center;gap:8px;padding:14px 0;flex-wrap:wrap}
-  .step{display:flex;flex-direction:column;gap:1px;border:1px solid var(--line);border-radius:11px;padding:8px 15px;min-width:118px}
-  .step small{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:800}
-  .step b{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:800}
-  .step.home{border:0;min-width:auto;padding-left:0}.step.home b{color:var(--accent)}
-  .step.active{background:var(--ink);border-color:var(--ink)}.step.active small{color:#9fb0c9}.step.active b{color:#fff}
-  .steps{display:flex;gap:8px;flex-wrap:wrap}.nav .spacer{flex:1}
-  .lang{font-weight:800;font-size:12px;letter-spacing:.12em;color:var(--ink-2)}
-  .brand{display:flex;align-items:center;gap:8px;font-weight:900;font-size:22px;line-height:.72;letter-spacing:-.04em}.brand-mark{display:grid;width:32px;height:36px;place-items:center;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);background:var(--accent);color:#fff;font-size:15px;letter-spacing:0}.brand-word{display:flex;flex-direction:column}
-  .brand .b1{color:var(--ink)}.brand .b2{color:var(--accent)}
-
-  .head{padding:52px 0 8px}
-  .kicker{color:var(--accent);font-weight:800;font-size:11.5px;letter-spacing:.2em;text-transform:uppercase}
-  h1{font-size:clamp(30px,4.6vw,46px);font-weight:900;letter-spacing:-.03em;line-height:1.03;margin:.34em 0 .12em}
-  .lead{color:var(--ink-2);font-size:16.5px;max-width:60ch;margin:0}
-
-  .grid{display:grid;grid-template-columns:330px 1fr;gap:56px;align-items:start;padding:40px 0 90px}
-  @media(max-width:900px){.grid{grid-template-columns:1fr;gap:36px}}
-
-  /* controls — minimal, hairline */
-  .group{margin-bottom:30px}
-  .group .gt{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
-    padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:18px}
-  .field{margin-bottom:20px}
-  .field .lab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px}
-  .field .lab span{font-size:13.5px;font-weight:650;color:var(--ink)}
-  .field .lab b{font-size:14px;font-weight:800;color:var(--ink)}
-  input[type=range]{width:100%;height:22px;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer}
-  input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line);border-radius:2px}
-  input[type=range]::-moz-range-track{height:2px;background:var(--line);border-radius:2px}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--ink);
-    margin-top:-7px;border:2px solid #fff;box-shadow:0 1px 4px rgba(11,25,44,.28)}
-  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--ink);border:2px solid #fff}
-  .seg{display:inline-flex;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .seg button{border:0;background:#fff;color:var(--ink-2);font:inherit;font-weight:750;font-size:12.5px;padding:9px 14px;cursor:pointer}
-  .seg button+button{border-left:1px solid var(--line)}
-  .seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
-
-  /* result */
-  .result{display:flex;flex-direction:column}
-  .r-kick{font-size:11.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-  .r-big{font-size:clamp(44px,7vw,68px);font-weight:900;letter-spacing:-.04em;line-height:1;margin:8px 0 2px;color:var(--ink)}
-  .r-big small{font-size:.32em;font-weight:700;color:var(--muted);letter-spacing:0}
-  .r-sub{color:var(--ink-2);font-size:15.5px;max-width:56ch}
-  .r-sub b{color:var(--ink)}
-  .facts{display:flex;gap:44px;flex-wrap:wrap;margin:26px 0 8px}
-  .fact .fl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-  .fact .fv{font-size:23px;font-weight:900;letter-spacing:-.02em;margin-top:4px}
-  .fact .fs{font-size:12px;color:var(--muted);margin-top:1px}
-
-  .chartwrap{margin-top:34px;position:relative}
-  .cap{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
-  .cap h3{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0}
-  .cap .lgd{display:flex;gap:18px;font-size:12.5px;color:var(--ink-2)}
-  .cap .lgd span{display:inline-flex;align-items:center;gap:7px}
-  .cap .lgd i{width:18px;height:2px;border-radius:2px;display:inline-block}
-  svg{display:block;width:100%;height:auto;overflow:visible}
-  .tt{position:absolute;pointer-events:none;background:var(--ink);color:#fff;border-radius:9px;padding:8px 11px;font-size:12.5px;
-    transform:translate(-50%,-120%);white-space:nowrap;opacity:0;transition:opacity .1s;box-shadow:0 8px 22px rgba(11,25,44,.28)}
-  .note{margin-top:22px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px;max-width:70ch}
-  .footlinks{display:flex;gap:20px;margin-top:26px}
-  .footlinks a{color:var(--accent);font-weight:800;font-size:12.5px;letter-spacing:.05em;text-transform:uppercase}
-</style>
+:root{--blue:#3978f6;--navy:#111d36;--muted:#68758c;--line:#dce5f0;--page:#f4f7fb;--green:#159b69;--red:#d54b55;--amber:#e9a11b;--ahv:#24a66f;--bvg:#3978f6;--uvg:#8a62d3;--third:#ed9f2c;--other:#8492a8}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 90% 2%,rgba(57,120,246,.08),transparent 27%),var(--page);color:var(--navy);font-family:Manrope,system-ui,sans-serif}.wrap{max-width:1180px;margin:auto;padding:0 22px}header{background:rgba(255,255,255,.95);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;backdrop-filter:blur(14px)}.nav{min-height:76px;display:flex;align-items:center;gap:10px}.back{text-decoration:none;color:var(--blue);font-weight:850;font-size:12px;text-transform:uppercase;letter-spacing:.06em}.brand{margin-left:auto;font-size:22px;font-weight:900;line-height:.78}.brand span{display:block;color:#2855a1}.head{padding:38px 0 23px}.eyebrow{color:var(--blue);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}h1{font-size:clamp(31px,5vw,48px);line-height:1.06;letter-spacing:-.04em;margin:9px 0}.lead{color:var(--muted);line-height:1.65;max-width:790px}.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:6px 0 18px}.tab{border:1px solid var(--line);background:#fff;border-radius:14px;padding:14px;text-align:left;cursor:pointer;font:inherit}.tab small,.tab b{display:block}.tab small{color:var(--muted);font-size:11px;margin-top:4px}.tab[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#fff;box-shadow:0 10px 25px rgba(57,120,246,.22)}.tab[aria-pressed=true] small{color:#dce8ff}.card{background:#fff;border:1px solid var(--line);border-radius:19px;box-shadow:0 9px 28px rgba(20,43,83,.065)}.grid{display:grid;grid-template-columns:minmax(330px,.82fr) minmax(0,1.18fr);gap:18px;align-items:start}.inputs{padding:22px}.section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:17px}.section-title h2{font-size:18px;margin:0}.pill{border-radius:999px;padding:5px 9px;background:#edf4ff;color:var(--blue);font-size:10px;font-weight:850}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.field{display:grid;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:11px;font-weight:850;color:#40506b}.field small{font-size:10px;color:var(--muted);line-height:1.4}.field input,.field select{width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#fbfcfe;color:var(--navy);font:inherit}.field input:focus,.field select:focus{outline:0;border-color:var(--blue);box-shadow:0 0 0 4px rgba(57,120,246,.09)}.divider{height:1px;background:var(--line);margin:19px 0}.source-fields{display:grid;gap:11px}.money-row{display:grid;grid-template-columns:12px minmax(0,1fr) 142px;gap:9px;align-items:center}.dot{width:9px;height:9px;border-radius:50%}.money-row label{font-size:12px;font-weight:750}.money-row input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:right;font:inherit}.result{padding:22px}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{border:1px solid var(--line);border-radius:14px;padding:15px;background:#fafcff}.metric small,.metric b{display:block}.metric small{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:800}.metric b{font-size:22px;margin-top:6px;letter-spacing:-.03em}.metric.gap b{color:var(--red)}.metric.good b{color:var(--green)}.chart{margin-top:17px;border:1px solid var(--line);border-radius:16px;padding:17px}.chart-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.chart-head h3{margin:0;font-size:15px}.chart-head span{color:var(--muted);font-size:11px}.bar-area{position:relative;margin-top:23px;padding-top:25px}.target-line{position:absolute;left:0;right:0;top:0;border-top:2px dashed var(--red);color:var(--red);font-size:10px;font-weight:850}.target-line span{position:absolute;right:0;top:-20px}.stack{display:flex;height:64px;border-radius:12px;overflow:hidden;background:#e9eef5}.segment{min-width:0;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:850;transition:width .3s ease;overflow:hidden;white-space:nowrap}.gap-segment{background:repeating-linear-gradient(135deg,#f8dadd,#f8dadd 8px,#fff0f1 8px,#fff0f1 16px);color:#a43842}.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:13px}.legend span{font-size:10px;color:var(--muted);font-weight:750}.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.detail-table{margin-top:17px;display:grid;gap:7px}.detail-row{display:grid;grid-template-columns:1fr auto;gap:12px;padding:9px 2px;border-bottom:1px solid #edf1f6;font-size:12px}.detail-row span{color:var(--muted)}.recommend{margin-top:16px;border-radius:15px;padding:16px;background:#fff7e8;border:1px solid #f4dfb7;line-height:1.55;font-size:12px}.recommend.good{background:#ecfaf4;border-color:#c5eddc}.warning{margin:18px 0 40px;padding:15px 17px;border:1px solid #e2e8f1;border-radius:14px;background:#fff;color:var(--muted);font-size:11px;line-height:1.6}.hidden{display:none!important}@media(max-width:850px){.grid{grid-template-columns:1fr}.tabs{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}}@media(max-width:540px){.wrap{padding:0 14px}.form-grid,.metrics{grid-template-columns:1fr}.field.full{grid-column:auto}.money-row{grid-template-columns:10px 1fr 112px}.head{padding-top:27px}}
+</style><link rel="stylesheet" href="design-system.css?v=2"><link rel="stylesheet" href="calculator-shell.css?v=5"><link rel="stylesheet" href="pension-guide.css?v=1">
 </head>
 <body>
-
-<header>
-  <div class="wrap nav">
-    <a class="step home" href="index.html"><small>Zur</small><b>Startseite</b></a>
-    <nav class="steps">
-      <a class="step" href="thema.html?t=pensiongap"><small>Bereich</small><b>Pension vorsorgen</b></a>
-      <span class="step active"><small>Rechner</small><b>Vorsorgerechner</b></span>
-    </nav>
-    <span class="spacer"></span>
-    <span class="brand" aria-label="combinvest"><span class="brand-mark" aria-hidden="true">C</span><span class="brand-word"><span class="b1">comb</span><span class="b2">invest</span></span></span>
-  </div>
-</header>
-
+<header><div class="wrap nav"><a class="back" href="thema.html?t=pensiongap">← Zur Vorsorge</a><strong class="brand">comb<span>invest</span></strong></div></header>
 <main class="wrap">
-  <div class="head">
-    <div class="kicker">Altersvorsorge · Zwei-Phasen-Modell</div>
-    <h1>Wie viel müssen Sie sparen?</h1>
-    <p class="lead">Legen Sie Ihre Wunschrente und Entnahmedauer fest — der Rechner bestimmt die nötige Sparrate und zeigt den Kapitalverlauf über beide Phasen.</p>
-  </div>
-
-  <div class="grid">
-    <!-- Controls -->
-    <section aria-label="Eingaben">
-      <div class="group">
-        <div class="gt">Sparphase</div>
-        <div class="field"><div class="lab"><span>Jahre bis zur Rente</span><b class="num" id="accYearsV">30</b></div>
-          <input type="range" id="accYears" min="1" max="45" value="30"></div>
-        <div class="field"><div class="lab"><span>Startkapital</span><b class="num" id="startV">CHF 20'000</b></div>
-          <input type="range" id="start" min="0" max="300000" step="5000" value="20000"></div>
-        <div class="field"><div class="lab"><span>Rendite Sparphase</span><b class="num" id="accRateV">3.0 %</b></div>
-          <input type="range" id="accRate" min="0" max="7" step="0.1" value="3"></div>
-        <div class="field"><div class="lab"><span>Dynamik (Sparrate p. a.)</span><b class="num" id="dynV">1.0 %</b></div>
-          <input type="range" id="dyn" min="0" max="4" step="0.1" value="1"></div>
-        <div class="field"><div class="lab"><span>Zahlweise</span></div>
-          <div class="seg" id="freqSeg" role="group" aria-label="Zahlweise">
-            <button data-f="m" aria-pressed="true">mtl.</button>
-            <button data-f="q" aria-pressed="false">quart.</button>
-            <button data-f="y" aria-pressed="false">jährl.</button>
-          </div></div>
-      </div>
-
-      <div class="group" style="margin-bottom:0">
-        <div class="gt">Entnahmephase</div>
-        <div class="field"><div class="lab"><span>Gewünschte Monatsrente</span><b class="num" id="wdV">CHF 2'000</b></div>
-          <input type="range" id="wd" min="500" max="8000" step="100" value="2000"></div>
-        <div class="field"><div class="lab"><span>Entnahmedauer</span><b class="num" id="decYearsV">25 Jahre</b></div>
-          <input type="range" id="decYears" min="1" max="52" value="25"></div>
-        <div class="field"><div class="lab"><span>Rendite Entnahmephase</span><b class="num" id="decRateV">2.0 %</b></div>
-          <input type="range" id="decRate" min="0" max="5" step="0.1" value="2"></div>
-      </div>
-    </section>
-
-    <!-- Result -->
-    <section class="result" aria-live="polite">
-      <div class="r-kick">Benötigte Sparrate</div>
-      <div class="r-big num"><span id="save">—</span> <small>/ Monat</small></div>
-      <div class="r-sub" id="rsub">—</div>
-
-      <div class="facts">
-        <div class="fact"><div class="fl">Zielkapital bei Rente</div><div class="fv num" id="target">—</div><div class="fs">Kapital-Peak</div></div>
-        <div class="fact"><div class="fl">Gesamte Rente</div><div class="fv num" id="totalw">—</div><div class="fs">über die Entnahmedauer</div></div>
-        <div class="fact"><div class="fl">Eigene Einzahlungen</div><div class="fv num" id="contrib">—</div><div class="fs">Sparphase gesamt</div></div>
-      </div>
-
-      <div class="chartwrap">
-        <div class="cap">
-          <h3>Kapitalverlauf</h3>
-          <div class="lgd">
-            <span><i style="background:var(--acc-line)"></i>Sparphase</span>
-            <span><i style="background:var(--dec-line)"></i>Entnahmephase</span>
-          </div>
-        </div>
-        <svg id="chart" viewBox="0 0 760 320" role="img" aria-label="Kapitalverlauf über Spar- und Entnahmephase"></svg>
-        <div class="tt" id="tt"></div>
-      </div>
-
-      <p class="note">Deterministische Berechnung (Zwei-Phasen-Engine). Effektive Jahresrenditen, monatliche Aufzinsung, jährliche Dynamik auf die Sparrate. Werte in heutiger Kaufkraft, ohne Steuern &amp; Produktkosten — als Orientierung, nicht als Angebot.</p>
-      <div class="footlinks">
-        <a href="thema.html?t=pensiongap">← Zur Themenseite</a>
-        <a href="analyse.html">Zur Analyse</a>
-      </div>
-    </section>
-  </div>
+ <div class="head"><div class="eyebrow">Schweizer Vorsorge · Detailanalyse 2026</div><h1>Vorsorgelücke präzise erkennen</h1><p class="lead">Erfassen Sie die Leistungen direkt aus Vorsorgeausweis, UVG-Berechnung und 3a-Police. So werden Krankheit und Unfall korrekt getrennt und keine Leistungen doppelt gezählt.</p></div>
+ <div class="tabs" id="tabs"><button class="tab" data-risk="iv" aria-pressed="true"><b>Invalidität</b><small>Krankheit oder Unfall</small></button><button class="tab" data-risk="retirement" aria-pressed="false"><b>Pensionierung</b><small>AHV, BVG und 3a</small></button><button class="tab" data-risk="death" aria-pressed="false"><b>Todesfall</b><small>Partner- und Kinderrenten</small></button></div>
+ <div class="grid">
+  <section class="card inputs"><div class="section-title"><h2 id="inputTitle">Invaliditätsleistungen</h2><span class="pill">Jahreswerte</span></div>
+   <div class="form-grid">
+    <div class="field"><label>Letzter Bruttolohn / Jahr</label><input id="salary" type="number" min="0" step="1000" value="91000"></div>
+    <div class="field"><label>Zielbedarf</label><select id="targetPct"><option value="70">70 % des Lohns</option><option value="80">80 % des Lohns</option><option value="90" selected>90 % des Lohns</option><option value="100">100 % des Lohns</option></select></div>
+    <div class="field" id="causeField"><label>Ursache</label><select id="cause"><option value="illness">Krankheit</option><option value="accident">Unfall</option></select><small>Bei Unfall UVG-Komplementärrente verwenden.</small></div>
+    <div class="field" id="degreeField"><label>IV-Grad</label><select id="degree"><option>40</option><option>50</option><option>60</option><option selected>70</option><option>80</option><option>90</option><option>100</option></select><small>Eingegebene Renten müssen diesem Grad entsprechen.</small></div>
+    <div class="field full" id="ahvModeField"><label>AHV/IV-Rente</label><select id="ahvMode"><option value="scale44" selected>Automatisch nach Rentenskala berechnen</option><option value="manual">Gemäss Rentenverfügung manuell eingeben</option></select><small>Standardmässig wird die IV-Rente aus dem massgebenden durchschnittlichen Jahreseinkommen, der Rentenskala und dem IV-Grad berechnet.</small></div>
+    <div class="field" id="averageIncomeField"><label>Durchschnittliches Jahreseinkommen</label><input id="averageIncome" type="number" min="0" step="1000" placeholder="Falls unbekannt: letzter Lohn"><small id="averageIncomeHelp">Massgebendes Einkommen inkl. Erziehungs- und Betreuungsgutschriften, sofern bekannt.</small></div>
+    <div class="field" id="contributionGapsField"><label>Fehlende Beitragsjahre</label><input id="contributionGaps" type="number" min="0" max="43" step="1" value="0"><small id="scaleHelp">Lückenlos: Rentenskala 44.</small></div>
+    <div class="field full" id="ahvCalcSummary"><small></small></div>
+    <div class="field full hidden" id="childrenField"><label>Anzahl rentenberechtigte Kinder</label><input id="children" type="number" min="0" max="10" value="0"><small>Kinder bis 18 Jahre; während Ausbildung längstens bis zum vollendeten 25. Altersjahr. Beziehen beide Eltern eine IV-Rente, plafoniert die Ausgleichskasse die Summe beider Kinderrenten.</small></div>
+    <div class="field full"><label>Pensionskassenleistung</label><select id="bvgMode"><option value="statement">Aus Vorsorgeausweis eingeben</option><option value="minimum">Gesetzliches BVG-Minimum schätzen</option></select><small>Ohne Vorsorgeausweis kann eine klar gekennzeichnete Orientierung nach dem BVG-Obligatorium 2026 berechnet werden.</small></div>
+    <div class="field hidden" id="ageField"><label>Aktuelles Alter</label><input id="age" type="number" min="18" max="65" value="40"></div>
+    <div class="field hidden" id="startAgeField"><label>Seit welchem Alter BVG-versichert?</label><input id="startAge" type="number" min="25" max="65" value="25"><small>Wenn unbekannt, 25 stehen lassen.</small></div>
+    <div class="field full hidden" id="minimumNote"><small id="minimumNoteText"></small></div>
+   </div>
+   <div class="divider"></div><div class="source-fields" id="sourceFields"></div>
+  </section>
+  <section class="card result" aria-live="polite"><div class="section-title"><h2>Deckung und Handlungsbedarf</h2><span class="pill" id="caseLabel">Invalidität · Krankheit</span></div>
+   <div class="metrics"><div class="metric"><small>Zielbedarf / Jahr</small><b id="target">—</b></div><div class="metric good"><small>Gesamtleistung / Jahr</small><b id="total">—</b></div><div class="metric gap"><small>Vorsorgelücke / Jahr</small><b id="gap">—</b></div></div>
+   <div class="chart"><div class="chart-head"><div><h3>Leistungsbausteine</h3><span>Jede Farbe entspricht einer Säule oder Versicherung.</span></div><b id="cover">—</b></div><div class="bar-area"><div class="target-line"><span>Zielbedarf</span></div><div class="stack" id="stack"></div></div><div class="legend" id="legend"></div></div>
+   <div class="detail-table" id="details"></div><div class="recommend" id="recommend"></div>
+  </section>
+ </div>
+ <div class="warning"><b>PK-Ausweis vorhanden?</b> <a href="pk-ausweis.html">Vorsorgeausweis erfassen und Werte kontrolliert übernehmen →</a></div>
+ <div class="warning"><b>Fachlicher Hinweis:</b> Exakte BVG-, UVG- und 3a-Leistungen stammen aus Vorsorgeausweis, Leistungsabrechnung oder Police. Bei Unfall ist die UVG-Rente eine Komplementärrente; BVG- und andere Leistungen können wegen Überentschädigung gekürzt werden. Der Rechner addiert deshalb nur die von Ihnen bereits koordiniert eingegebenen Jahresleistungen. Verbindlich sind die Entscheide der AHV/IV-Stelle, des Unfallversicherers und der Vorsorgeeinrichtung.</div>
 </main>
-
+<script src="crm-session.js?v=14"></script>
 <script>
-(function(){
-  "use strict";
-  /* ================= Zwei-Phasen-Engine (Port von engine/pension-engine.mjs) ================= */
-  var monthlyRate = function(a){ return Math.pow(1+a/100, 1/12)-1; };
-  function accumulate(o){
-    var rm=monthlyRate(o.annualRatePct), months=Math.round(o.years*12),
-        step=o.freq==='y'?12:o.freq==='q'?3:1, cap=o.start, rate=o.monthly, series=[{t:0,cap:cap}];
-    for(var m=1;m<=months;m++){ cap*=(1+rm); if(m%step===0)cap+=rate*step;
-      if(m%12===0&&m<months)rate*=(1+o.dynamikPct/100);
-      if(m%12===0||m===months)series.push({t:m/12,cap:cap}); }
-    return {endCapital:cap, series:series};
-  }
-  function requiredCapital(o){ var i=monthlyRate(o.annualRatePct), n=Math.round(o.years*12);
-    return i===0? o.withdrawalMonth*n : o.withdrawalMonth*(1-Math.pow(1+i,-n))/i; }
-  function decumulate(o){ var rm=monthlyRate(o.annualRatePct), months=Math.round(o.years*12), cap=o.start,
-    off=o.tOffset||0, series=[{t:off,cap:cap}];
-    for(var m=1;m<=months;m++){ cap=cap*(1+rm)-o.withdrawalMonth;
-      if(m%12===0||m===months)series.push({t:off+m/12,cap:Math.max(0,cap)}); }
-    return {series:series,endCapital:cap}; }
-  function solveSavingsRate(o){
-    if(accumulate({start:o.start,monthly:0,annualRatePct:o.annualRatePct,dynamikPct:o.dynamikPct,years:o.years,freq:o.freq}).endCapital>=o.target)return 0;
-    var lo=0,hi=100;
-    while(accumulate({start:o.start,monthly:hi,annualRatePct:o.annualRatePct,dynamikPct:o.dynamikPct,years:o.years,freq:o.freq}).endCapital<o.target)hi*=2;
-    for(var k=0;k<60;k++){ var mid=(lo+hi)/2;
-      if(accumulate({start:o.start,monthly:mid,annualRatePct:o.annualRatePct,dynamikPct:o.dynamikPct,years:o.years,freq:o.freq}).endCapital<o.target)lo=mid; else hi=mid; }
-    return (lo+hi)/2;
-  }
-  function planRetirement(inp){
-    var target=requiredCapital({withdrawalMonth:inp.withdrawalMonth,annualRatePct:inp.decRatePct,years:inp.decYears});
-    var savings=solveSavingsRate({start:inp.start,target:target,annualRatePct:inp.accRatePct,dynamikPct:inp.dynamikPct,years:inp.accYears,freq:inp.freq});
-    var acc=accumulate({start:inp.start,monthly:savings,annualRatePct:inp.accRatePct,dynamikPct:inp.dynamikPct,years:inp.accYears,freq:inp.freq});
-    var dec=decumulate({start:acc.endCapital,withdrawalMonth:inp.withdrawalMonth,annualRatePct:inp.decRatePct,years:inp.decYears,tOffset:inp.accYears});
-    return {requiredSavings:savings,targetCapital:acc.endCapital,peakYear:inp.accYears,series:acc.series.concat(dec.series.slice(1))};
-  }
+(function(){"use strict";
+ var risk="iv",values={iv:{ahv:0,ahvChild:0,bvg:0,bvgChild:0,uvg:0,third:0,other:0},retirement:{ahv:0,bvg:0,third:0,other:0},death:{ahv:0,ahvChild:0,bvg:0,bvgChild:0,third:0,other:0}};
+ var colors={ahv:"var(--ahv)",ahvChild:"#55bd8d",bvg:"var(--bvg)",bvgChild:"#6b9af8",uvg:"var(--uvg)",third:"var(--third)",other:"var(--other)"};
+ var configs={iv:[['ahv','AHV/IV-Rente'],['ahvChild','IV-Kinderrenten total (automatisch 40 % je Kind)'],['bvg','BVG-Invalidenrente (koordiniert)'],['bvgChild','BVG-Invalidenkinderrenten total'],['uvg','UVG-Komplementärrente'],['third','Säule 3a / private IV-Rente'],['other','Weitere Leistungen']],retirement:[['ahv','AHV-Altersrente inkl. 13. Rente'],['bvg','BVG-Altersrente'],['third','3a-Entnahme als Jahresbetrag'],['other','Weitere Renten / Einkommen']],death:[['ahv','AHV Partner-Hinterlassenenrente'],['ahvChild','AHV Waisenrenten total'],['bvg','BVG Partnerrente'],['bvgChild','BVG Waisenrenten total'],['third','3a / Todesfallleistung als Jahresbedarf'],['other','Weitere Leistungen']]};
+ var labels={iv:'Invalidität',retirement:'Pensionierung',death:'Todesfall'},headings={iv:'Invaliditätsleistungen',retirement:'Pensionierungsleistungen',death:'Todesfallleistungen'};function chf(n){return 'CHF '+Math.round(n||0).toLocaleString('de-CH');}
+ function renderFields(){var host=document.getElementById('sourceFields');host.innerHTML='';configs[risk].forEach(function(x){var row=document.createElement('div');row.className='money-row'+(risk==='iv'&&x[0]==='uvg'&&cause.value!=='accident'?' hidden':'');row.innerHTML='<i class="dot" style="background:'+colors[x[0]]+'"></i><label for="v_'+x[0]+'">'+x[1]+'</label><input id="v_'+x[0]+'" type="number" min="0" step="500" value="'+(values[risk][x[0]]||0)+'" aria-label="'+x[1]+' pro Jahr">';row.querySelector('input').addEventListener('input',function(){values[risk][x[0]]=Math.max(0,+this.value||0);render();save();});host.appendChild(row);});}
+ function render(){var salary=Math.max(0,+document.getElementById('salary').value||0),target=salary*(+targetPct.value/100),items=configs[risk].map(function(x){return{key:x[0],name:x[1],value:values[risk][x[0]]||0};});if(risk==='iv'&&cause.value!=='accident')items=items.filter(function(x){return x.key!=='uvg';});var total=items.reduce(function(s,x){return s+x.value;},0),gap=Math.max(0,target-total),cover=target?Math.min(999,total/target*100):0;document.getElementById('target').textContent=chf(target);document.getElementById('total').textContent=chf(total);document.getElementById('gap').textContent=chf(gap);document.getElementById('cover').textContent=Math.round(cover)+' % gedeckt';document.getElementById('caseLabel').textContent=labels[risk]+(risk==='iv'?' · '+(cause.value==='accident'?'Unfall':'Krankheit'):'');var stack=document.getElementById('stack');stack.innerHTML='';items.filter(function(x){return x.value>0;}).forEach(function(x){var s=document.createElement('div');s.className='segment';s.style.background=colors[x.key];s.style.width=(target?Math.min(100,x.value/target*100):0)+'%';s.title=x.name+': '+chf(x.value);s.textContent=x.value/Math.max(target,1)>.13?chf(x.value):'';stack.appendChild(s);});if(gap>0){var gs=document.createElement('div');gs.className='segment gap-segment';gs.style.width=(target?gap/target*100:100)+'%';gs.title='Lücke: '+chf(gap);stack.appendChild(gs);}document.getElementById('legend').innerHTML=items.map(function(x){return '<span><i style="background:'+colors[x.key]+'"></i>'+x.name+'</span>';}).join('')+(gap?'<span><i style="background:#eaa4aa"></i>Lücke</span>':'');document.getElementById('details').innerHTML=items.map(function(x){return '<div class="detail-row"><span>'+x.name+'</span><b>'+chf(x.value)+'</b></div>';}).join('')+'<div class="detail-row"><span>Deckung des Zielbedarfs</span><b>'+cover.toFixed(1)+' %</b></div>';var rec=document.getElementById('recommend');rec.className='recommend'+(gap===0?' good':'');rec.innerHTML=gap===0?'<b>Zielbedarf gedeckt.</b> Die erfassten Leistungen erreichen '+cover.toFixed(1)+' % des gewünschten Einkommens. Koordinations- und Überentschädigungsklauseln trotzdem prüfen.':'<b>Handlungsbedarf: '+chf(gap)+' pro Jahr.</b> Das entspricht '+chf(gap/12)+' pro Monat. Prüfen Sie zuerst fehlende Originalleistungen; danach kann die verbleibende Lücke gezielt versichert oder finanziert werden.';}
+ function switchRisk(next){risk=next;document.querySelectorAll('.tab').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.risk===risk);});document.getElementById('inputTitle').textContent=headings[risk];['causeField','degreeField','ahvModeField','averageIncomeField','contributionGapsField','ahvCalcSummary'].forEach(function(id){document.getElementById(id).classList.toggle('hidden',risk!=='iv');});document.getElementById('childrenField').classList.toggle('hidden',risk==='retirement');if(risk==='iv')calculateAhvIv();renderFields();lockCalculatedFields();render();save();}
+ function save(){if(window.CombinvestCRM)CombinvestCRM.save('pension-gap',{risk:risk,values:values,salary:+salary.value,targetPct:+targetPct.value,cause:cause.value,degree:+degree.value,children:+children.value,ahvMode:ahvMode.value,averageIncome:+averageIncome.value||0,contributionGaps:+contributionGaps.value||0});}
+ function restore(){var d=window.CombinvestCRM&&CombinvestCRM.data('pension-gap',null);if(!d)return;if(d.values)values=d.values;/* Frühere Demo-Vorgaben nicht als Kundenleistungen übernehmen. */if(values.iv&&values.iv.third===12000)values.iv.third=0;if(values.retirement&&values.retirement.third===12000)values.retirement.third=0;if(values.iv&&values.iv.bvg===35000)values.iv.bvg=0;if(values.retirement&&values.retirement.bvg===35000)values.retirement.bvg=0;['salary','targetPct','cause','degree','children','ahvMode','averageIncome','contributionGaps'].forEach(function(k){if(d[k]!=null&&document.getElementById(k))document.getElementById(k).value=d[k];});risk=d.risk||risk;}
+ document.getElementById('tabs').addEventListener('click',function(e){var b=e.target.closest('.tab');if(b)switchRisk(b.dataset.risk);});['salary','targetPct','degree','children'].forEach(function(id){document.getElementById(id).addEventListener('input',function(){render();save();});});cause.addEventListener('change',function(){renderFields();render();save();});
 
-  /* ================= State + UI ================= */
-  var S={accYears:30,start:20000,accRate:3,dyn:1,freq:'m',wd:2000,decYears:25,decRate:2};
-  var chf=function(n){return "CHF "+Math.round(n).toLocaleString("de-CH");};
-  function bindRange(id,key,fmt){ var el=document.getElementById(id);
-    el.addEventListener("input",function(){ S[key]=+this.value; document.getElementById(id+"V").textContent=fmt(+this.value); render(); }); }
-  bindRange("accYears","accYears",function(v){return v;});
-  bindRange("start","start",function(v){return chf(v);});
-  bindRange("accRate","accRate",function(v){return v.toFixed(1)+" %";});
-  bindRange("dyn","dyn",function(v){return v.toFixed(1)+" %";});
-  bindRange("wd","wd",function(v){return chf(v);});
-  bindRange("decYears","decYears",function(v){return v+" Jahre";});
-  bindRange("decRate","decRate",function(v){return v.toFixed(1)+" %";});
-  document.getElementById("freqSeg").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;
-    this.querySelectorAll("button").forEach(function(x){x.setAttribute("aria-pressed",x===b);}); S.freq=b.dataset.f; render();});
-
-  var NS="http://www.w3.org/2000/svg";
-  function el(n,a){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e;}
-  function clear(s){while(s.firstChild)s.removeChild(s.firstChild);}
-  function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
-
-  function renderChart(out){
-    var svg=document.getElementById("chart"); clear(svg);
-    var W=760,H=320,m={t:16,r:20,b:34,l:64};
-    var ser=out.series, maxT=ser[ser.length-1].t, maxC=out.targetCapital*1.06||1;
-    var X=function(t){return m.l+(t/maxT)*(W-m.l-m.r);};
-    var Y=function(c){return H-m.b-(c/maxC)*(H-m.t-m.b);};
-    // y grid (fine)
-    for(var i=0;i<=3;i++){ var v=maxC*i/3,y=Y(v);
-      svg.appendChild(el("line",{x1:m.l,y1:y,x2:W-m.r,y2:y,stroke:css("--line"),"stroke-width":1}));
-      svg.appendChild(el("text",{x:m.l-10,y:y+4,fill:css("--muted"),"font-size":11,"text-anchor":"end","font-variant-numeric":"tabular-nums"})).textContent=Math.round(v/1000)+"k";
-    }
-    // x ticks (0, peak, end)
-    [0,out.peakYear,maxT].forEach(function(t){ var x=X(t);
-      svg.appendChild(el("text",{x:x,y:H-m.b+20,fill:css("--muted"),"font-size":11,"text-anchor":t===0?"start":t===maxT?"end":"middle"})).textContent="Jahr "+Math.round(t);
-    });
-    function path(seg,col,fill){
-      var d=""; seg.forEach(function(p,i){ d+=(i?"L":"M")+X(p.t).toFixed(1)+" "+Y(p.cap).toFixed(1); });
-      if(fill){ var fd=d+"L"+X(seg[seg.length-1].t).toFixed(1)+" "+Y(0)+"L"+X(seg[0].t).toFixed(1)+" "+Y(0)+"Z";
-        svg.appendChild(el("path",{d:fd,fill:col,"fill-opacity":.05,stroke:"none"})); }
-      svg.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":1.8,"stroke-linejoin":"round","stroke-linecap":"round"}));
-    }
-    var acc=ser.filter(function(p){return p.t<=out.peakYear;});
-    var dec=ser.filter(function(p){return p.t>=out.peakYear;});
-    path(acc,css("--acc-line"),true);
-    path(dec,css("--dec-line"),true);
-    // peak hairline + dot
-    var px=X(out.peakYear), py=Y(out.targetCapital);
-    svg.appendChild(el("line",{x1:px,y1:m.t,x2:px,y2:H-m.b,stroke:css("--gold"),"stroke-width":1,"stroke-dasharray":"3 4"}));
-    svg.appendChild(el("circle",{cx:px,cy:py,r:4,fill:"#fff",stroke:css("--gold"),"stroke-width":2}));
-    svg.appendChild(el("text",{x:px,y:m.t-4,fill:css("--gold"),"font-size":11,"font-weight":800,"text-anchor":"middle"})).textContent="Rentenbeginn";
-    // hover
-    var tt=document.getElementById("tt");
-    var hit=el("rect",{x:m.l,y:m.t,width:(W-m.l-m.r),height:(H-m.t-m.b),fill:"transparent",style:"cursor:crosshair"});
-    svg.appendChild(hit);
-    hit.addEventListener("mousemove",function(ev){ var box=svg.getBoundingClientRect(),sx=box.width/W;
-      var t=Math.max(0,Math.min(maxT,((ev.clientX-box.left)/sx-m.l)/(W-m.l-m.r)*maxT));
-      var best=ser[0]; ser.forEach(function(p){ if(Math.abs(p.t-t)<Math.abs(best.t-t))best=p; });
-      tt.innerHTML="Jahr "+Math.round(best.t)+" · <b>"+chf(best.cap)+"</b>";
-      tt.style.left=(box.left+window.scrollX+X(best.t)*sx)+"px"; tt.style.top=(box.top+window.scrollY+Y(best.cap)*sx)+"px"; tt.style.opacity=1;
-    });
-    hit.addEventListener("mouseleave",function(){tt.style.opacity=0;});
-  }
-
-  function render(){
-    var out=planRetirement({start:S.start,withdrawalMonth:S.wd,decRatePct:S.decRate,decYears:S.decYears,
-      accRatePct:S.accRate,dynamikPct:S.dyn,accYears:S.accYears,freq:S.freq});
-    document.getElementById("save").textContent = out.requiredSavings<=0 ? "CHF 0" : chf(out.requiredSavings);
-    document.getElementById("target").textContent = chf(out.targetCapital);
-    document.getElementById("totalw").textContent = chf(S.wd*12*S.decYears);
-    document.getElementById("contrib").textContent = chf(out.requiredSavings*12*S.accYears);
-    var rs=document.getElementById("rsub");
-    if(out.requiredSavings<=0){
-      rs.innerHTML="Ihr Startkapital deckt die gewünschte Rente bereits. Für <b>"+chf(S.wd)+"</b> pro Monat über <b>"+S.decYears+" Jahre</b> ist keine zusätzliche Sparrate nötig.";
-    } else {
-      rs.innerHTML="Um ab Rentenbeginn <b>"+chf(S.wd)+"</b> pro Monat über <b>"+S.decYears+" Jahre</b> zu entnehmen, sollten Sie ab heute rund <b>"+chf(out.requiredSavings)+"</b> pro Monat sparen.";
-    }
-    renderChart(out);
-  }
-  render();
-  window.addEventListener("resize", render);
+ /* BVG-Minimum 2026: Orientierung, wenn kein Vorsorgeausweis vorhanden ist. */
+ var manualBvg={iv:values.iv.bvg,ivChild:values.iv.bvgChild,retirement:values.retirement.bvg,death:values.death.bvg,deathChild:values.death.bvgChild};
+ function bvgCreditRate(a){return a<35?.07:a<45?.10:a<55?.15:.18;}
+ function bvgIvShare(d){return d<40?0:d<50?(.25+(d-40)*.025):d<70?d/100:1;}
+ /* AHV/IV Skala 44 (Werte 2025/2026): Tabellenstufen und Rentenformel gemäss AHVG. */
+ var manualAhv=values.iv.ahv;
+ function ahvScale44(income){var minimum=1260,step=1512,used=Math.min(90720,Math.max(15120,Math.ceil(Math.max(0,income)/step)*step)),monthly=used<=45360?.74*minimum+(13/600)*used:1.04*minimum+(8/600)*used;return{usedIncome:used,monthly:Math.round(Math.max(minimum,Math.min(2520,monthly)))};}
+ function calculateAhvIv(){var automatic=ahvMode.value==='scale44';averageIncomeField.classList.toggle('hidden',!automatic||risk!=='iv');contributionGapsField.classList.toggle('hidden',!automatic||risk!=='iv');ahvCalcSummary.classList.toggle('hidden',!automatic||risk!=='iv');if(!automatic){values.iv.ahv=manualAhv;return;}var entered=Math.max(0,+averageIncome.value||0),fallback=Math.max(0,+salary.value||0),income=entered||fallback,gaps=Math.max(0,Math.min(43,+contributionGaps.value||0)),scale=44-gaps,share=bvgIvShare(+degree.value||0);averageIncomeHelp.textContent=entered?'Massgebendes Einkommen inkl. allfälliger Erziehungs- und Betreuungsgutschriften.':'Nicht eingetragen: Der letzte Bruttolohn wird als klar gekennzeichnete Näherung verwendet.';scaleHelp.textContent=gaps?'Voraussichtliche Rentenskala '+scale+' (Skala 44 minus '+gaps+' fehlende Beitragsjahre).':'Lückenlos: Rentenskala 44.';if(!income){values.iv.ahv=0;ahvCalcSummary.querySelector('small').innerHTML='<b>Berechnung noch nicht möglich:</b> Bitte durchschnittliches Jahreseinkommen oder letzten Bruttolohn erfassen.';return;}var base=ahvScale44(income),partialMonthly=Math.round(base.monthly*scale/44),annual=Math.round(partialMonthly*12*share);values.iv.ahv=annual;ahvCalcSummary.querySelector('small').innerHTML='<b>Berechnung:</b> Einkommen '+chf(income)+(entered?'':' (Lohn-Näherung)')+' · Tabellenwert '+chf(base.usedIncome)+' · volle Monatsrente '+chf(base.monthly)+' · Skala '+scale+' · IV-Anspruch '+Math.round(share*100)+' % · <b>'+chf(annual)+' pro Jahr</b>.';}
+ function estimateBvg(){var wage=Math.max(0,+salary.value||0),a=Math.max(18,Math.min(65,+age.value||40)),start=Math.max(25,Math.min(a,+startAge.value||25));var coordinated=wage<22680?0:Math.max(3780,Math.min(90720,wage)-26460),capital=0;for(var y=start;y<a;y++)capital=(capital+coordinated*bvgCreditRate(y))*1.0125;for(var f=Math.max(25,a);f<65;f++)capital+=coordinated*bvgCreditRate(f);var full=capital*.068,iv=full*bvgIvShare(+degree.value||0),kids=Math.max(0,+children.value||0);return{coordinated:coordinated,capital:capital,iv:iv,ivChild:iv*.20*kids,retirement:full,death:full*.60,deathChild:full*.20*kids};}
+ function syncIvChildPensions(){var kids=Math.max(0,+children.value||0),raw=(values.iv.ahv||0)*.40*kids,entered=Math.max(0,+averageIncome.value||0),income=entered||Math.max(0,+salary.value||0),share=bvgIvShare(+degree.value||0),incomeLimit=Math.max(0,income*.90*share-(values.iv.ahv||0));values.iv.ahvChild=Math.round(Math.min(raw,incomeLimit));if(risk==='iv'&&kids){var reduced=values.iv.ahvChild+1<raw;childrenField.querySelector('small').textContent='40 % der entsprechenden IV-Rente pro berechtigtem Kind. '+(reduced?'Die Summe wurde wegen der 90-%-Grenze auf '+chf(values.iv.ahvChild)+' pro Jahr plafoniert. ':'')+'Bei einem zweiten rentenberechtigten Elternteil prüft die Ausgleichskasse zusätzlich die gemeinsame Plafonierung.';} }
+ function lockCalculatedFields(){if(risk!=='iv')return;var ahvInput=document.getElementById('v_ahv');if(ahvInput&&ahvMode.value==='scale44'){ahvInput.value=values.iv.ahv;ahvInput.disabled=true;ahvInput.title='Automatisch nach AHV/IV-Rentenskala berechnet';var ahvLabel=ahvInput.previousElementSibling;if(ahvLabel&&!ahvLabel.textContent.includes('berechnet'))ahvLabel.textContent+=' (berechnet)';}var childInput=document.getElementById('v_ahvChild');if(childInput){childInput.value=values.iv.ahvChild;childInput.disabled=true;childInput.title='40 % der entsprechenden IV-Rente pro rentenberechtigtem Kind';}}
+ function lockCalculatedChildFields(){lockCalculatedFields();}
+ function refreshBvgMinimum(){var active=bvgMode.value==='minimum',m=estimateBvg();calculateAhvIv();syncIvChildPensions();if(active&&cause.value!=='accident'){var coordinationRoom=Math.max(0,(+salary.value||0)*.90-(values.iv.ahv||0)-(values.iv.ahvChild||0));m.iv=Math.min(m.iv,coordinationRoom);coordinationRoom=Math.max(0,coordinationRoom-m.iv);m.ivChild=Math.min(m.ivChild,coordinationRoom);}ageField.classList.toggle('hidden',!active);startAgeField.classList.toggle('hidden',!active);minimumNote.classList.toggle('hidden',!active);if(active){values.iv.bvg=cause.value==='accident'?0:Math.round(m.iv);values.iv.bvgChild=cause.value==='accident'?0:Math.round(m.ivChild);values.retirement.bvg=Math.round(m.retirement);values.death.bvg=Math.round(m.death);values.death.bvgChild=Math.round(m.deathChild);minimumNoteText.textContent='Schätzung mit koordiniertem Lohn '+chf(m.coordinated)+', angenommenem Sparbeginn und BVG-Mindestumwandlungssatz 6,8 %. Kinderrenten: AHV/IV 40 % und BVG 20 % pro berechtigtem Kind. Die BVG-Schätzung wird zusammen mit AHV/IV auf höchstens 90 % des letzten Lohns koordiniert; verbindlich entscheidet die Vorsorgeeinrichtung.';}else{values.iv.bvg=manualBvg.iv;values.iv.bvgChild=manualBvg.ivChild;values.retirement.bvg=manualBvg.retirement;values.death.bvg=manualBvg.death;values.death.bvgChild=manualBvg.deathChild;}renderFields();lockCalculatedFields();if(active){['bvg','bvgChild'].forEach(function(k){var input=document.getElementById('v_'+k);if(input){input.disabled=true;input.title='Geschätztes gesetzliches BVG-Minimum';var label=input.previousElementSibling;if(label&&!label.textContent.includes('geschätzt'))label.textContent+=' (geschätzt)';}});}render();save();localStorage.setItem('combinvest-bvg-minimum',JSON.stringify({mode:bvgMode.value,age:+age.value,startAge:+startAge.value}));}
+ function refreshAll(){calculateAhvIv();syncIvChildPensions();if(bvgMode.value==='minimum')refreshBvgMinimum();else{renderFields();lockCalculatedFields();render();save();}}
+ ahvMode.addEventListener('change',function(){if(this.value==='scale44')manualAhv=values.iv.ahv;refreshAll();});['averageIncome','contributionGaps'].forEach(function(id){document.getElementById(id).addEventListener('input',refreshAll);});
+ bvgMode.addEventListener('change',function(){if(this.value==='minimum'){manualBvg={iv:values.iv.bvg,ivChild:values.iv.bvgChild,retirement:values.retirement.bvg,death:values.death.bvg,deathChild:values.death.bvgChild};}refreshBvgMinimum();});['age','startAge','salary','degree','children'].forEach(function(id){document.getElementById(id).addEventListener('input',refreshAll);});cause.addEventListener('change',function(){if(bvgMode.value==='minimum')refreshBvgMinimum();});sourceFields.addEventListener('input',function(e){if(risk==='iv'&&e.target.id==='v_ahv'&&ahvMode.value==='manual'){manualAhv=Math.max(0,+e.target.value||0);values.iv.ahv=manualAhv;syncIvChildPensions();renderFields();lockCalculatedFields();render();save();}});document.getElementById('tabs').addEventListener('click',function(){calculateAhvIv();syncIvChildPensions();if(bvgMode.value==='minimum')refreshBvgMinimum();else{lockCalculatedFields();render();}});
+ restore();manualAhv=values.iv.ahv;manualBvg={iv:values.iv.bvg||0,ivChild:values.iv.bvgChild||0,retirement:values.retirement.bvg||0,death:values.death.bvg||0,deathChild:values.death.bvgChild||0};var savedBvg={};try{savedBvg=JSON.parse(localStorage.getItem('combinvest-bvg-minimum')||'{}');}catch(e){}if(savedBvg.mode)bvgMode.value=savedBvg.mode;if(savedBvg.age)age.value=savedBvg.age;if(savedBvg.startAge)startAge.value=savedBvg.startAge;calculateAhvIv();syncIvChildPensions();switchRisk(risk);if(bvgMode.value==='minimum')refreshBvgMinimum();else lockCalculatedFields();
 })();
-</script>
-</body>
-</html>
+</script><script src="pension-guide.js?v=2"></script><script src="calculator-shell.js?v=8"></script></body></html>

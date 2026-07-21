@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>combinvest – Zusatzversicherungs-Check</title>
+  <meta name="description" content="Persönlichen Bedarf für ambulante und stationäre Krankenzusatzversicherungen strukturiert erfassen.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="zusatzversicherung.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="back" href="versicherungsberatung.html">← <span>Versicherungsübersicht</span></a>
+      <a class="brand" href="analyse.html?step=3"><span class="brand-mark">C</span><span><b>comb</b><b>invest</b></span></a>
+      <span class="tag">Bedarfsanalyse</span>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="heading">
+      <p class="eyebrow">Krankenzusatzversicherung</p>
+      <h1>Welche Ergänzungen sind Ihnen wichtig?</h1>
+      <p>Wählen Sie nur Leistungen, die zu Ihrer persönlichen Situation passen. Über das <b>i</b> sehen Sie, was die jeweilige Deckung ergänzt.</p>
+    </section>
+
+    <div class="layout">
+      <form id="coverageForm" class="coverage-card">
+        <section class="coverage-section hospital-section">
+          <div class="section-head">
+            <div><span class="section-index">1</span><h2>Spitalzusatz</h2><button class="info-button" type="button" data-info="hospital" aria-label="Erklärung zur Spitalzusatzversicherung">i</button></div>
+            <div class="status-controls"><label class="existing-check"><input id="hospitalExisting" type="checkbox"><span>Bestehend</span></label><label class="switch"><input id="hospitalEnabled" type="checkbox"><span aria-hidden="true"></span><em>Gewünscht</em></label></div>
+          </div>
+          <p class="section-copy">Zusätzlicher Komfort und Wahlmöglichkeiten bei einem stationären Aufenthalt.</p>
+          <div class="hospital-options" id="hospitalOptions" hidden>
+            <label><input type="radio" name="hospitalLevel" value="flex"><span><b>Flex</b><small>Abteilung erst beim Eintritt wählen</small></span></label>
+            <label><input type="radio" name="hospitalLevel" value="semi"><span><b>Halbprivat</b><small>Meist Zweibettzimmer und erweiterte Arztwahl</small></span></label>
+            <label><input type="radio" name="hospitalLevel" value="private"><span><b>Privat</b><small>Meist Einbettzimmer und erweiterte Arztwahl</small></span></label>
+          </div>
+        </section>
+
+        <section class="coverage-section">
+          <div class="section-title"><span class="section-index">2</span><div><h2>Ambulante Ergänzungen</h2><p>Leistungen ausserhalb eines stationären Aufenthalts.</p></div></div>
+          <div class="coverage-columns" aria-hidden="true"><span>Deckung</span><span>Bestehend</span><span>Gewünscht</span></div>
+          <div class="coverage-grid" id="coverageGrid"></div>
+        </section>
+
+        <section class="coverage-section note-section">
+          <label for="coverageNotes">Besondere Wünsche oder bestehende Deckung</label>
+          <textarea id="coverageNotes" rows="3" placeholder="z. B. bestehende Police, bevorzugte Klinik oder häufige Auslandreisen"></textarea>
+        </section>
+      </form>
+
+      <aside class="summary-card">
+        <p class="eyebrow">Ihre Auswahl</p>
+        <div class="summary-count"><strong id="selectedCount">0</strong><span>gewünschte Ergänzungen</span></div>
+        <div class="gap-count"><span>Noch zu prüfen</span><b id="gapCount">0</b></div>
+        <div id="summaryEmpty" class="summary-empty">Noch keine Zusatzleistung ausgewählt.</div>
+        <ul id="summaryList"></ul>
+        <div class="notice"><b>Wichtig</b><p>Zusatzversicherungen sind freiwillige Verträge nach VVG. Aufnahme, Leistungsumfang, Limiten und Wartefristen unterscheiden sich je Versicherer und Produkt.</p></div>
+        <button id="saveCoverage" class="primary" type="button">In Analyse übernehmen</button>
+        <a class="secondary" href="versicherungscheck.html">Weiter zu Hausrat & Auto →</a>
+        <p class="save-status" id="saveStatus"></p>
+      </aside>
+    </div>
+  </main>
+
+  <dialog id="infoDialog" aria-labelledby="infoTitle">
+    <div class="dialog-head"><span id="infoCategory"></span><button id="closeInfo" type="button" aria-label="Erklärung schliessen">×</button></div>
+    <h2 id="infoTitle"></h2>
+    <p id="infoDescription"></p>
+    <div class="info-box"><b>Was wird ergänzt?</b><p id="infoAdds"></p></div>
+    <div class="info-box watch"><b>Darauf achten</b><p id="infoWatch"></p></div>
+  </dialog>
+
+  <script src="crm-session.js?v=14"></script>
+  <script src="zusatzversicherung.js?v=2"></script>
+</body>
+</html>

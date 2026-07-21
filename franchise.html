@@ -1,595 +1,177 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de-CH">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<title>combinvest — Franchise-Vergleich</title>
-<meta name="description" content="Franchise-Vergleich auf Basis der offiziellen BAG-Prämien 2026.">
-<style>
-  :root{
-    --royal:#3A57F5; --royal-deep:#2C3ED9; --royal-050:#EEF1FF; --royal-100:#DCE3FF;
-    --page:#F3F5FC; --surface:#ffffff; --surface-2:#F6F8FF;
-    --ink:#0F1B36; --ink-2:#51607A; --muted:#8A97AC;
-    --line:#E4E9F5; --grid:#EDF1FB; --axis:#C9D3E8;
-    --brand:#3A57F5; --brand-ink:#2C3ED9;
-    --good:#188A57; --crit:#E5392B;
-    --s1:#86b6ef; --s2:#256abf; --s3:#0d366b;
-    --radius:18px; --shadow:0 1px 2px rgba(15,27,54,.04),0 10px 30px rgba(46,62,120,.08);
-    --focus:#3A57F5;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
-  body{font-family:Manrope,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    background:var(--page);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;}
-  .num{font-variant-numeric:tabular-nums}
-  a{color:inherit;text-decoration:none}
-  .wrap{max-width:1160px;margin:0 auto;padding:0 22px}
-
-  /* ---- header: pill step nav ---- */
-  header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
-  .nav{display:flex;align-items:center;gap:8px;padding:12px 0}
-  .step{display:flex;flex-direction:column;justify-content:center;gap:1px;background:#fff;border:1px solid var(--line);
-    border-radius:12px;padding:8px 16px;min-width:132px}
-  .step small{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:800}
-  .step b{font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:800}
-  .step.home{border:0;background:transparent;min-width:auto;padding-left:2px}
-  .step.home b{color:var(--royal)}
-  .step.active{background:var(--royal);border-color:var(--royal)}
-  .step.active small{color:#c7d0ff} .step.active b{color:#fff}
-  .steps{display:flex;gap:8px}
-  .nav .spacer{flex:1}
-  .lang{font-weight:800;font-size:12px;letter-spacing:.12em;color:var(--ink-2)}
-  .brand{display:flex;align-items:center;gap:8px;font-weight:900;font-size:22px;line-height:.72;letter-spacing:-.04em}.brand-mark{display:grid;width:32px;height:36px;place-items:center;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);background:var(--royal);color:#fff;font-size:15px;letter-spacing:0}.brand-word{display:flex;flex-direction:column}
-  .brand .b1{color:var(--ink)} .brand .b2{color:var(--royal)}
-
-  /* ---- page head ---- */
-  .head{padding:36px 0 6px}
-  .kicker{color:var(--royal);font-weight:800;font-size:12px;letter-spacing:.18em;text-transform:uppercase}
-  h1{font-size:clamp(28px,4.4vw,44px);margin:.3em 0 .12em;letter-spacing:-.02em;font-weight:900;line-height:1.05}
-  .lead{color:var(--ink-2);font-size:16px;max-width:62ch;margin:.2em 0 0}
-
-  .grid{display:grid;grid-template-columns:344px 1fr;gap:22px;align-items:start;padding:22px 0 64px}
-  @media(max-width:880px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
-  .card h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 16px;font-weight:800}
-
-  /* ---- controls ---- */
-  .ctl{margin-bottom:18px}
-  .ctl>label{display:block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
-  .hint{color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0}
-  select,input[type=text],input[type=number]{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);
-    color:var(--ink);font:inherit;font-weight:700;appearance:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%233A57F5' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 13px center}
-  select:focus,input[type=text]:focus,input[type=number]:focus{outline:2px solid var(--focus);outline-offset:1px;border-color:var(--royal)}
-  .seg{display:flex;gap:5px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:5px;flex-wrap:wrap}
-  .seg button{flex:1 1 auto;min-width:46px;border:0;background:transparent;color:var(--ink-2);font:inherit;font-weight:800;
-    font-size:13px;padding:10px 8px;border-radius:10px;cursor:pointer;transition:.12s;letter-spacing:.02em}
-  .seg button[aria-pressed="true"]{background:var(--royal);color:#fff;box-shadow:0 2px 6px rgba(58,87,245,.35)}
-  .seg.small button{font-size:12.5px;padding:9px 6px}
-  input[type=range]{width:100%;accent-color:var(--royal);height:24px}
-  .rangeval{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:2px}
-  .rangeval b{color:var(--ink)}
-
-  /* ---- royal hero result ---- */
-  .hero{background:linear-gradient(135deg,var(--royal),var(--royal-deep));border:0;color:#fff;
-    box-shadow:0 14px 34px rgba(46,62,120,.28);position:relative;overflow:hidden}
-  .hero::after{content:"";position:absolute;right:-40px;top:-40px;width:220px;height:220px;border-radius:50%;
-    background:rgba(255,255,255,.06)}
-  .hero .kicker{color:#c7d0ff}
-  .bighead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:6px;position:relative;z-index:1}
-  .big{font-size:clamp(34px,5.6vw,50px);font-weight:900;letter-spacing:-.03em;line-height:1}
-  .hero .big,.hero .big.save,.hero .big.cost{color:#fff}
-  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;padding:6px 12px;border-radius:999px;background:#fff}
-  .pill.good{color:var(--good)} .pill.warn{color:var(--crit)}
-  .subresult{color:#e7ebff;font-size:15px;margin-top:12px;position:relative;z-index:1;max-width:60ch}
-  .subresult b{color:#fff}
-
-  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
-  .tile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow)}
-  .tile .t-l{font-size:10.5px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.1em}
-  .tile .t-v{font-size:21px;font-weight:900;margin-top:4px}
-  .tile .t-s{font-size:11.5px;color:var(--muted);margin-top:2px}
-
-  .charts{display:grid;gap:22px;margin-top:22px}
-  .chart-title{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:8px}
-  .chart-title h3{font-size:13px;margin:0;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-  .chart-title p{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:500;letter-spacing:0;text-transform:none}
-  svg{display:block;width:100%;height:auto;overflow:visible;font-family:inherit}
-  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--ink-2);font-weight:600}
-  .legend span{display:inline-flex;align-items:center;gap:7px}
-  .lg-line{width:22px;height:3px;border-radius:2px}
-  .tt{position:absolute;pointer-events:none;background:var(--ink);color:#fff;border-radius:12px;padding:10px 12px;
-    font-size:12.5px;box-shadow:0 10px 26px rgba(15,27,54,.28);transform:translate(-50%,-115%);white-space:nowrap;opacity:0;transition:opacity .1s;z-index:10}
-  .tt b{font-weight:800} .tt .row{display:flex;gap:12px;justify-content:space-between} .tt .sw{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:6px}
-
-  .foot{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
-  .foot a{color:var(--royal);font-weight:800}
-  .linkbtn{background:none;border:0;color:var(--royal);font:inherit;font-weight:800;cursor:pointer;padding:0;text-transform:uppercase;letter-spacing:.06em;font-size:12px}
-
-  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13.5px}
-  th,td{text-align:right;padding:10px 10px;border-bottom:1px solid var(--line)}
-  th:first-child,td:first-child{text-align:left}
-  thead th{color:var(--muted);font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
-  tr.cur td{background:var(--royal-050);font-weight:800}
-  tr.best td{color:var(--good)}
-  .hidden{display:none}
-  .fieldnote{font-size:11.5px;color:var(--muted);margin:7px 0 0}
-  .priminfo-panel{margin-top:16px;border:1px solid #dce6ff;background:var(--royal-050);border-radius:14px;padding:14px}
-  .priminfo-panel strong{display:block;font-size:13px}.priminfo-panel p{font-size:12px;color:var(--ink-2);margin:5px 0 10px}
-  .primary-link{display:inline-flex;background:var(--royal);color:#fff;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:800}
-  .assumption{margin:0 0 16px;padding:12px 14px;border-radius:12px;background:#fff8e8;border:1px solid #f2dfaa;color:#6b5520;font-size:12.5px}
-  .quick{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.quick button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 6px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.quick button:hover{border-color:var(--royal);color:var(--royal)}
-  .riskline{display:flex;align-items:center;gap:10px;margin-top:14px;padding:12px;border-radius:12px;background:rgba(255,255,255,.12);position:relative;z-index:1}.dot{width:11px;height:11px;border-radius:50%;background:#f7c948;flex:0 0 auto}.dot.ok{background:#4bd08b}.dot.bad{background:#ff8b7f}.riskline span{font-size:13px;color:#fff}.riskline b{display:block}
-  details.analysis{margin-top:22px}details.analysis>summary{cursor:pointer;list-style:none;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px;font-weight:800;color:var(--royal)}details.analysis[open]>summary{margin-bottom:16px}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>combinvest – Franchise-Vergleich 2026</title>
+  <meta name="description" content="Franchise-Vergleich mit den offiziellen BAG-Prämien 2026.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="franchise.css?v=1">
+  <link rel="stylesheet" href="calculator-shell.css?v=5">
 </head>
 <body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="back-link" href="versicherungsberatung.html" aria-label="Zurück zur Versicherungsübersicht">
+        <span aria-hidden="true">←</span><span>Versicherungen</span>
+      </a>
+      <a class="brand" href="analyse.html?step=3" aria-label="combinvest">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <span><b>comb</b><b>invest</b></span>
+      </a>
+      <span class="source-chip">BAG-Prämien 2026</span>
+    </div>
+  </header>
 
-<header>
-  <div class="wrap nav">
-    <a class="step home" href="index.html"><small>Zur</small><b>Startseite</b></a>
-    <nav class="steps">
-      <a class="step" href="index.html"><small>Bereich</small><b>Privatkunde</b></a>
-      <span class="step active"><small>Schnellanalyse</small><b>Franchise-Vergleich</b></span>
-    </nav>
-    <span class="spacer"></span>
-    <span class="brand" aria-label="combinvest"><span class="brand-mark" aria-hidden="true">C</span><span class="brand-word"><span class="b1">comb</span><span class="b2">invest</span></span></span>
-  </div>
-</header>
-
-<main class="wrap">
-  <div class="head">
-    <div class="kicker">Grundversicherung &middot; Prämien 2026</div>
-    <h1>Wie viel sparen Sie mit der richtigen Franchise?</h1>
-    <p class="lead">Basierend auf den offiziellen Prämien des Bundesamts für Gesundheit (BAG).
-      Verschieben Sie die Regler &mdash; die Berechnung passt sich in Echtzeit an.</p>
-  </div>
-
-  <div class="grid">
-    <section class="card" aria-label="Eingaben">
-      <h2>Ihre Situation</h2>
-
-      <div class="ctl">
-        <label for="plz">Wohnort / PLZ</label>
-        <input id="plz" type="text" inputmode="numeric" maxlength="4" placeholder="z. B. 8001">
-        <p class="fieldnote">Für den exakten Vergleich bestimmt Priminfo daraus die Prämienregion.</p>
+  <main class="page">
+    <section class="page-heading">
+      <div>
+        <p class="eyebrow">Grundversicherung</p>
+        <h1>Welche Franchise passt wirklich?</h1>
+        <p>Vergleichen Sie alle verfügbaren Franchisen mit der exakten Prämie Ihres Wohnorts, Versicherers und Modells.</p>
       </div>
-
-      <div class="ctl">
-        <label for="yob">Geburtsjahr</label>
-        <input id="yob" type="number" min="1900" max="2026" placeholder="z. B. 1992">
-      </div>
-
-      <div class="ctl">
-        <label for="kt">Wohnkanton</label>
-        <select id="kt"></select>
-      </div>
-
-      <div class="ctl">
-        <label>Altersgruppe</label>
-        <div class="seg" id="ageSeg" role="group" aria-label="Altersgruppe">
-          <button data-age="ERW" aria-pressed="true">Erwachsene</button>
-          <button data-age="JUG" aria-pressed="false">19&ndash;25 J.</button>
-          <button data-age="KIN" aria-pressed="false">Kind</button>
-        </div>
-      </div>
-
-      <div class="ctl">
-        <label>Unfalldeckung <span class="hint">&mdash; bei Anstellung meist über Arbeitgeber</span></label>
-        <div class="seg" id="unfSeg" role="group" aria-label="Unfalldeckung">
-          <button data-unf="MIT-UNF" aria-pressed="true">mit Unfall</button>
-          <button data-unf="OHN-UNF" aria-pressed="false">ohne Unfall</button>
-        </div>
-      </div>
-
-      <div class="ctl">
-        <label>Aktuelle Franchise <span class="hint" id="frUnit">CHF</span></label>
-        <div class="seg small" id="frSeg" role="group" aria-label="Aktuelle Franchise"></div>
-      </div>
-
-      <div class="ctl">
-        <label for="insurer">Aktuelle Krankenkasse <span class="hint">optional</span></label>
-        <input id="insurer" type="text" placeholder="z. B. Helsana, CSS, Die Mobiliar">
-      </div>
-
-      <div class="ctl">
-        <label for="model">Versicherungsmodell</label>
-        <select id="model">
-          <option value="base">Standardmodell / freie Arztwahl</option>
-          <option value="ham">Hausarzt- / GP-Modell</option>
-          <option value="hmo">HMO-Modell</option>
-          <option value="div">Telmed / weiteres Modell</option>
-        </select>
-        <p class="fieldnote">Die lokale Orientierung nutzt das Standardmodell. Das gewählte Modell wird an Priminfo übergeben.</p>
-      </div>
-
-      <div class="ctl">
-        <label for="cost">Erwartete Gesundheitskosten pro Jahr</label>
-        <input type="range" id="cost" min="0" max="8000" step="100" value="1200">
-        <div class="rangeval"><span>CHF 0</span><b class="num" id="costVal">CHF 1'200</b><span>CHF 8'000</span></div>
-      </div>
-
-      <div class="ctl">
-        <label>Schnelle Einschätzung</label>
-        <div class="quick" aria-label="Gesundheitskosten schnell wählen">
-          <button type="button" data-cost="500">Wenig</button><button type="button" data-cost="2000">Mittel</button><button type="button" data-cost="6000">Hoch</button>
-        </div>
-        <p class="fieldnote">Gemeint sind voraussichtlich kassenpflichtige Arzt-, Therapie- und Medikamentenkosten – ohne Prämien.</p>
-      </div>
-
-      <div class="ctl">
-        <label for="reserve">Sofort verfügbare Gesundheitsreserve</label>
-        <input id="reserve" type="number" min="0" step="100" value="3000" inputmode="numeric">
-        <p class="fieldnote">Damit prüfen wir, ob eine höhere Franchise nicht nur günstiger, sondern auch finanziell tragbar ist.</p>
-      </div>
-
-      <div class="priminfo-panel">
-        <strong>Exakte Prämien bei Priminfo</strong>
-        <p>Alle verfügbaren Kassen, Modelle und die zur PLZ gehörende Prämienregion vergleichen.</p>
-        <a class="primary-link" id="priminfoExact" href="https://www.priminfo.admin.ch/de/praemien" target="_blank" rel="noopener">Priminfo-Vergleich öffnen ↗</a>
-      </div>
+      <button class="quiet-button" id="resetButton" type="button">Neu berechnen</button>
     </section>
 
-    <section>
-      <p class="assumption"><b>Orientierungsrechnung:</b> Die lokale Berechnung nutzt BAG-Kantonsdurchschnitte für das Standardmodell. PLZ, Krankenkasse und Modell werden erst im offiziellen Priminfo-Vergleich exakt berücksichtigt.</p>
-      <div class="card hero result" aria-live="polite">
-        <div class="kicker">Ihre Empfehlung</div>
-        <div class="bighead">
-          <span class="big num" id="bigNum">&mdash;</span>
-          <span class="pill good" id="bigPill">pro Jahr</span>
-        </div>
-        <div class="subresult" id="subRes">&mdash;</div>
-        <div class="riskline"><i class="dot" id="riskDot"></i><span><b id="riskTitle">Reserve wird geprüft</b><span id="riskText">Tragbarkeit der empfohlenen Franchise</span></span></div>
-      </div>
-
-      <div class="tiles">
-        <div class="tile"><div class="t-l">Ihre Franchise</div><div class="t-v num" id="tCur">&mdash;</div><div class="t-s" id="tCurS">Gesamtkosten/Jahr</div></div>
-        <div class="tile"><div class="t-l">Günstigste Option</div><div class="t-v num" id="tBest">&mdash;</div><div class="t-s" id="tBestS">Gesamtkosten/Jahr</div></div>
-        <div class="tile"><div class="t-l">Break-even</div><div class="t-v num" id="tBreak">&mdash;</div><div class="t-s">ab hier lohnt tiefe Franchise</div></div>
-      </div>
-
-      <details class="analysis">
-        <summary>Detailanalyse und Diagramme anzeigen</summary>
-      <div class="charts">
-        <div class="card">
-          <div class="chart-title"><div>
-            <h3>Gesamtkosten je nach Gesundheitsausgaben</h3>
-            <p>Prämie + Selbstbehalt über ein Jahr. Wo sich die Linien kreuzen, kippt die beste Wahl.</p>
-          </div></div>
-          <div style="position:relative">
-            <svg id="lineChart" viewBox="0 0 720 340" role="img" aria-label="Gesamtkosten je Franchise"></svg>
-            <div class="tt" id="ttLine"></div>
-          </div>
-          <div class="legend" id="lineLegend"></div>
+    <div class="workspace">
+      <form class="input-panel" id="calculatorForm" novalidate>
+        <div class="panel-heading">
+          <span class="step-number">1</span>
+          <div><h2>Person und Wohnort</h2><p>Damit wir die richtige Prämienregion verwenden.</p></div>
         </div>
 
-        <div class="card">
-          <div class="chart-title">
-            <div><h3>Monatsprämie je Franchise</h3>
-              <p>Kantons-Durchschnitt im Standardmodell (freie Arztwahl), 2026.</p></div>
-            <button class="linkbtn" id="tableToggle">Tabelle</button>
+        <div class="field location-field">
+          <label for="locationSearch">PLZ oder Ort <span aria-hidden="true">*</span></label>
+          <input id="locationSearch" type="search" autocomplete="postal-code" placeholder="z. B. 8001 Zürich" aria-describedby="locationHelp" required>
+          <div class="location-results" id="locationResults" role="listbox" hidden></div>
+          <p class="field-help" id="locationHelp">Die politische Gemeinde bestimmt die offizielle Prämienregion.</p>
+          <p class="field-error" id="locationError" hidden>Bitte einen Ort aus der Liste auswählen.</p>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="birthYear">Geburtsjahr <span aria-hidden="true">*</span></label>
+            <input id="birthYear" type="number" min="1900" max="2026" inputmode="numeric" placeholder="1988" required>
           </div>
-          <div style="position:relative">
-            <svg id="barChart" viewBox="0 0 720 280" role="img" aria-label="Monatsprämie je Franchise"></svg>
-            <div class="tt" id="ttBar"></div>
-          </div>
-          <div id="tableWrap" class="hidden"></div>
-          <div class="foot">
-            <span id="src">Quelle: BAG / opendata.swiss &middot; Prämien 2026 &middot; Standardmodell</span>
-            <a id="priminfo" href="https://www.priminfo.admin.ch/de/praemien" target="_blank" rel="noopener">priminfo.admin.ch ↗</a>
+          <div class="field">
+            <span class="field-label">Unfalldeckung</span>
+            <div class="choice-group" id="accidentChoice">
+              <button type="button" data-value="MIT" aria-pressed="true">Mit Unfall</button>
+              <button type="button" data-value="OHNE" aria-pressed="false">Ohne Unfall</button>
+            </div>
           </div>
         </div>
-      </div>
-      </details>
-    </section>
-  </div>
-</main>
+        <p class="inline-note" id="personSummary">Alter und Prämienkategorie werden automatisch bestimmt.</p>
 
-<script id="fdata" type="application/json">{"meta":{"source":"BAG / opendata.swiss – Krankenversicherungsprämien","year":2026,"model":"TAR-BASE (Standardmodell, freie Arztwahl)","aggregation":"Kantons-Durchschnitt über alle Prämienregionen & Versicherer","license":"terms_open (opendata.swiss)","landing":"https://www.priminfo.admin.ch/de/praemien"},"cantonNames":{"AG":"Aargau","AR":"Appenzell Ausserrhoden","AI":"Appenzell Innerrhoden","BL":"Basel-Landschaft","BS":"Basel-Stadt","BE":"Bern","FR":"Freiburg","GE":"Genf","GL":"Glarus","GR":"Graubünden","JU":"Jura","LU":"Luzern","NE":"Neuenburg","NW":"Nidwalden","OW":"Obwalden","SH":"Schaffhausen","SZ":"Schwyz","SO":"Solothurn","SG":"St. Gallen","TI":"Tessin","TG":"Thurgau","UR":"Uri","VD":"Waadt","VS":"Wallis","ZG":"Zug","ZH":"Zürich"},"cantons":{"AG":{"KIN":{"MIT-UNF":{"0":{"avg":114.89,"min":52.8,"n":46},"100":{"avg":109.11,"min":54.8,"n":36},"200":{"avg":104.69,"min":45.4,"n":43},"300":{"avg":96.53,"min":38.5,"n":39},"400":{"avg":94.42,"min":32.2,"n":43},"600":{"avg":83.83,"min":30.1,"n":41},"500":{"avg":87.02,"min":31.2,"n":37}},"OHN-UNF":{"0":{"avg":107.55,"min":50.2,"n":46},"100":{"avg":102.24,"min":51.2,"n":36},"200":{"avg":98.05,"min":43.1,"n":43},"300":{"avg":90.43,"min":36.6,"n":39},"400":{"avg":88.42,"min":30.6,"n":43},"600":{"avg":78.51,"min":28.6,"n":41},"500":{"avg":81.53,"min":29.6,"n":37}}},"JUG":{"MIT-UNF":{"300":{"avg":423.5,"min":372.6,"n":27},"500":{"avg":412.22,"min":361.0,"n":27},"1000":{"avg":382.99,"min":331.8,"n":27},"1500":{"avg":354.06,"min":302.6,"n":27},"2000":{"avg":323.56,"min":273.5,"n":26},"2500":{"avg":296.09,"min":244.3,"n":27}},"OHN-UNF":{"300":{"avg":396.83,"min":346.9,"n":27},"500":{"avg":386.26,"min":336.1,"n":27},"1000":{"avg":358.87,"min":309.0,"n":27},"1500":{"avg":331.79,"min":281.8,"n":27},"2000":{"avg":303.29,"min":254.7,"n":26},"2500":{"avg":277.46,"min":227.5,"n":27}}},"ERW":{"MIT-UNF":{"300":{"avg":569.15,"min":519.25,"n":27},"500":{"avg":557.76,"min":507.6,"n":27},"1000":{"avg":528.49,"min":478.4,"n":27},"1500":{"avg":499.33,"min":449.25,"n":27},"2000":{"avg":469.93,"min":420.1,"n":26},"2500":{"avg":440.97,"min":390.9,"n":27}},"OHN-UNF":{"300":{"avg":533.13,"min":488.1,"n":27},"500":{"avg":522.46,"min":477.15,"n":27},"1000":{"avg":495.03,"min":449.7,"n":27},"1500":{"avg":467.72,"min":422.3,"n":27},"2000":{"avg":440.31,"min":394.9,"n":26},"2500":{"avg":413.05,"min":367.45,"n":27}}}},"AR":{"KIN":{"MIT-UNF":{"0":{"avg":110.48,"min":47.1,"n":39},"100":{"avg":108.07,"min":51.0,"n":29},"200":{"avg":101.48,"min":41.2,"n":36},"300":{"avg":92.07,"min":35.0,"n":32},"400":{"avg":91.14,"min":29.2,"n":36},"600":{"avg":79.67,"min":27.3,"n":34},"500":{"avg":83.88,"min":28.3,"n":30}},"OHN-UNF":{"0":{"avg":103.4,"min":43.8,"n":39},"100":{"avg":101.22,"min":47.7,"n":29},"200":{"avg":95.0,"min":39.1,"n":36},"300":{"avg":86.21,"min":33.3,"n":32},"400":{"avg":85.33,"min":27.7,"n":36},"600":{"avg":74.59,"min":25.9,"n":34},"500":{"avg":78.56,"min":26.9,"n":30}}},"JUG":{"MIT-UNF":{"300":{"avg":407.24,"min":346.6,"n":23},"500":{"avg":396.14,"min":335.0,"n":23},"1000":{"avg":366.51,"min":305.8,"n":23},"1500":{"avg":337.35,"min":276.6,"n":23},"2000":{"avg":307.8,"min":247.5,"n":22},"2500":{"avg":279.08,"min":218.3,"n":23}},"OHN-UNF":{"300":{"avg":381.43,"min":322.7,"n":23},"500":{"avg":371.04,"min":311.9,"n":23},"1000":{"avg":343.3,"min":284.7,"n":23},"1500":{"avg":315.99,"min":257.6,"n":23},"2000":{"avg":288.41,"min":230.5,"n":22},"2500":{"avg":261.41,"min":203.3,"n":23}}},"ERW":{"MIT-UNF":{"300":{"avg":548.84,"min":479.4,"n":23},"500":{"avg":537.51,"min":467.7,"n":23},"1000":{"avg":508.28,"min":438.6,"n":23},"1500":{"avg":478.97,"min":409.4,"n":23},"2000":{"avg":450.96,"min":380.2,"n":22},"2500":{"avg":420.78,"min":351.1,"n":23}},"OHN-UNF":{"300":{"avg":513.98,"min":455.4,"n":23},"500":{"avg":503.38,"min":444.3,"n":23},"1000":{"avg":476.01,"min":416.7,"n":23},"1500":{"avg":448.56,"min":388.9,"n":23},"2000":{"avg":422.44,"min":361.2,"n":22},"2500":{"avg":394.05,"min":333.5,"n":23}}}},"AI":{"KIN":{"MIT-UNF":{"0":{"avg":93.92,"min":41.1,"n":39},"100":{"avg":90.22,"min":43.2,"n":29},"200":{"avg":83.69,"min":35.2,"n":36},"300":{"avg":77.67,"min":30.0,"n":32},"400":{"avg":73.55,"min":25.1,"n":36},"600":{"avg":62.25,"min":23.4,"n":34},"500":{"avg":68.95,"min":24.2,"n":30}},"OHN-UNF":{"0":{"avg":87.87,"min":39.0,"n":39},"100":{"avg":84.48,"min":40.4,"n":29},"200":{"avg":78.33,"min":32.8,"n":36},"300":{"avg":72.7,"min":28.5,"n":32},"400":{"avg":68.83,"min":23.8,"n":36},"600":{"avg":58.25,"min":22.0,"n":34},"500":{"avg":64.56,"min":23.0,"n":30}}},"JUG":{"MIT-UNF":{"300":{"avg":344.79,"min":287.1,"n":23},"500":{"avg":333.52,"min":275.5,"n":23},"1000":{"avg":304.38,"min":246.3,"n":23},"1500":{"avg":275.41,"min":217.1,"n":23},"2000":{"avg":246.67,"min":188.0,"n":22},"2500":{"avg":217.92,"min":163.6,"n":23}},"OHN-UNF":{"300":{"avg":322.86,"min":267.0,"n":23},"500":{"avg":312.32,"min":256.2,"n":23},"1000":{"avg":285.03,"min":229.1,"n":23},"1500":{"avg":257.91,"min":201.9,"n":23},"2000":{"avg":231.05,"min":174.8,"n":22},"2500":{"avg":204.07,"min":152.2,"n":23}}},"ERW":{"MIT-UNF":{"300":{"avg":458.7,"min":411.0,"n":23},"500":{"avg":447.42,"min":399.3,"n":23},"1000":{"avg":418.13,"min":370.2,"n":23},"1500":{"avg":388.79,"min":341.0,"n":23},"2000":{"avg":361.34,"min":311.8,"n":22},"2500":{"avg":330.52,"min":282.7,"n":23}},"OHN-UNF":{"300":{"avg":429.5,"min":388.4,"n":23},"500":{"avg":418.94,"min":377.6,"n":23},"1000":{"avg":391.52,"min":350.5,"n":23},"1500":{"avg":364.03,"min":323.3,"n":23},"2000":{"avg":338.43,"min":296.2,"n":22},"2500":{"avg":309.45,"min":268.6,"n":23}}}},"BL":{"KIN":{"MIT-UNF":{"0":{"avg":136.5,"min":57.5,"n":78},"100":{"avg":132.89,"min":55.2,"n":58},"200":{"avg":126.53,"min":49.4,"n":72},"300":{"avg":118.46,"min":42.0,"n":64},"400":{"avg":116.01,"min":35.1,"n":72},"600":{"avg":103.94,"min":32.8,"n":68},"500":{"avg":109.24,"min":32.8,"n":60}},"OHN-UNF":{"0":{"avg":127.67,"min":54.6,"n":78},"100":{"avg":124.39,"min":51.6,"n":58},"200":{"avg":118.39,"min":46.2,"n":72},"300":{"avg":110.84,"min":39.9,"n":64},"400":{"avg":108.55,"min":33.3,"n":72},"600":{"avg":97.29,"min":30.7,"n":68},"500":{"avg":102.24,"min":30.7,"n":60}}},"JUG":{"MIT-UNF":{"300":{"avg":490.92,"min":415.7,"n":46},"500":{"avg":479.64,"min":404.1,"n":46},"1000":{"avg":450.47,"min":374.9,"n":46},"1500":{"avg":421.46,"min":345.7,"n":46},"2000":{"avg":391.15,"min":316.6,"n":44},"2500":{"avg":363.91,"min":287.4,"n":46}},"OHN-UNF":{"300":{"avg":459.77,"min":387.1,"n":46},"500":{"avg":449.21,"min":376.3,"n":46},"1000":{"avg":421.91,"min":349.1,"n":46},"1500":{"avg":394.73,"min":321.9,"n":46},"2000":{"avg":366.5,"min":294.8,"n":44},"2500":{"avg":340.87,"min":267.6,"n":46}}},"ERW":{"MIT-UNF":{"300":{"avg":663.12,"min":575.3,"n":46},"500":{"avg":651.94,"min":563.6,"n":46},"1000":{"avg":622.55,"min":534.5,"n":46},"1500":{"avg":593.15,"min":505.3,"n":46},"2000":{"avg":564.49,"min":476.1,"n":44},"2500":{"avg":535.43,"min":447.0,"n":46}},"OHN-UNF":{"300":{"avg":620.84,"min":544.1,"n":46},"500":{"avg":610.4,"min":533.3,"n":46},"1000":{"avg":582.87,"min":506.2,"n":46},"1500":{"avg":555.34,"min":479.0,"n":46},"2000":{"avg":528.67,"min":451.9,"n":44},"2500":{"avg":501.33,"min":424.7,"n":46}}}},"BS":{"KIN":{"MIT-UNF":{"0":{"avg":147.48,"min":69.1,"n":39},"100":{"avg":142.1,"min":64.3,"n":29},"200":{"avg":136.61,"min":59.5,"n":36},"300":{"avg":128.88,"min":53.1,"n":32},"400":{"avg":126.07,"min":47.3,"n":36},"600":{"avg":113.94,"min":39.2,"n":34},"500":{"avg":118.29,"min":41.7,"n":30}},"OHN-UNF":{"0":{"avg":138.01,"min":64.6,"n":39},"100":{"avg":133.09,"min":60.1,"n":29},"200":{"avg":127.91,"min":55.6,"n":36},"300":{"avg":120.66,"min":50.4,"n":32},"400":{"avg":118.03,"min":44.9,"n":36},"600":{"avg":106.68,"min":36.5,"n":34},"500":{"avg":110.79,"min":39.6,"n":30}}},"JUG":{"MIT-UNF":{"300":{"avg":540.41,"min":457.6,"n":23},"500":{"avg":529.13,"min":446.0,"n":23},"1000":{"avg":499.93,"min":416.8,"n":23},"1500":{"avg":471.01,"min":387.6,"n":23},"2000":{"avg":440.37,"min":358.5,"n":22},"2500":{"avg":413.04,"min":329.3,"n":23}},"OHN-UNF":{"300":{"avg":506.46,"min":426.1,"n":23},"500":{"avg":495.9,"min":415.3,"n":23},"1000":{"avg":468.56,"min":388.1,"n":23},"1500":{"avg":441.47,"min":360.9,"n":23},"2000":{"avg":412.94,"min":333.8,"n":22},"2500":{"avg":387.16,"min":306.6,"n":23}}},"ERW":{"MIT-UNF":{"300":{"avg":719.06,"min":673.7,"n":23},"500":{"avg":707.7,"min":662.1,"n":23},"1000":{"avg":678.38,"min":632.9,"n":23},"1500":{"avg":649.4,"min":603.7,"n":23},"2000":{"avg":619.85,"min":574.6,"n":22},"2500":{"avg":590.97,"min":545.4,"n":23}},"OHN-UNF":{"300":{"avg":673.55,"min":626.6,"n":23},"500":{"avg":662.92,"min":615.8,"n":23},"1000":{"avg":635.45,"min":588.6,"n":23},"1500":{"avg":608.33,"min":561.5,"n":23},"2000":{"avg":580.86,"min":534.4,"n":22},"2500":{"avg":553.59,"min":507.3,"n":23}}}},"BE":{"KIN":{"MIT-UNF":{"0":{"avg":123.73,"min":52.1,"n":135},"100":{"avg":118.13,"min":49.2,"n":105},"200":{"avg":112.93,"min":43.2,"n":126},"300":{"avg":105.77,"min":37.1,"n":114},"400":{"avg":102.49,"min":31.3,"n":126},"600":{"avg":91.45,"min":29.4,"n":120},"500":{"avg":95.28,"min":29.4,"n":108}},"OHN-UNF":{"0":{"avg":115.8,"min":49.5,"n":135},"100":{"avg":110.64,"min":46.0,"n":105},"200":{"avg":105.73,"min":40.4,"n":126},"300":{"avg":99.03,"min":34.7,"n":114},"400":{"avg":95.95,"min":29.3,"n":126},"600":{"avg":85.65,"min":27.5,"n":120},"500":{"avg":89.24,"min":27.5,"n":108}}},"JUG":{"MIT-UNF":{"300":{"avg":464.37,"min":366.2,"n":78},"500":{"avg":453.07,"min":354.6,"n":78},"1000":{"avg":424.06,"min":325.4,"n":78},"1500":{"avg":395.13,"min":296.2,"n":78},"2000":{"avg":364.52,"min":267.1,"n":75},"2500":{"avg":337.09,"min":237.9,"n":78}},"OHN-UNF":{"300":{"avg":435.05,"min":341.0,"n":78},"500":{"avg":424.48,"min":330.2,"n":78},"1000":{"avg":397.32,"min":303.0,"n":78},"1500":{"avg":370.23,"min":275.8,"n":78},"2000":{"avg":341.67,"min":248.7,"n":75},"2500":{"avg":315.87,"min":221.5,"n":78}}},"ERW":{"MIT-UNF":{"300":{"avg":620.4,"min":520.4,"n":78},"500":{"avg":609.15,"min":508.7,"n":78},"1000":{"avg":579.72,"min":479.6,"n":78},"1500":{"avg":550.55,"min":450.4,"n":78},"2000":{"avg":521.07,"min":421.2,"n":75},"2500":{"avg":492.31,"min":392.1,"n":78}},"OHN-UNF":{"300":{"avg":581.04,"min":486.5,"n":78},"500":{"avg":570.52,"min":475.7,"n":78},"1000":{"avg":542.95,"min":448.6,"n":78},"1500":{"avg":515.63,"min":421.4,"n":78},"2000":{"avg":488.17,"min":394.4,"n":75},"2500":{"avg":461.1,"min":367.2,"n":78}}}},"FR":{"KIN":{"MIT-UNF":{"0":{"avg":122.17,"min":52.3,"n":78},"100":{"avg":117.97,"min":48.3,"n":58},"200":{"avg":111.78,"min":42.5,"n":72},"300":{"avg":104.8,"min":36.1,"n":64},"400":{"avg":101.32,"min":30.7,"n":72},"600":{"avg":91.68,"min":28.9,"n":68},"500":{"avg":94.86,"min":28.9,"n":60}},"OHN-UNF":{"0":{"avg":114.3,"min":49.7,"n":78},"100":{"avg":110.46,"min":45.2,"n":58},"200":{"avg":104.62,"min":39.7,"n":72},"300":{"avg":98.1,"min":33.8,"n":64},"400":{"avg":94.84,"min":28.8,"n":72},"600":{"avg":85.8,"min":27.0,"n":68},"500":{"avg":88.82,"min":27.0,"n":60}}},"JUG":{"MIT-UNF":{"300":{"avg":444.25,"min":381.7,"n":46},"500":{"avg":433.01,"min":370.0,"n":46},"1000":{"avg":403.81,"min":340.9,"n":46},"1500":{"avg":374.87,"min":311.7,"n":46},"2000":{"avg":344.89,"min":282.5,"n":44},"2500":{"avg":317.23,"min":253.4,"n":46}},"OHN-UNF":{"300":{"avg":416.14,"min":356.9,"n":46},"500":{"avg":405.62,"min":346.0,"n":46},"1000":{"avg":378.28,"min":318.8,"n":46},"1500":{"avg":351.18,"min":291.5,"n":46},"2000":{"avg":323.21,"min":264.2,"n":44},"2500":{"avg":297.21,"min":237.0,"n":46}}},"ERW":{"MIT-UNF":{"300":{"avg":586.29,"min":523.3,"n":46},"500":{"avg":575.07,"min":511.6,"n":46},"1000":{"avg":545.73,"min":482.5,"n":46},"1500":{"avg":516.37,"min":453.3,"n":46},"2000":{"avg":487.38,"min":424.1,"n":44},"2500":{"avg":458.16,"min":395.0,"n":46}},"OHN-UNF":{"300":{"avg":549.05,"min":493.9,"n":46},"500":{"avg":538.55,"min":483.1,"n":46},"1000":{"avg":511.07,"min":455.9,"n":46},"1500":{"avg":483.58,"min":428.8,"n":46},"2000":{"avg":456.57,"min":401.7,"n":44},"2500":{"avg":429.06,"min":374.6,"n":46}}}},"GE":{"KIN":{"MIT-UNF":{"0":{"avg":158.79,"min":75.7,"n":35},"100":{"avg":152.8,"min":70.5,"n":25},"200":{"avg":147.67,"min":64.1,"n":32},"300":{"avg":141.23,"min":59.9,"n":28},"400":{"avg":137.11,"min":52.4,"n":32},"600":{"avg":124.62,"min":40.7,"n":30},"500":{"avg":130.25,"min":49.4,"n":26}},"OHN-UNF":{"0":{"avg":148.61,"min":70.5,"n":35},"100":{"avg":143.13,"min":65.9,"n":25},"200":{"avg":138.27,"min":59.6,"n":32},"300":{"avg":132.27,"min":56.0,"n":28},"400":{"avg":128.4,"min":48.8,"n":32},"600":{"avg":116.7,"min":37.9,"n":30},"500":{"avg":122.05,"min":46.2,"n":26}}},"JUG":{"MIT-UNF":{"300":{"avg":581.22,"min":468.1,"n":21},"500":{"avg":570.16,"min":456.5,"n":21},"1000":{"avg":541.0,"min":427.3,"n":21},"1500":{"avg":512.01,"min":398.1,"n":21},"2000":{"avg":482.21,"min":369.0,"n":20},"2500":{"avg":454.23,"min":339.8,"n":21}},"OHN-UNF":{"300":{"avg":544.84,"min":435.9,"n":21},"500":{"avg":534.48,"min":425.1,"n":21},"1000":{"avg":507.18,"min":397.9,"n":21},"1500":{"avg":480.03,"min":370.7,"n":21},"2000":{"avg":452.3,"min":343.6,"n":20},"2500":{"avg":425.92,"min":316.4,"n":21}}},"ERW":{"MIT-UNF":{"300":{"avg":763.66,"min":686.7,"n":21},"500":{"avg":752.45,"min":675.1,"n":21},"1000":{"avg":723.25,"min":645.9,"n":21},"1500":{"avg":693.81,"min":616.7,"n":21},"2000":{"avg":665.53,"min":587.6,"n":20},"2500":{"avg":635.55,"min":558.4,"n":21}},"OHN-UNF":{"300":{"avg":715.56,"min":638.7,"n":21},"500":{"avg":705.07,"min":627.9,"n":21},"1000":{"avg":677.74,"min":600.7,"n":21},"1500":{"avg":650.15,"min":573.6,"n":21},"2000":{"avg":623.9,"min":546.5,"n":20},"2500":{"avg":595.58,"min":519.4,"n":21}}}},"GL":{"KIN":{"MIT-UNF":{"0":{"avg":110.64,"min":50.4,"n":43},"100":{"avg":105.9,"min":47.7,"n":32},"200":{"avg":100.41,"min":42.0,"n":39},"300":{"avg":93.23,"min":35.5,"n":36},"400":{"avg":90.18,"min":30.4,"n":40},"600":{"avg":79.28,"min":28.3,"n":38},"500":{"avg":83.66,"min":28.5,"n":34}},"OHN-UNF":{"0":{"avg":103.53,"min":47.9,"n":43},"100":{"avg":99.17,"min":44.6,"n":32},"200":{"avg":93.99,"min":39.2,"n":39},"300":{"avg":87.27,"min":33.2,"n":36},"400":{"avg":84.42,"min":28.4,"n":40},"600":{"avg":74.21,"min":26.3,"n":38},"500":{"avg":78.35,"min":26.7,"n":34}}},"JUG":{"MIT-UNF":{"300":{"avg":404.62,"min":345.7,"n":26},"500":{"avg":393.4,"min":334.1,"n":26},"1000":{"avg":364.25,"min":304.9,"n":26},"1500":{"avg":335.07,"min":275.7,"n":26},"2000":{"avg":305.5,"min":246.6,"n":25},"2500":{"avg":277.2,"min":217.4,"n":26}},"OHN-UNF":{"300":{"avg":379.0,"min":321.9,"n":26},"500":{"avg":368.51,"min":311.1,"n":26},"1000":{"avg":341.21,"min":283.9,"n":26},"1500":{"avg":313.85,"min":256.7,"n":26},"2000":{"avg":286.24,"min":229.6,"n":25},"2500":{"avg":259.65,"min":202.4,"n":26}}},"ERW":{"MIT-UNF":{"300":{"avg":537.32,"min":493.0,"n":26},"500":{"avg":525.98,"min":483.15,"n":26},"1000":{"avg":496.61,"min":453.55,"n":26},"1500":{"avg":467.36,"min":424.0,"n":26},"2000":{"avg":438.64,"min":394.4,"n":25},"2500":{"avg":409.07,"min":364.8,"n":26}},"OHN-UNF":{"300":{"avg":503.16,"min":478.5,"n":26},"500":{"avg":492.57,"min":467.4,"n":26},"1000":{"avg":465.04,"min":439.8,"n":26},"1500":{"avg":437.65,"min":412.0,"n":26},"2000":{"avg":410.87,"min":384.3,"n":25},"2500":{"avg":383.04,"min":356.6,"n":26}}}},"GR":{"KIN":{"MIT-UNF":{"0":{"avg":111.89,"min":47.3,"n":120},"100":{"avg":108.52,"min":47.5,"n":90},"200":{"avg":102.34,"min":40.7,"n":111},"300":{"avg":94.59,"min":34.5,"n":99},"400":{"avg":91.75,"min":28.9,"n":111},"600":{"avg":80.7,"min":27.0,"n":105},"500":{"avg":85.45,"min":27.9,"n":93}},"OHN-UNF":{"0":{"avg":104.75,"min":44.9,"n":120},"100":{"avg":101.71,"min":44.4,"n":90},"200":{"avg":95.86,"min":38.2,"n":111},"300":{"avg":88.61,"min":32.8,"n":99},"400":{"avg":85.93,"min":27.5,"n":111},"600":{"avg":75.58,"min":25.7,"n":105},"500":{"avg":80.07,"min":26.5,"n":93}}},"JUG":{"MIT-UNF":{"300":{"avg":406.62,"min":330.9,"n":72},"500":{"avg":395.44,"min":319.3,"n":72},"1000":{"avg":366.52,"min":290.1,"n":72},"1500":{"avg":337.7,"min":260.9,"n":72},"2000":{"avg":307.81,"min":231.8,"n":69},"2500":{"avg":280.26,"min":202.6,"n":72}},"OHN-UNF":{"300":{"avg":381.31,"min":308.1,"n":72},"500":{"avg":370.83,"min":297.3,"n":72},"1000":{"avg":343.72,"min":270.1,"n":72},"1500":{"avg":316.7,"min":242.9,"n":72},"2000":{"avg":288.77,"min":215.9,"n":69},"2500":{"avg":262.84,"min":188.7,"n":72}}},"ERW":{"MIT-UNF":{"300":{"avg":538.6,"min":426.0,"n":72},"500":{"avg":527.29,"min":417.5,"n":72},"1000":{"avg":497.96,"min":387.65,"n":72},"1500":{"avg":468.7,"min":357.85,"n":72},"2000":{"avg":439.59,"min":328.0,"n":69},"2500":{"avg":410.96,"min":300.75,"n":72}},"OHN-UNF":{"300":{"avg":504.88,"min":416.4,"n":72},"500":{"avg":494.28,"min":406.4,"n":72},"1000":{"avg":466.77,"min":378.7,"n":72},"1500":{"avg":439.32,"min":352.1,"n":72},"2000":{"avg":412.18,"min":326.05,"n":69},"2500":{"avg":385.19,"min":298.95,"n":72}}}},"JU":{"KIN":{"MIT-UNF":{"0":{"avg":136.97,"min":63.2,"n":35},"100":{"avg":131.8,"min":60.3,"n":25},"200":{"avg":126.46,"min":54.4,"n":32},"300":{"avg":117.37,"min":46.1,"n":28},"400":{"avg":115.85,"min":39.9,"n":32},"600":{"avg":103.53,"min":35.5,"n":30},"500":{"avg":107.73,"min":36.9,"n":26}},"OHN-UNF":{"0":{"avg":128.16,"min":60.0,"n":35},"100":{"avg":123.47,"min":56.4,"n":25},"200":{"avg":118.4,"min":50.9,"n":32},"300":{"avg":109.89,"min":43.8,"n":28},"400":{"avg":108.46,"min":37.9,"n":32},"600":{"avg":96.93,"min":33.3,"n":30},"500":{"avg":100.91,"min":34.5,"n":26}}},"JUG":{"MIT-UNF":{"300":{"avg":513.25,"min":425.6,"n":21},"500":{"avg":501.96,"min":414.0,"n":21},"1000":{"avg":472.84,"min":384.8,"n":21},"1500":{"avg":443.87,"min":355.6,"n":21},"2000":{"avg":412.83,"min":326.5,"n":20},"2500":{"avg":386.11,"min":297.3,"n":21}},"OHN-UNF":{"300":{"avg":480.82,"min":396.3,"n":21},"500":{"avg":470.26,"min":385.5,"n":21},"1000":{"avg":442.98,"min":358.3,"n":21},"1500":{"avg":415.85,"min":331.1,"n":21},"2000":{"avg":386.93,"min":304.0,"n":20},"2500":{"avg":361.76,"min":276.8,"n":21}}},"ERW":{"MIT-UNF":{"300":{"avg":681.63,"min":628.2,"n":21},"500":{"avg":670.5,"min":616.6,"n":21},"1000":{"avg":640.88,"min":587.4,"n":21},"1500":{"avg":611.74,"min":558.2,"n":21},"2000":{"avg":581.98,"min":529.1,"n":20},"2500":{"avg":553.69,"min":499.9,"n":21}},"OHN-UNF":{"300":{"avg":638.36,"min":596.8,"n":21},"500":{"avg":627.95,"min":585.8,"n":21},"1000":{"avg":600.2,"min":558.0,"n":21},"1500":{"avg":572.91,"min":530.3,"n":21},"2000":{"avg":545.23,"min":502.6,"n":20},"2500":{"avg":518.55,"min":474.9,"n":21}}}},"LU":{"KIN":{"MIT-UNF":{"0":{"avg":109.24,"min":48.2,"n":126},"100":{"avg":104.62,"min":49.2,"n":96},"200":{"avg":99.0,"min":41.5,"n":117},"300":{"avg":91.91,"min":35.2,"n":105},"400":{"avg":88.57,"min":29.4,"n":117},"600":{"avg":77.8,"min":27.5,"n":111},"500":{"avg":82.4,"min":28.4,"n":99}},"OHN-UNF":{"0":{"avg":102.26,"min":45.8,"n":126},"100":{"avg":98.02,"min":46.0,"n":96},"200":{"avg":92.7,"min":39.0,"n":117},"300":{"avg":86.09,"min":33.4,"n":105},"400":{"avg":82.94,"min":27.9,"n":117},"600":{"avg":72.87,"min":26.1,"n":111},"500":{"avg":77.19,"min":27.0,"n":99}}},"JUG":{"MIT-UNF":{"300":{"avg":403.93,"min":330.8,"n":75},"500":{"avg":392.7,"min":319.2,"n":75},"1000":{"avg":363.5,"min":290.0,"n":75},"1500":{"avg":334.53,"min":260.8,"n":75},"2000":{"avg":304.36,"min":231.7,"n":72},"2500":{"avg":276.62,"min":202.5,"n":75}},"OHN-UNF":{"300":{"avg":378.48,"min":308.0,"n":75},"500":{"avg":367.96,"min":297.2,"n":75},"1000":{"avg":340.62,"min":270.0,"n":75},"1500":{"avg":313.48,"min":242.9,"n":75},"2000":{"avg":285.32,"min":215.8,"n":72},"2500":{"avg":259.23,"min":188.6,"n":75}}},"ERW":{"MIT-UNF":{"300":{"avg":536.89,"min":452.8,"n":75},"500":{"avg":525.57,"min":442.4,"n":75},"1000":{"avg":496.25,"min":411.95,"n":75},"1500":{"avg":466.97,"min":382.8,"n":75},"2000":{"avg":437.62,"min":353.65,"n":72},"2500":{"avg":408.68,"min":324.45,"n":75}},"OHN-UNF":{"300":{"avg":502.89,"min":425.65,"n":75},"500":{"avg":492.29,"min":415.85,"n":75},"1000":{"avg":464.83,"min":387.25,"n":75},"1500":{"avg":437.4,"min":359.85,"n":75},"2000":{"avg":410.03,"min":332.4,"n":72},"2500":{"avg":382.79,"min":305.0,"n":75}}}},"NE":{"KIN":{"MIT-UNF":{"0":{"avg":143.78,"min":68.6,"n":35},"100":{"avg":136.76,"min":63.8,"n":25},"200":{"avg":133.18,"min":57.0,"n":32},"300":{"avg":123.44,"min":52.1,"n":28},"400":{"avg":122.59,"min":45.3,"n":32},"600":{"avg":111.56,"min":36.9,"n":30},"500":{"avg":112.64,"min":40.5,"n":26}},"OHN-UNF":{"0":{"avg":134.53,"min":63.8,"n":35},"100":{"avg":128.12,"min":59.6,"n":25},"200":{"avg":124.69,"min":53.0,"n":32},"300":{"avg":115.59,"min":48.7,"n":28},"400":{"avg":114.77,"min":42.1,"n":32},"600":{"avg":104.45,"min":34.3,"n":30},"500":{"avg":105.54,"min":37.8,"n":26}}},"JUG":{"MIT-UNF":{"300":{"avg":538.1,"min":432.5,"n":21},"500":{"avg":526.81,"min":420.9,"n":21},"1000":{"avg":497.65,"min":391.7,"n":21},"1500":{"avg":468.68,"min":362.5,"n":21},"2000":{"avg":435.81,"min":333.4,"n":20},"2500":{"avg":410.88,"min":304.2,"n":21}},"OHN-UNF":{"300":{"avg":504.07,"min":402.7,"n":21},"500":{"avg":493.51,"min":391.9,"n":21},"1000":{"avg":466.2,"min":364.7,"n":21},"1500":{"avg":439.06,"min":337.5,"n":21},"2000":{"avg":408.44,"min":310.4,"n":20},"2500":{"avg":384.93,"min":283.3,"n":21}}},"ERW":{"MIT-UNF":{"300":{"avg":713.43,"min":655.9,"n":21},"500":{"avg":702.08,"min":644.3,"n":21},"1000":{"avg":672.8,"min":615.1,"n":21},"1500":{"avg":643.49,"min":585.9,"n":21},"2000":{"avg":611.46,"min":556.8,"n":20},"2500":{"avg":585.47,"min":527.6,"n":21}},"OHN-UNF":{"300":{"avg":668.34,"min":614.8,"n":21},"500":{"avg":657.7,"min":604.0,"n":21},"1000":{"avg":630.28,"min":576.8,"n":21},"1500":{"avg":602.84,"min":549.7,"n":21},"2000":{"avg":573.07,"min":522.6,"n":20},"2500":{"avg":548.5,"min":495.5,"n":21}}}},"NW":{"KIN":{"MIT-UNF":{"0":{"avg":102.78,"min":44.8,"n":44},"100":{"avg":99.04,"min":46.1,"n":34},"200":{"avg":92.96,"min":38.3,"n":41},"300":{"avg":86.27,"min":32.7,"n":37},"400":{"avg":82.67,"min":27.3,"n":41},"600":{"avg":72.42,"min":25.5,"n":39},"500":{"avg":77.12,"min":26.4,"n":35}},"OHN-UNF":{"0":{"avg":96.21,"min":42.6,"n":44},"100":{"avg":92.79,"min":43.1,"n":34},"200":{"avg":87.05,"min":35.6,"n":41},"300":{"avg":80.81,"min":31.1,"n":37},"400":{"avg":77.41,"min":25.9,"n":41},"600":{"avg":67.82,"min":23.9,"n":39},"500":{"avg":72.25,"min":25.1,"n":35}}},"JUG":{"MIT-UNF":{"300":{"avg":372.23,"min":318.6,"n":26},"500":{"avg":360.9,"min":307.0,"n":26},"1000":{"avg":331.87,"min":277.8,"n":26},"1500":{"avg":302.84,"min":248.6,"n":26},"2000":{"avg":273.01,"min":219.5,"n":25},"2500":{"avg":245.1,"min":190.3,"n":26}},"OHN-UNF":{"300":{"avg":348.68,"min":296.7,"n":26},"500":{"avg":338.07,"min":285.9,"n":26},"1000":{"avg":310.9,"min":258.7,"n":26},"1500":{"avg":283.69,"min":231.5,"n":26},"2000":{"avg":255.83,"min":204.4,"n":25},"2500":{"avg":229.62,"min":177.2,"n":26}}},"ERW":{"MIT-UNF":{"300":{"avg":496.61,"min":448.1,"n":26},"500":{"avg":485.32,"min":436.4,"n":26},"1000":{"avg":455.96,"min":407.3,"n":26},"1500":{"avg":426.76,"min":378.1,"n":26},"2000":{"avg":397.76,"min":348.9,"n":25},"2500":{"avg":368.55,"min":319.8,"n":26}},"OHN-UNF":{"300":{"avg":465.13,"min":425.7,"n":26},"500":{"avg":454.57,"min":414.6,"n":26},"1000":{"avg":427.05,"min":386.9,"n":26},"1500":{"avg":399.72,"min":359.2,"n":26},"2000":{"avg":372.65,"min":331.5,"n":25},"2500":{"avg":345.19,"min":303.8,"n":26}}}},"OW":{"KIN":{"MIT-UNF":{"0":{"avg":105.29,"min":44.5,"n":44},"100":{"avg":101.32,"min":45.5,"n":34},"200":{"avg":95.43,"min":38.3,"n":41},"300":{"avg":88.56,"min":32.5,"n":37},"400":{"avg":85.15,"min":27.1,"n":41},"600":{"avg":74.81,"min":25.4,"n":39},"500":{"avg":79.32,"min":26.3,"n":35}},"OHN-UNF":{"0":{"avg":98.54,"min":42.3,"n":44},"100":{"avg":94.91,"min":42.5,"n":34},"200":{"avg":89.35,"min":36.3,"n":41},"300":{"avg":82.93,"min":30.9,"n":37},"400":{"avg":79.72,"min":25.7,"n":41},"600":{"avg":70.05,"min":24.1,"n":39},"500":{"avg":74.32,"min":25.0,"n":35}}},"JUG":{"MIT-UNF":{"300":{"avg":377.78,"min":319.7,"n":26},"500":{"avg":366.58,"min":308.1,"n":26},"1000":{"avg":337.35,"min":278.9,"n":26},"1500":{"avg":308.4,"min":249.7,"n":26},"2000":{"avg":277.2,"min":220.6,"n":25},"2500":{"avg":250.52,"min":191.4,"n":26}},"OHN-UNF":{"300":{"avg":353.89,"min":297.7,"n":26},"500":{"avg":343.42,"min":286.9,"n":26},"1000":{"avg":316.02,"min":259.7,"n":26},"1500":{"avg":288.92,"min":232.5,"n":26},"2000":{"avg":259.76,"min":205.4,"n":25},"2500":{"avg":234.69,"min":178.2,"n":26}}},"ERW":{"MIT-UNF":{"300":{"avg":504.24,"min":445.1,"n":26},"500":{"avg":492.9,"min":433.4,"n":26},"1000":{"avg":463.52,"min":404.3,"n":26},"1500":{"avg":434.46,"min":375.1,"n":26},"2000":{"avg":403.8,"min":345.9,"n":25},"2500":{"avg":376.14,"min":316.8,"n":26}},"OHN-UNF":{"300":{"avg":472.28,"min":422.8,"n":26},"500":{"avg":461.67,"min":411.7,"n":26},"1000":{"avg":434.13,"min":384.1,"n":26},"1500":{"avg":406.93,"min":356.3,"n":26},"2000":{"avg":378.33,"min":328.6,"n":25},"2500":{"avg":352.3,"min":301.0,"n":26}}}},"SH":{"KIN":{"MIT-UNF":{"0":{"avg":114.73,"min":50.4,"n":78},"100":{"avg":109.94,"min":49.7,"n":58},"200":{"avg":104.34,"min":43.3,"n":72},"300":{"avg":96.5,"min":36.8,"n":64},"400":{"avg":93.92,"min":30.7,"n":72},"600":{"avg":83.71,"min":28.7,"n":68},"500":{"avg":86.53,"min":29.7,"n":60}},"OHN-UNF":{"0":{"avg":107.38,"min":47.9,"n":78},"100":{"avg":103.0,"min":46.5,"n":58},"200":{"avg":97.71,"min":40.9,"n":72},"300":{"avg":90.37,"min":35.0,"n":64},"400":{"avg":87.95,"min":29.2,"n":72},"600":{"avg":78.39,"min":27.3,"n":68},"500":{"avg":81.07,"min":27.8,"n":60}}},"JUG":{"MIT-UNF":{"300":{"avg":433.04,"min":356.3,"n":46},"500":{"avg":421.8,"min":344.7,"n":46},"1000":{"avg":392.65,"min":315.5,"n":46},"1500":{"avg":363.62,"min":286.3,"n":46},"2000":{"avg":333.61,"min":257.2,"n":44},"2500":{"avg":305.84,"min":228.0,"n":46}},"OHN-UNF":{"300":{"avg":405.66,"min":331.8,"n":46},"500":{"avg":395.15,"min":321.0,"n":46},"1000":{"avg":367.83,"min":293.8,"n":46},"1500":{"avg":340.67,"min":266.6,"n":46},"2000":{"avg":312.67,"min":239.5,"n":44},"2500":{"avg":286.55,"min":212.3,"n":46}}},"ERW":{"MIT-UNF":{"300":{"avg":575.11,"min":504.4,"n":46},"500":{"avg":563.77,"min":492.7,"n":46},"1000":{"avg":534.49,"min":463.6,"n":46},"1500":{"avg":505.27,"min":434.4,"n":46},"2000":{"avg":476.14,"min":405.2,"n":44},"2500":{"avg":447.11,"min":376.1,"n":46}},"OHN-UNF":{"300":{"avg":538.57,"min":478.3,"n":46},"500":{"avg":527.97,"min":467.6,"n":46},"1000":{"avg":500.55,"min":440.4,"n":46},"1500":{"avg":473.18,"min":412.7,"n":46},"2000":{"avg":446.04,"min":384.9,"n":44},"2500":{"avg":418.71,"min":357.3,"n":46}}}},"SZ":{"KIN":{"MIT-UNF":{"0":{"avg":107.45,"min":46.5,"n":47},"100":{"avg":102.25,"min":50.4,"n":36},"200":{"avg":97.02,"min":40.0,"n":43},"300":{"avg":90.08,"min":33.9,"n":40},"400":{"avg":86.98,"min":28.4,"n":44},"600":{"avg":76.06,"min":26.5,"n":42},"500":{"avg":80.66,"min":27.4,"n":38}},"OHN-UNF":{"0":{"avg":100.61,"min":44.2,"n":47},"100":{"avg":95.79,"min":47.1,"n":36},"200":{"avg":90.86,"min":38.0,"n":43},"300":{"avg":84.39,"min":32.2,"n":40},"400":{"avg":81.46,"min":27.0,"n":44},"600":{"avg":71.23,"min":25.2,"n":42},"500":{"avg":75.58,"min":26.0,"n":38}}},"JUG":{"MIT-UNF":{"300":{"avg":387.33,"min":329.5,"n":28},"500":{"avg":376.05,"min":317.9,"n":28},"1000":{"avg":346.8,"min":288.7,"n":28},"1500":{"avg":317.84,"min":259.5,"n":28},"2000":{"avg":286.77,"min":230.4,"n":27},"2500":{"avg":259.9,"min":201.2,"n":28}},"OHN-UNF":{"300":{"avg":362.99,"min":309.7,"n":28},"500":{"avg":352.43,"min":298.9,"n":28},"1000":{"avg":325.01,"min":271.4,"n":28},"1500":{"avg":297.89,"min":244.0,"n":28},"2000":{"avg":268.86,"min":216.6,"n":27},"2500":{"avg":243.62,"min":189.2,"n":28}}},"ERW":{"MIT-UNF":{"300":{"avg":523.11,"min":439.3,"n":28},"500":{"avg":511.73,"min":427.7,"n":28},"1000":{"avg":482.49,"min":398.5,"n":28},"1500":{"avg":453.19,"min":369.3,"n":28},"2000":{"avg":423.06,"min":340.2,"n":27},"2500":{"avg":394.96,"min":311.0,"n":28}},"OHN-UNF":{"300":{"avg":490.03,"min":412.9,"n":28},"500":{"avg":479.38,"min":402.1,"n":28},"1000":{"avg":451.99,"min":374.6,"n":28},"1500":{"avg":424.54,"min":347.2,"n":28},"2000":{"avg":396.42,"min":319.8,"n":27},"2500":{"avg":369.98,"min":292.4,"n":28}}}},"SO":{"KIN":{"MIT-UNF":{"0":{"avg":121.0,"min":56.5,"n":43},"100":{"avg":115.1,"min":53.6,"n":33},"200":{"avg":110.66,"min":47.8,"n":40},"300":{"avg":102.38,"min":41.2,"n":36},"400":{"avg":100.27,"min":34.5,"n":40},"600":{"avg":89.5,"min":32.0,"n":38},"500":{"avg":92.35,"min":32.0,"n":34}},"OHN-UNF":{"0":{"avg":113.24,"min":53.7,"n":43},"100":{"avg":107.8,"min":50.1,"n":33},"200":{"avg":103.61,"min":44.7,"n":40},"300":{"avg":95.87,"min":39.1,"n":36},"400":{"avg":93.87,"min":32.8,"n":40},"600":{"avg":83.8,"min":30.0,"n":38},"500":{"avg":86.5,"min":30.0,"n":34}}},"JUG":{"MIT-UNF":{"300":{"avg":448.4,"min":399.1,"n":25},"500":{"avg":437.14,"min":387.5,"n":25},"1000":{"avg":407.99,"min":358.3,"n":25},"1500":{"avg":378.99,"min":329.1,"n":25},"2000":{"avg":347.98,"min":300.0,"n":24},"2500":{"avg":320.96,"min":270.8,"n":25}},"OHN-UNF":{"300":{"avg":420.01,"min":371.6,"n":25},"500":{"avg":409.47,"min":360.8,"n":25},"1000":{"avg":382.17,"min":333.6,"n":25},"1500":{"avg":355.01,"min":306.4,"n":25},"2000":{"avg":326.07,"min":279.3,"n":24},"2500":{"avg":300.66,"min":252.2,"n":25}}},"ERW":{"MIT-UNF":{"300":{"avg":603.85,"min":565.4,"n":25},"500":{"avg":592.52,"min":553.7,"n":25},"1000":{"avg":563.28,"min":524.6,"n":25},"1500":{"avg":534.02,"min":495.4,"n":25},"2000":{"avg":504.0,"min":466.2,"n":24},"2500":{"avg":475.7,"min":437.1,"n":25}},"OHN-UNF":{"300":{"avg":565.5,"min":535.8,"n":25},"500":{"avg":554.9,"min":525.0,"n":25},"1000":{"avg":527.51,"min":497.9,"n":25},"1500":{"avg":500.1,"min":470.6,"n":25},"2000":{"avg":472.13,"min":442.9,"n":24},"2500":{"avg":445.47,"min":415.2,"n":25}}}},"SG":{"KIN":{"MIT-UNF":{"0":{"avg":111.67,"min":43.2,"n":123},"100":{"avg":108.94,"min":47.9,"n":90},"200":{"avg":102.56,"min":40.2,"n":111},"300":{"avg":94.46,"min":34.1,"n":102},"400":{"avg":92.43,"min":28.5,"n":114},"600":{"avg":80.57,"min":26.6,"n":108},"500":{"avg":86.47,"min":27.6,"n":96}},"OHN-UNF":{"0":{"avg":104.53,"min":40.2,"n":123},"100":{"avg":102.04,"min":44.8,"n":90},"200":{"avg":96.02,"min":37.9,"n":111},"300":{"avg":88.46,"min":32.4,"n":102},"400":{"avg":86.55,"min":27.1,"n":114},"600":{"avg":75.45,"min":25.3,"n":108},"500":{"avg":81.0,"min":26.2,"n":96}}},"JUG":{"MIT-UNF":{"300":{"avg":411.09,"min":335.4,"n":75},"500":{"avg":399.9,"min":323.8,"n":75},"1000":{"avg":370.47,"min":294.6,"n":75},"1500":{"avg":341.5,"min":265.4,"n":75},"2000":{"avg":311.8,"min":236.3,"n":72},"2500":{"avg":282.88,"min":207.1,"n":75}},"OHN-UNF":{"300":{"avg":385.2,"min":311.9,"n":75},"500":{"avg":374.73,"min":301.1,"n":75},"1000":{"avg":347.15,"min":274.0,"n":75},"1500":{"avg":320.02,"min":246.8,"n":75},"2000":{"avg":292.3,"min":219.8,"n":72},"2500":{"avg":265.12,"min":192.6,"n":75}}},"ERW":{"MIT-UNF":{"300":{"avg":549.46,"min":467.0,"n":75},"500":{"avg":538.16,"min":455.3,"n":75},"1000":{"avg":508.85,"min":426.2,"n":75},"1500":{"avg":479.59,"min":397.0,"n":75},"2000":{"avg":451.0,"min":367.8,"n":72},"2500":{"avg":421.31,"min":338.7,"n":75}},"OHN-UNF":{"300":{"avg":514.66,"min":443.7,"n":75},"500":{"avg":504.08,"min":432.5,"n":75},"1000":{"avg":476.62,"min":404.9,"n":75},"1500":{"avg":449.21,"min":377.2,"n":75},"2000":{"avg":422.56,"min":349.4,"n":72},"2500":{"avg":394.63,"min":321.8,"n":75}}}},"TI":{"KIN":{"MIT-UNF":{"0":{"avg":145.93,"min":62.7,"n":70},"100":{"avg":140.0,"min":61.2,"n":50},"200":{"avg":135.65,"min":53.9,"n":64},"300":{"avg":124.83,"min":45.8,"n":56},"400":{"avg":125.07,"min":39.4,"n":64},"600":{"avg":113.35,"min":35.7,"n":60},"500":{"avg":114.86,"min":37.0,"n":52}},"OHN-UNF":{"0":{"avg":136.53,"min":59.6,"n":70},"100":{"avg":131.13,"min":57.2,"n":50},"200":{"avg":126.97,"min":51.2,"n":64},"300":{"avg":116.86,"min":43.5,"n":56},"400":{"avg":117.08,"min":37.4,"n":64},"600":{"avg":106.1,"min":33.9,"n":60},"500":{"avg":107.58,"min":35.2,"n":52}}},"JUG":{"MIT-UNF":{"300":{"avg":538.79,"min":424.4,"n":42},"500":{"avg":527.55,"min":412.8,"n":42},"1000":{"avg":498.44,"min":383.6,"n":42},"1500":{"avg":469.42,"min":354.4,"n":42},"2000":{"avg":439.28,"min":325.3,"n":40},"2500":{"avg":411.55,"min":296.1,"n":42}},"OHN-UNF":{"300":{"avg":504.75,"min":395.2,"n":42},"500":{"avg":494.22,"min":384.4,"n":42},"1000":{"avg":466.97,"min":357.2,"n":42},"1500":{"avg":439.78,"min":330.0,"n":42},"2000":{"avg":411.71,"min":302.9,"n":40},"2500":{"avg":385.58,"min":275.7,"n":42}}},"ERW":{"MIT-UNF":{"300":{"avg":719.65,"min":626.7,"n":42},"500":{"avg":708.47,"min":615.0,"n":42},"1000":{"avg":679.17,"min":585.9,"n":42},"1500":{"avg":649.83,"min":556.7,"n":42},"2000":{"avg":621.52,"min":527.5,"n":40},"2500":{"avg":591.86,"min":498.4,"n":42}},"OHN-UNF":{"300":{"avg":673.91,"min":595.4,"n":42},"500":{"avg":663.46,"min":584.3,"n":42},"1000":{"avg":636.01,"min":556.6,"n":42},"1500":{"avg":608.53,"min":528.9,"n":42},"2000":{"avg":582.22,"min":501.1,"n":40},"2500":{"avg":554.24,"min":473.5,"n":42}}}},"TG":{"KIN":{"MIT-UNF":{"0":{"avg":112.7,"min":49.2,"n":39},"100":{"avg":110.18,"min":50.6,"n":29},"200":{"avg":103.6,"min":43.0,"n":36},"300":{"avg":95.51,"min":36.5,"n":32},"400":{"avg":93.22,"min":30.5,"n":36},"600":{"avg":80.71,"min":28.5,"n":34},"500":{"avg":87.47,"min":29.5,"n":30}},"OHN-UNF":{"0":{"avg":105.45,"min":45.8,"n":39},"100":{"avg":103.19,"min":47.3,"n":29},"200":{"avg":96.98,"min":40.9,"n":36},"300":{"avg":89.42,"min":34.7,"n":32},"400":{"avg":87.27,"min":29.0,"n":36},"600":{"avg":75.56,"min":27.1,"n":34},"500":{"avg":81.91,"min":28.0,"n":30}}},"JUG":{"MIT-UNF":{"300":{"avg":410.86,"min":360.0,"n":23},"500":{"avg":399.66,"min":348.4,"n":23},"1000":{"avg":370.5,"min":319.2,"n":23},"1500":{"avg":341.52,"min":290.0,"n":23},"2000":{"avg":311.07,"min":260.9,"n":22},"2500":{"avg":282.68,"min":231.7,"n":23}},"OHN-UNF":{"300":{"avg":384.9,"min":335.2,"n":23},"500":{"avg":374.38,"min":324.4,"n":23},"1000":{"avg":347.1,"min":297.2,"n":23},"1500":{"avg":319.97,"min":270.0,"n":23},"2000":{"avg":291.55,"min":242.9,"n":22},"2500":{"avg":264.86,"min":215.8,"n":23}}},"ERW":{"MIT-UNF":{"300":{"avg":548.68,"min":499.6,"n":23},"500":{"avg":537.32,"min":487.9,"n":23},"1000":{"avg":508.02,"min":458.8,"n":23},"1500":{"avg":478.85,"min":429.6,"n":23},"2000":{"avg":449.66,"min":400.4,"n":22},"2500":{"avg":420.49,"min":371.3,"n":23}},"OHN-UNF":{"300":{"avg":513.79,"min":474.6,"n":23},"500":{"avg":503.14,"min":463.5,"n":23},"1000":{"avg":475.71,"min":435.9,"n":23},"1500":{"avg":448.4,"min":408.1,"n":23},"2000":{"avg":421.2,"min":380.4,"n":22},"2500":{"avg":393.75,"min":352.7,"n":23}}}},"UR":{"KIN":{"MIT-UNF":{"0":{"avg":102.33,"min":43.8,"n":44},"100":{"avg":98.49,"min":44.9,"n":34},"200":{"avg":92.16,"min":37.7,"n":41},"300":{"avg":86.01,"min":32.0,"n":37},"400":{"avg":81.83,"min":26.7,"n":41},"600":{"avg":71.67,"min":25.0,"n":39},"500":{"avg":76.63,"min":25.8,"n":35}},"OHN-UNF":{"0":{"avg":95.77,"min":41.6,"n":44},"100":{"avg":92.26,"min":42.0,"n":34},"200":{"avg":86.3,"min":35.1,"n":41},"300":{"avg":80.54,"min":30.3,"n":37},"400":{"avg":76.63,"min":25.4,"n":41},"600":{"avg":67.12,"min":23.6,"n":39},"500":{"avg":71.78,"min":24.5,"n":35}}},"JUG":{"MIT-UNF":{"300":{"avg":376.16,"min":316.8,"n":26},"500":{"avg":364.88,"min":305.2,"n":26},"1000":{"avg":335.7,"min":276.0,"n":26},"1500":{"avg":306.77,"min":246.8,"n":26},"2000":{"avg":277.3,"min":217.7,"n":25},"2500":{"avg":248.92,"min":188.5,"n":26}},"OHN-UNF":{"300":{"avg":352.37,"min":294.6,"n":26},"500":{"avg":341.82,"min":283.8,"n":26},"1000":{"avg":314.5,"min":256.7,"n":26},"1500":{"avg":287.39,"min":229.5,"n":26},"2000":{"avg":259.89,"min":202.5,"n":25},"2500":{"avg":233.2,"min":175.3,"n":26}}},"ERW":{"MIT-UNF":{"300":{"avg":500.25,"min":437.9,"n":26},"500":{"avg":488.92,"min":426.2,"n":26},"1000":{"avg":459.6,"min":397.1,"n":26},"1500":{"avg":430.41,"min":367.9,"n":26},"2000":{"avg":401.69,"min":338.7,"n":25},"2500":{"avg":372.22,"min":309.6,"n":26}},"OHN-UNF":{"300":{"avg":468.48,"min":416.0,"n":26},"500":{"avg":457.88,"min":404.9,"n":26},"1000":{"avg":430.42,"min":377.2,"n":26},"1500":{"avg":403.07,"min":349.5,"n":26},"2000":{"avg":376.28,"min":321.8,"n":25},"2500":{"avg":348.57,"min":294.1,"n":26}}}},"VD":{"KIN":{"MIT-UNF":{"0":{"avg":143.03,"min":60.5,"n":70},"100":{"avg":138.64,"min":56.3,"n":50},"200":{"avg":132.64,"min":52.1,"n":64},"300":{"avg":124.74,"min":46.0,"n":56},"400":{"avg":122.1,"min":39.7,"n":64},"600":{"avg":110.5,"min":35.3,"n":60},"500":{"avg":114.93,"min":37.2,"n":52}},"OHN-UNF":{"0":{"avg":133.82,"min":56.6,"n":70},"100":{"avg":129.85,"min":52.7,"n":50},"200":{"avg":124.16,"min":48.7,"n":64},"300":{"avg":116.78,"min":43.7,"n":56},"400":{"avg":114.29,"min":37.7,"n":64},"600":{"avg":103.43,"min":33.0,"n":60},"500":{"avg":107.64,"min":35.3,"n":52}}},"JUG":{"MIT-UNF":{"300":{"avg":511.18,"min":425.2,"n":42},"500":{"avg":499.93,"min":413.6,"n":42},"1000":{"avg":470.87,"min":384.4,"n":42},"1500":{"avg":441.93,"min":355.2,"n":42},"2000":{"avg":410.2,"min":326.1,"n":40},"2500":{"avg":384.06,"min":296.9,"n":42}},"OHN-UNF":{"300":{"avg":479.06,"min":395.9,"n":42},"500":{"avg":468.53,"min":385.1,"n":42},"1000":{"avg":441.32,"min":357.9,"n":42},"1500":{"avg":414.21,"min":330.7,"n":42},"2000":{"avg":384.66,"min":303.6,"n":40},"2500":{"avg":360.0,"min":276.5,"n":42}}},"ERW":{"MIT-UNF":{"300":{"avg":679.02,"min":601.7,"n":42},"500":{"avg":667.7,"min":590.0,"n":42},"1000":{"avg":638.39,"min":560.9,"n":42},"1500":{"avg":609.22,"min":531.7,"n":42},"2000":{"avg":578.72,"min":502.5,"n":40},"2500":{"avg":550.94,"min":473.4,"n":42}},"OHN-UNF":{"300":{"avg":635.97,"min":562.4,"n":42},"500":{"avg":625.37,"min":551.5,"n":42},"1000":{"avg":597.93,"min":524.2,"n":42},"1500":{"avg":570.61,"min":496.9,"n":42},"2000":{"avg":542.25,"min":469.7,"n":40},"2500":{"avg":516.01,"min":442.4,"n":42}}}},"VS":{"KIN":{"MIT-UNF":{"0":{"avg":111.37,"min":47.2,"n":92},"100":{"avg":107.15,"min":47.8,"n":70},"200":{"avg":100.95,"min":40.6,"n":86},"300":{"avg":93.84,"min":34.5,"n":78},"400":{"avg":90.63,"min":28.8,"n":86},"600":{"avg":80.94,"min":26.9,"n":80},"500":{"avg":84.96,"min":27.8,"n":72}},"OHN-UNF":{"0":{"avg":104.15,"min":44.8,"n":92},"100":{"avg":100.29,"min":45.0,"n":70},"200":{"avg":94.44,"min":38.4,"n":86},"300":{"avg":87.79,"min":32.8,"n":78},"400":{"avg":84.78,"min":27.4,"n":86},"600":{"avg":75.73,"min":25.6,"n":80},"500":{"avg":79.51,"min":26.4,"n":72}}},"JUG":{"MIT-UNF":{"300":{"avg":416.76,"min":344.9,"n":54},"500":{"avg":405.55,"min":333.2,"n":54},"1000":{"avg":376.51,"min":304.1,"n":54},"1500":{"avg":347.46,"min":274.9,"n":54},"2000":{"avg":317.38,"min":245.7,"n":52},"2500":{"avg":289.72,"min":216.6,"n":54}},"OHN-UNF":{"300":{"avg":390.06,"min":326.15,"n":54},"500":{"avg":379.58,"min":315.65,"n":54},"1000":{"avg":352.4,"min":288.9,"n":54},"1500":{"avg":325.21,"min":261.2,"n":54},"2000":{"avg":297.14,"min":233.4,"n":52},"2500":{"avg":271.17,"min":205.8,"n":54}}},"ERW":{"MIT-UNF":{"300":{"avg":554.86,"min":470.9,"n":54},"500":{"avg":543.54,"min":459.15,"n":54},"1000":{"avg":514.46,"min":431.6,"n":54},"1500":{"avg":485.22,"min":401.2,"n":54},"2000":{"avg":455.82,"min":373.2,"n":52},"2500":{"avg":427.12,"min":344.1,"n":54}},"OHN-UNF":{"300":{"avg":519.22,"min":437.95,"n":54},"500":{"avg":508.63,"min":427.0,"n":54},"1000":{"avg":481.43,"min":401.95,"n":54},"1500":{"avg":454.06,"min":373.1,"n":54},"2000":{"avg":426.65,"min":349.9,"n":52},"2500":{"avg":399.67,"min":325.9,"n":54}}}},"ZG":{"KIN":{"MIT-UNF":{"0":{"avg":90.22,"min":39.0,"n":45},"100":{"avg":85.94,"min":37.8,"n":35},"200":{"avg":79.67,"min":33.2,"n":42},"300":{"avg":74.48,"min":26.5,"n":38},"400":{"avg":69.57,"min":23.8,"n":42},"600":{"avg":59.9,"min":22.2,"n":40},"500":{"avg":64.5,"min":22.6,"n":36}},"OHN-UNF":{"0":{"avg":84.48,"min":37.1,"n":45},"100":{"avg":80.57,"min":35.3,"n":35},"200":{"avg":74.65,"min":31.0,"n":42},"300":{"avg":69.8,"min":24.8,"n":38},"400":{"avg":65.2,"min":22.5,"n":42},"600":{"avg":56.15,"min":21.1,"n":40},"500":{"avg":60.48,"min":21.2,"n":36}}},"JUG":{"MIT-UNF":{"300":{"avg":327.21,"min":284.5,"n":27},"500":{"avg":315.89,"min":272.8,"n":27},"1000":{"avg":286.81,"min":243.7,"n":27},"1500":{"avg":257.63,"min":214.5,"n":27},"2000":{"avg":228.97,"min":185.3,"n":26},"2500":{"avg":200.32,"min":157.9,"n":27}},"OHN-UNF":{"300":{"avg":306.74,"min":266.2,"n":27},"500":{"avg":296.15,"min":255.3,"n":27},"1000":{"avg":268.9,"min":228.3,"n":27},"1500":{"avg":241.57,"min":201.1,"n":27},"2000":{"avg":214.79,"min":174.0,"n":26},"2500":{"avg":187.87,"min":146.9,"n":27}}},"ERW":{"MIT-UNF":{"300":{"avg":435.56,"min":385.8,"n":27},"500":{"avg":424.18,"min":374.2,"n":27},"1000":{"avg":394.95,"min":345.0,"n":27},"1500":{"avg":365.65,"min":315.8,"n":27},"2000":{"avg":337.8,"min":286.7,"n":26},"2500":{"avg":307.43,"min":257.5,"n":27}},"OHN-UNF":{"300":{"avg":408.21,"min":364.6,"n":27},"500":{"avg":397.56,"min":353.7,"n":27},"1000":{"avg":370.19,"min":326.1,"n":27},"1500":{"avg":342.73,"min":298.5,"n":27},"2000":{"avg":316.72,"min":271.0,"n":26},"2500":{"avg":288.19,"min":243.4,"n":27}}}},"ZH":{"KIN":{"MIT-UNF":{"0":{"avg":121.96,"min":49.7,"n":135},"100":{"avg":118.38,"min":51.8,"n":105},"200":{"avg":112.25,"min":42.7,"n":126},"300":{"avg":104.76,"min":36.3,"n":114},"400":{"avg":101.75,"min":30.3,"n":126},"600":{"avg":90.09,"min":28.3,"n":120},"500":{"avg":95.69,"min":29.3,"n":108}},"OHN-UNF":{"0":{"avg":114.17,"min":47.2,"n":135},"100":{"avg":110.91,"min":48.4,"n":105},"200":{"avg":105.12,"min":40.5,"n":126},"300":{"avg":98.12,"min":34.5,"n":114},"400":{"avg":95.3,"min":28.8,"n":126},"600":{"avg":84.37,"min":26.9,"n":120},"500":{"avg":89.65,"min":27.8,"n":108}}},"JUG":{"MIT-UNF":{"300":{"avg":445.81,"min":341.2,"n":81},"500":{"avg":434.56,"min":329.6,"n":81},"1000":{"avg":405.48,"min":300.4,"n":81},"1500":{"avg":376.44,"min":271.2,"n":81},"2000":{"avg":346.47,"min":242.1,"n":78},"2500":{"avg":318.11,"min":212.9,"n":81}},"OHN-UNF":{"300":{"avg":417.86,"min":317.7,"n":81},"500":{"avg":407.33,"min":306.9,"n":81},"1000":{"avg":380.08,"min":279.7,"n":81},"1500":{"avg":352.87,"min":252.5,"n":81},"2000":{"avg":324.9,"min":225.4,"n":78},"2500":{"avg":298.24,"min":198.3,"n":81}}},"ERW":{"MIT-UNF":{"300":{"avg":591.21,"min":488.5,"n":81},"500":{"avg":579.88,"min":476.9,"n":81},"1000":{"avg":550.54,"min":447.7,"n":81},"1500":{"avg":521.35,"min":418.5,"n":81},"2000":{"avg":492.15,"min":389.4,"n":78},"2500":{"avg":463.01,"min":360.2,"n":81}},"OHN-UNF":{"300":{"avg":553.86,"min":455.7,"n":81},"500":{"avg":543.26,"min":445.0,"n":81},"1000":{"avg":515.76,"min":417.8,"n":81},"1500":{"avg":488.42,"min":390.6,"n":81},"2000":{"avg":461.21,"min":363.6,"n":78},"2500":{"avg":433.76,"min":336.7,"n":81}}}}}}</script>
-<script src="crm-session.js"></script>
-<script>
-(function(){
-  "use strict";
-  var DB = JSON.parse(document.getElementById("fdata").textContent);
-  var C = DB.cantons, NAMES = DB.cantonNames;
-  var FRAN = {ERW:[300,500,1000,1500,2000,2500], JUG:[300,500,1000,1500,2000,2500], KIN:[0,100,200,300,400,500,600]};
-  var CAP = {ERW:700, JUG:700, KIN:350};
-  var ANCHOR = {ERW:[300,1500,2500], JUG:[300,1500,2500], KIN:[0,300,600]};
-  var MAXC = 8000;
-  var SER = ["--s1","--s2","--s3"];
+        <div class="divider"></div>
+        <div class="panel-heading compact">
+          <span class="step-number">2</span>
+          <div><h2>Versicherung auswählen</h2><p>Nur tatsächlich angebotene Modelle werden angezeigt.</p></div>
+        </div>
 
-  var state = {kt:"ZH", age:"ERW", unf:"MIT-UNF", fr:300, c:1200, reserve:3000, plz:"", yob:"", insurer:"", model:"base"};
+        <div class="field">
+          <label for="insurerSelect">Versicherer <span aria-hidden="true">*</span></label>
+          <select id="insurerSelect" disabled required><option value="">Zuerst Wohnort und Geburtsjahr wählen</option></select>
+        </div>
+        <div class="field">
+          <label for="tariffSelect">Modell / Tarif <span aria-hidden="true">*</span></label>
+          <select id="tariffSelect" disabled required><option value="">Zuerst Versicherer wählen</option></select>
+          <p class="field-help" id="tariffHelp">Standard, Hausarzt, HMO oder anderes alternatives Modell.</p>
+        </div>
+        <div class="field">
+          <label for="currentFranchise">Aktuelle Franchise</label>
+          <select id="currentFranchise" disabled></select>
+        </div>
 
-  function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
-  function fmt(n){return "CHF " + Math.round(n).toLocaleString("de-CH");}
-  function fmt0(n){return Math.round(n).toLocaleString("de-CH");}
+        <div class="divider"></div>
+        <div class="panel-heading compact">
+          <span class="step-number">3</span>
+          <div><h2>Erwartete Gesundheitskosten</h2><p>Arzt, Medikamente, Therapie und Spital – ohne Prämien.</p></div>
+        </div>
+        <div class="field cost-field">
+          <label for="healthCosts">Kosten pro Jahr in CHF</label>
+          <input id="healthCosts" type="number" min="0" max="100000" step="100" value="1200" inputmode="decimal">
+          <div class="quick-values" aria-label="Schnellauswahl Gesundheitskosten">
+            <button type="button" data-cost="0">CHF 0</button>
+            <button type="button" data-cost="1000">CHF 1’000</button>
+            <button type="button" data-cost="3000">CHF 3’000</button>
+            <button type="button" data-cost="8000">CHF 8’000</button>
+          </div>
+        </div>
+        <details class="expert-fields">
+          <summary>Liquiditätsreserve prüfen</summary>
+          <div class="field">
+            <label for="reserve">Verfügbare Reserve in CHF</label>
+            <input id="reserve" type="number" min="0" step="100" value="3000" inputmode="decimal">
+            <p class="field-help">Für die höchste mögliche Kostenbeteiligung.</p>
+          </div>
+        </details>
+      </form>
 
-  function prem(fr){ // monthly avg
-    try{ return C[state.kt][state.age][state.unf][String(fr)].avg; }catch(e){ return null; }
-  }
-  function annual(fr){ var p=prem(fr); return p==null?null:p*12; }
-  function oop(fr, c){ var cap=CAP[state.age]; return Math.min(c,fr) + Math.min(0.10*Math.max(0,c-fr), cap); }
-  function total(fr, c){ var a=annual(fr); return a==null?null:a+oop(fr,c); }
+      <section class="results-panel" aria-live="polite">
+        <div class="empty-state" id="emptyState">
+          <span class="empty-icon" aria-hidden="true">↗</span>
+          <h2>Ihre persönliche Berechnung erscheint hier</h2>
+          <p>Wählen Sie links Wohnort, Geburtsjahr und Versicherungsmodell. Danach sehen Sie sofort den Vergleich aller angebotenen Franchisen.</p>
+        </div>
 
-  /* ---------- controls ---------- */
-  var ktSel = document.getElementById("kt");
-  Object.keys(C).forEach(function(k){
-    var o=document.createElement("option"); o.value=k; o.textContent=NAMES[k]+" ("+k+")"; ktSel.appendChild(o);
-  });
-  ktSel.value = state.kt;
-  ktSel.addEventListener("change", function(){ state.kt=this.value; clampFr(); render(); });
+        <div id="resultContent" hidden>
+          <div class="result-hero">
+            <div>
+              <p class="eyebrow light">Günstigste Variante im gewählten Szenario</p>
+              <div class="recommendation-line"><strong id="bestFranchise">–</strong><span>Franchise</span></div>
+              <p id="recommendationText"></p>
+            </div>
+            <div class="confidence-label"><span>Exakte Prämie</span><b id="regionLabel">–</b></div>
+          </div>
 
-  function ageFromBirthYear(yob){
-    var age=(new Date()).getFullYear()-Number(yob);
-    return age<=18?"KIN":age<=25?"JUG":"ERW";
-  }
-  function updatePriminfoLink(){
-    var params=new URLSearchParams();
-    params.set("coverage[0]",state.unf==="MIT-UNF"?"1":"0");
-    params.set("franchise[0]",String(state.fr));
-    params.set("models[0]",state.model); params.set("plan",state.model);
-    if(state.yob) params.set("yob[0]",state.yob);
-    document.getElementById("priminfoExact").href="https://www.priminfo.admin.ch/de/praemien?"+params.toString();
-  }
-  function syncProfileFields(){
-    state.plz=document.getElementById("plz").value.trim();
-    state.yob=document.getElementById("yob").value.trim();
-    state.insurer=document.getElementById("insurer").value.trim();
-    state.model=document.getElementById("model").value;
-    if(state.yob && Number(state.yob)>=1900 && Number(state.yob)<=new Date().getFullYear()){
-      state.age=ageFromBirthYear(state.yob); clampFr(); buildFrSeg();
-      document.querySelectorAll("#ageSeg button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.age===state.age);});
-    }
-    updatePriminfoLink(); render();
-  }
-  ["plz","yob","insurer","model"].forEach(function(id){document.getElementById(id).addEventListener("change",syncProfileFields);});
+          <div class="metrics">
+            <article><span>Prämie pro Monat</span><strong id="bestMonthly">–</strong><small id="selectedTariffShort">–</small></article>
+            <article><span>Gesamtkosten pro Jahr</span><strong id="bestTotal">–</strong><small>Prämie plus Kostenbeteiligung</small></article>
+            <article><span>Vorteil zur aktuellen Franchise</span><strong id="savings">–</strong><small id="savingsContext">–</small></article>
+          </div>
 
-  document.getElementById("ageSeg").addEventListener("click", function(e){
-    var b=e.target.closest("button"); if(!b) return;
-    state.age=b.dataset.age; segPress(this,b); clampFr(); buildFrSeg(); updatePriminfoLink(); render();
-  });
-  document.getElementById("unfSeg").addEventListener("click", function(e){
-    var b=e.target.closest("button"); if(!b) return;
-    state.unf=b.dataset.unf; segPress(this,b); updatePriminfoLink(); render();
-  });
-  function segPress(group,btn){ group.querySelectorAll("button").forEach(function(x){x.setAttribute("aria-pressed", x===btn);}); }
+          <div class="reserve-message" id="reserveMessage"></div>
 
-  function buildFrSeg(){
-    var seg=document.getElementById("frSeg"); seg.innerHTML="";
-    FRAN[state.age].forEach(function(f){
-      var b=document.createElement("button"); b.textContent=fmt0(f); b.dataset.fr=f;
-      b.setAttribute("aria-pressed", f===state.fr);
-      b.addEventListener("click", function(){ state.fr=f; segPress(seg,b); updatePriminfoLink(); render(); });
-      seg.appendChild(b);
-    });
-  }
-  function clampFr(){ if(FRAN[state.age].indexOf(state.fr)<0) state.fr=FRAN[state.age][0]; }
+          <section class="chart-section">
+            <div class="section-heading">
+              <div><h2>Jahreskosten im Vergleich</h2><p>Prämie und Ihre erwartete Kostenbeteiligung auf einen Blick.</p></div>
+              <div class="legend"><span><i class="premium-dot"></i>Prämie</span><span><i class="sharing-dot"></i>Kostenbeteiligung</span></div>
+            </div>
+            <div class="bar-chart" id="costChart" role="img" aria-label="Vergleich der erwarteten Jahreskosten je Franchise"></div>
+            <p class="chart-detail" id="chartDetail">Bewegen Sie den Mauszeiger über einen Balken für Details.</p>
+          </section>
 
-  var cost=document.getElementById("cost");
-  cost.addEventListener("input", function(){ state.c=+this.value; document.getElementById("costVal").textContent=fmt(state.c); render(); });
-  document.querySelector(".quick").addEventListener("click",function(e){
-    var b=e.target.closest("button[data-cost]"); if(!b)return;
-    state.c=+b.dataset.cost; cost.value=state.c; render();
-  });
-  document.getElementById("reserve").addEventListener("input",function(){state.reserve=Math.max(0,+this.value||0);render();});
+          <details class="comparison-details">
+            <summary>Alle Zahlen ansehen</summary>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Franchise</th><th>Prämie / Monat</th><th>Prämie / Jahr</th><th>Kostenbeteiligung</th><th>Total / Jahr</th></tr></thead>
+                <tbody id="comparisonBody"></tbody>
+              </table>
+            </div>
+          </details>
 
-  document.getElementById("tableToggle").addEventListener("click", function(){
-    var w=document.getElementById("tableWrap"); var bar=document.getElementById("barChart");
-    var show=w.classList.contains("hidden");
-    w.classList.toggle("hidden", !show); bar.classList.toggle("hidden", show);
-    this.textContent = show?"Diagramm anzeigen":"Tabelle anzeigen";
-  });
+          <div class="result-actions">
+            <button class="primary-button" id="saveButton" type="button">In Analyse übernehmen</button>
+            <a class="secondary-button" href="zusatzversicherung.html">Zusatzversicherungen prüfen →</a>
+            <a class="secondary-button" href="https://www.priminfo.admin.ch/de/praemien" target="_blank" rel="noopener">Auf Priminfo prüfen ↗</a>
+            <span class="save-status" id="saveStatus"></span>
+          </div>
+        </div>
+      </section>
+    </div>
 
-  /* ---------- SVG helpers ---------- */
-  var NS="http://www.w3.org/2000/svg";
-  function el(n,a){var e=document.createElementNS(NS,n); for(var k in a) e.setAttribute(k,a[k]); return e;}
-  function clear(s){while(s.firstChild)s.removeChild(s.firstChild);}
+    <footer class="data-source">
+      <div><strong>Datenbasis 2026</strong><span>Offizielle genehmigte Grundversicherungsprämien und Prämienregionen des Bundesamts für Gesundheit.</span></div>
+      <a href="https://www.priminfo.admin.ch/de/downloads/aktuell" target="_blank" rel="noopener">Offizielle Datensätze ↗</a>
+    </footer>
+  </main>
 
-  /* ---------- LINE CHART ---------- */
-  function renderLine(){
-    var svg=document.getElementById("lineChart"); clear(svg);
-    var W=720,H=340,m={t:22,r:104,b:42,l:66};
-    var xs=state.age==="KIN"?[0,1500,3000,4500,6000]:[0,2000,4000,6000,8000];
-    var maxC = MAXC;
-    var anchors = ANCHOR[state.age];
-    // y-domain
-    var lo=Infinity, hi=-Infinity;
-    anchors.forEach(function(f){ [0,maxC].forEach(function(c){ var t=total(f,c); if(t!=null){lo=Math.min(lo,t);hi=Math.max(hi,t);} }); });
-    // also include totals across range for curve peaks
-    anchors.forEach(function(f){ for(var c=0;c<=maxC;c+=500){var t=total(f,c); if(t!=null){lo=Math.min(lo,t);hi=Math.max(hi,t);}} });
-    if(!isFinite(lo)){svg.appendChild(el("text",{x:W/2,y:H/2,fill:css("--muted"),"text-anchor":"middle"})); return;}
-    var pad=(hi-lo)*0.08||100; lo=Math.max(0,lo-pad); hi=hi+pad;
-    var X=function(c){return m.l+(c/maxC)*(W-m.l-m.r);};
-    var Y=function(v){return H-m.b-((v-lo)/(hi-lo))*(H-m.t-m.b);};
-
-    // gridlines y
-    var ticks=4;
-    for(var i=0;i<=ticks;i++){
-      var v=lo+(hi-lo)*i/ticks, y=Y(v);
-      svg.appendChild(el("line",{x1:m.l,y1:y,x2:W-m.r,y2:y,stroke:css("--grid"),"stroke-width":1}));
-      svg.appendChild(el("text",{x:m.l-10,y:y+4,fill:css("--muted"),"font-size":11,"text-anchor":"end","font-variant-numeric":"tabular-nums"})).textContent=fmt0(v);
-    }
-    // x ticks
-    xs.forEach(function(c){ if(c>maxC)return; var x=X(c);
-      svg.appendChild(el("line",{x1:x,y1:H-m.b,x2:x,y2:H-m.b+5,stroke:css("--axis"),"stroke-width":1}));
-      svg.appendChild(el("text",{x:x,y:H-m.b+20,fill:css("--muted"),"font-size":11,"text-anchor":"middle","font-variant-numeric":"tabular-nums"})).textContent=fmt0(c);
-    });
-    svg.appendChild(el("text",{x:(m.l+W-m.r)/2,y:H-6,fill:css("--muted"),"font-size":11.5,"text-anchor":"middle"})).textContent="Gesundheitskosten pro Jahr (CHF)";
-
-    // lines
-    anchors.forEach(function(f,i){
-      var col=css(SER[i]); var d="";
-      for(var c=0;c<=maxC;c+=100){ var t=total(f,c); if(t==null)continue; d+=(d?"L":"M")+X(c).toFixed(1)+" "+Y(t).toFixed(1); }
-      svg.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":2.4,"stroke-linejoin":"round","stroke-linecap":"round"}));
-      // direct label at right end
-      var tEnd=total(f,maxC), yl=Y(tEnd);
-      svg.appendChild(el("text",{x:W-m.r+10,y:yl+4,fill:col,"font-size":12,"font-weight":750})).textContent="Fr. "+fmt0(f);
-    });
-
-    // vertical marker at expected cost
-    var xm=X(state.c);
-    svg.appendChild(el("line",{x1:xm,y1:m.t,x2:xm,y2:H-m.b,stroke:css("--ink-2"),"stroke-width":1.4,"stroke-dasharray":"4 4","opacity":.55}));
-    anchors.forEach(function(f,i){ var t=total(f,state.c); if(t==null)return;
-      var dot=el("circle",{cx:xm,cy:Y(t),r:4.5,fill:css("--surface"),stroke:css(SER[i]),"stroke-width":2.4}); svg.appendChild(dot);
-    });
-    svg.appendChild(el("text",{x:xm,y:m.t-6,fill:css("--ink"),"font-size":11.5,"font-weight":750,"text-anchor":"middle"})).textContent="erwartet";
-
-    // hover
-    var tt=document.getElementById("ttLine");
-    var hit=el("rect",{x:m.l,y:m.t,width:(W-m.l-m.r),height:(H-m.t-m.b),fill:"transparent",style:"cursor:crosshair"});
-    svg.appendChild(hit);
-    hit.addEventListener("mousemove",function(ev){
-      var box=svg.getBoundingClientRect(), sx=box.width/W;
-      var px=(ev.clientX-box.left)/sx; var c=Math.max(0,Math.min(maxC,(px-m.l)/(W-m.l-m.r)*maxC));
-      var rows=anchors.map(function(f,i){return '<div class="row"><span><i class="sw" style="background:'+css(SER[i])+'"></i>Fr. '+fmt0(f)+'</span><b>'+fmt(total(f,c))+'</b></div>';}).join("");
-      tt.innerHTML='<div style="margin-bottom:4px">bei '+fmt(c)+' Kosten</div>'+rows;
-      tt.style.left=(box.left+window.scrollX+X(c)*sx)+"px";
-      tt.style.top=(box.top+window.scrollY+m.t)+"px"; tt.style.opacity=1;
-    });
-    hit.addEventListener("mouseleave",function(){tt.style.opacity=0;});
-
-    // legend
-    var lg=document.getElementById("lineLegend"); lg.innerHTML="";
-    anchors.forEach(function(f,i){ var s=document.createElement("span");
-      s.innerHTML='<span class="lg-line" style="background:'+css(SER[i])+'"></span>Franchise '+fmt0(f); lg.appendChild(s); });
-  }
-
-  /* ---------- BAR CHART ---------- */
-  function renderBar(){
-    var svg=document.getElementById("barChart"); clear(svg);
-    var W=720,H=280,m={t:26,r:16,b:44,l:56};
-    var frs=FRAN[state.age]; var vals=frs.map(prem);
-    var hi=Math.max.apply(null,vals.filter(function(v){return v!=null;}))*1.12||100;
-    var Y=function(v){return H-m.b-(v/hi)*(H-m.t-m.b);};
-    var n=frs.length, gap=14, bw=((W-m.l-m.r)-(n-1)*gap)/n;
-    // y grid
-    for(var i=0;i<=3;i++){ var v=hi*i/3, y=Y(v);
-      svg.appendChild(el("line",{x1:m.l,y1:y,x2:W-m.r,y2:y,stroke:css("--grid"),"stroke-width":1}));
-      svg.appendChild(el("text",{x:m.l-10,y:y+4,fill:css("--muted"),"font-size":11,"text-anchor":"end","font-variant-numeric":"tabular-nums"})).textContent=fmt0(v);
-    }
-    var tt=document.getElementById("ttBar");
-    frs.forEach(function(f,i){
-      var v=vals[i]; if(v==null)return;
-      var x=m.l+i*(bw+gap), y=Y(v), h=(H-m.b)-y;
-      var isCur=f===state.fr;
-      var fill=isCur?css("--brand-ink"):css("--s2");
-      var r=el("rect",{x:x,y:y,width:bw,height:Math.max(1,h),rx:4,ry:4,fill:fill,style:"cursor:pointer"});
-      svg.appendChild(r);
-      // value label
-      svg.appendChild(el("text",{x:x+bw/2,y:y-7,fill:css("--ink"),"font-size":12,"font-weight":isCur?800:650,"text-anchor":"middle","font-variant-numeric":"tabular-nums"})).textContent=fmt0(v);
-      // x label
-      var lbl=el("text",{x:x+bw/2,y:H-m.b+18,fill:isCur?css("--ink"):css("--muted"),"font-size":11.5,"font-weight":isCur?800:600,"text-anchor":"middle","font-variant-numeric":"tabular-nums"});
-      lbl.textContent=fmt0(f); svg.appendChild(lbl);
-      if(isCur) svg.appendChild(el("text",{x:x+bw/2,y:H-m.b+32,fill:css("--brand"),"font-size":10.5,"font-weight":750,"text-anchor":"middle"})).textContent="aktuell";
-      r.addEventListener("mousemove",function(ev){ var box=svg.getBoundingClientRect(), sx=box.width/W;
-        tt.innerHTML='<b>Franchise '+fmt0(f)+'</b><div class="row"><span>Monat</span><b>'+fmt(v)+'</b></div><div class="row"><span>Jahr</span><b>'+fmt(v*12)+'</b></div>';
-        tt.style.left=(box.left+window.scrollX+(x+bw/2)*sx)+"px"; tt.style.top=(box.top+window.scrollY+y*sx)+"px"; tt.style.opacity=1; });
-      r.addEventListener("mouseleave",function(){tt.style.opacity=0;});
-    });
-    svg.appendChild(el("text",{x:m.l-40,y:m.t-10,fill:css("--muted"),"font-size":11})).textContent="CHF/Mt.";
-  }
-
-  /* ---------- TABLE ---------- */
-  function renderTable(best){
-    var frs=FRAN[state.age];
-    var rows=frs.map(function(f){
-      var p=prem(f), t=total(f,state.c);
-      var cls=(f===state.fr?"cur":"")+(f===best?" best":"");
-      return '<tr class="'+cls+'"><td>Fr. '+fmt0(f)+(f===state.fr?' · aktuell':'')+'</td><td class="num">'+fmt(p)+'</td><td class="num">'+fmt(p*12)+'</td><td class="num">'+fmt(f+CAP[state.age])+'</td><td class="num">'+fmt(t)+'</td></tr>';
-    }).join("");
-    document.getElementById("tableWrap").innerHTML=
-      '<table><thead><tr><th>Franchise</th><th>Monat</th><th>Jahr</th><th>max. Eigenanteil</th><th>Gesamt bei '+fmt(state.c)+'</th></tr></thead><tbody>'+rows+'</tbody></table>';
-  }
-
-  /* ---------- RESULT ---------- */
-  function renderResult(){
-    var frs=FRAN[state.age];
-    var best=frs[0], bt=Infinity;
-    frs.forEach(function(f){ var t=total(f,state.c); if(t!=null&&t<bt){bt=t;best=f;} });
-    var curT=total(state.fr,state.c);
-    var save=curT-bt;
-
-    var big=document.getElementById("bigNum"), pill=document.getElementById("bigPill"), sub=document.getElementById("subRes");
-    if(best===state.fr || Math.round(save)<=0){
-      big.textContent="Optimal gewählt"; big.className="big";
-      pill.className="pill good"; pill.textContent="✓ beste Wahl";
-      sub.innerHTML="Bei erwarteten <b>"+fmt(state.c)+"</b> Gesundheitskosten ist Ihre Franchise <b>Fr. "+fmt0(state.fr)+"</b> bereits die günstigste Option.";
-    } else {
-      big.textContent=fmt(save); big.className="big save";
-      pill.className="pill good"; pill.textContent="Ersparnis / Jahr";
-      sub.innerHTML="Wechsel auf <b>Franchise "+fmt0(best)+"</b> spart bei erwarteten <b>"+fmt(state.c)+"</b> Kosten rund <b>"+fmt(save)+"</b> pro Jahr gegenüber Ihrer aktuellen Franchise "+fmt0(state.fr)+".";
-    }
-
-    document.getElementById("tCur").textContent=fmt(curT);
-    document.getElementById("tBest").textContent=fmt(bt);
-    document.getElementById("tBestS").textContent="Franchise "+fmt0(best);
-
-    var needed=best+CAP[state.age], enough=state.reserve>=needed;
-    var dot=document.getElementById("riskDot"), title=document.getElementById("riskTitle"), risk=document.getElementById("riskText");
-    dot.className="dot "+(enough?"ok":"bad");
-    title.textContent=enough?"Reserve ausreichend":"Reserve zu knapp";
-    risk.textContent=enough
-      ? " Ihre Reserve deckt den maximalen Eigenanteil von "+fmt(needed)+"."
-      : " Für Franchise "+fmt0(best)+" empfehlen wir mindestens "+fmt(needed)+" verfügbare Reserve; es fehlen "+fmt(needed-state.reserve)+".";
-
-    // break-even: cost level where the lowest franchise becomes cheapest vs highest
-    var loF=frs[0], hiF=frs[frs.length-1];
-    var be=breakEven(loF,hiF);
-    document.getElementById("tBreak").textContent = be==null?"—":fmt(be);
-    return best;
-  }
-  // health-cost c where total(loF)==total(hiF); low franchise wins above it
-  function breakEven(loF,hiF){
-    var prev=null;
-    for(var c=0;c<=MAXC;c+=25){ var d=total(loF,c)-total(hiF,c);
-      if(prev!=null && (prev>0)!=(d>0)) return c;
-      prev=d;
-    }
-    return null;
-  }
-
-  function render(){
-    document.getElementById("costVal").textContent=fmt(state.c);
-    document.getElementById("frUnit").textContent="CHF · Kanton "+state.kt;
-    document.getElementById("cost").max = state.age==="KIN"?4000:8000;
-    if(state.c> +document.getElementById("cost").max){ state.c=+document.getElementById("cost").max; document.getElementById("cost").value=state.c; }
-    var best=renderResult();
-    renderLine(); renderBar(); renderTable(best);
-    // update fr seg pressed
-    document.querySelectorAll("#frSeg button").forEach(function(b){b.setAttribute("aria-pressed", (+b.dataset.fr)===state.fr);});
-    updatePriminfoLink();
-    if(window.CombinvestCRM) CombinvestCRM.save("franchise",state);
-  }
-
-  (function prefillFromProfile(){
-    var q=new URLSearchParams(location.search), stored={};
-    try{stored=JSON.parse(localStorage.getItem("combinvest.customerProfile.v1")||"{}");}catch(e){}
-    var base=stored.basisdaten||{}, answers=stored.answers||{};
-    var resumed=window.CombinvestCRM?CombinvestCRM.data("franchise",null):null;
-    if(resumed) Object.keys(resumed).forEach(function(k){if(resumed[k]!=null)state[k]=resumed[k];});
-    state.plz=q.get("plz")||base.wohnort_plz||answers.plz||state.plz||"";
-    state.yob=q.get("yob")||state.yob||"";
-    if(!state.yob && answers.alter) state.yob=String((new Date()).getFullYear()-Number(answers.alter));
-    if(q.has("accident")) state.unf=q.get("accident")==="none"?"OHN-UNF":"MIT-UNF";
-    state.fr=Number(q.get("franchise"))||state.fr||300;
-    state.model=q.get("model")||state.model||"base";
-    state.reserve=Number(q.get("reserve"))||state.reserve||3000;
-    document.getElementById("plz").value=state.plz;
-    document.getElementById("yob").value=state.yob;
-    document.getElementById("model").value=state.model;
-    document.getElementById("reserve").value=state.reserve;
-    if(state.yob) state.age=ageFromBirthYear(state.yob);
-    clampFr();
-    document.querySelectorAll("#ageSeg button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.age===state.age);});
-    document.querySelectorAll("#unfSeg button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.unf===state.unf);});
-  })();
-
-  buildFrSeg();
-  render();
-  window.addEventListener("resize", function(){ renderLine(); renderBar(); });
-})();
-</script>
+  <script src="crm-session.js?v=14"></script>
+  <script type="module" src="franchise.js?v=2"></script>
+  <script src="calculator-shell.js?v=8"></script>
 </body>
 </html>

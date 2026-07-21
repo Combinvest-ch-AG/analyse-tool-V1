@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <title>combinvest — Beratungsabschluss</title>
+  <link rel="stylesheet" href="abschluss.css?v=3"><link rel="stylesheet" href="design-system.css?v=2">
+</head>
+<body>
+<header class="topbar"><div class="wrap nav"><a class="back" href="analyse.html?step=3">← Zur Risikoanalyse</a><strong class="brand">combinvest</strong></div></header>
+<main class="wrap">
+  <section class="hero"><div><div class="eyebrow">Letzter Schritt der Beratung</div><h1>Beratung abschliessen</h1><p id="heroCopy">Prüfen Sie die Beratung, klären Sie offene Punkte und erstellen Sie die Unterlagen für Kunde und Innendienst.</p></div><span class="hero-state open" id="heroState">Abschluss offen</span></section>
+  <nav class="flow" aria-label="Ablauf Beratungsabschluss"><span class="flow-step"><b>1</b> Beratung prüfen</span><span class="flow-step"><b>2</b> Offenes klären</span><span class="flow-step"><b>3</b> Dokumente & Termin</span><span class="flow-step"><b>4</b> Verbindlich abschliessen</span></nav>
+  <section class="progress-card"><div class="progress-head"><strong>Vorbereitung des Abschlusses</strong><span id="progressText">Wird geprüft …</span></div><div class="progress"><i id="progressBar" style="width:0"></i></div></section>
+  <div class="layout">
+    <div class="main-list">
+      <section class="card"><div class="card-head"><span class="section-number">1</span><div><h2>Beratung prüfen</h2><p>Profiling, Vertragscheck und bearbeitete Themen auf einen Blick.</p></div><span class="status open" id="baseStatus">Offen</span></div><div class="rows" id="baseRows"></div><div class="action-row"><a class="action" href="analyse.html?step=1">Profiling öffnen</a><a class="action" href="analyse.html?step=2">Vertragscheck öffnen</a></div><div class="subsection"><div class="subsection-head"><h3>Analysierte Themen</h3><span class="status open" id="themeStatus">Offen</span></div><div class="themes" id="themes"></div><div class="action-row"><a class="action" href="analyse.html?step=3">Risikoanalyse öffnen</a></div></div></section>
+      <section class="card"><div class="card-head"><span class="section-number">2</span><div><h2>Offene Punkte klären</h2><p>Diese Themen müssen weiterbearbeitet oder bewusst zurückgestellt werden.</p></div><span class="status open" id="recommendationStatus">Offen</span></div><div class="rows" id="recommendations"></div></section>
+      <section class="card"><div class="card-head"><span class="section-number">3</span><div><h2>Dokumente und Unterschriften</h2><p>Beratungsbericht und erforderliche Dokumente versandbereit erstellen.</p></div><span class="status missing" id="documentStatus">Fehlt</span></div><div class="rows" id="documents"></div><div class="action-row"><a class="action primary" href="dokumente.html">Dokumente erstellen</a><button class="action" type="button" id="printBtn">Abschlussübersicht als PDF</button></div></section>
+    </div>
+    <aside class="side">
+      <section class="card"><div class="card-head"><span class="section-number">4</span><div><h2>Nächster Termin</h2><p>Die konkrete Weiterführung der Beratung festhalten.</p></div><span class="status open" id="appointmentStatus">Offen</span></div><div class="appointment-grid"><div class="field"><label>Datum</label><input id="nextDate" type="date" required></div><div class="field"><label>Uhrzeit</label><input id="nextTime" type="time"></div><div class="field full"><label>Ort oder Kanal</label><input id="nextPlace" placeholder="Büro, Telefon oder Video"></div><div class="field full"><label>Ziel des Termins</label><textarea id="nextPurpose" placeholder="Was wird beim nächsten Termin entschieden?"></textarea></div></div><div class="action-row"><button class="action primary" id="saveAppointment" type="button">Termin vormerken</button></div></section>
+      <section class="card sealth"><div class="card-head"><span class="section-number">+</span><div><h2>Sealth und Empfehlung</h2><p>Optionalen Service-Vorteil oder eine Weiterempfehlung erfassen.</p></div><span class="status" id="sealthStatus">Optional</span></div><div class="rows" id="sealthRows"></div><div class="action-row"><a class="action" href="sealth-check.html">Sealth prüfen</a><a class="action" href="empfehlung.html">Empfehlung erfassen</a></div></section>
+    </aside>
+  </div>
+  <section class="final-card"><div><div class="final-heading"><span class="section-number">5</span><div><h2>Beratung verbindlich abschliessen</h2><p>Bestätigen Sie gemeinsam, dass der Beratungsstand vollständig dokumentiert wurde.</p></div></div><div class="checks"><label class="check"><input type="checkbox" data-confirm><span>Analyse und offene Empfehlungen wurden mit dem Kunden besprochen.</span></label><label class="check"><input type="checkbox" data-confirm><span>Benötigte Dokumente und Unterschriften sind erstellt oder als nicht erforderlich bestätigt.</span></label><label class="check"><input type="checkbox" data-confirm><span>Nächste Schritte und Folgetermin sind festgehalten.</span></label></div></div><div class="final-actions"><button class="finish" id="finish" disabled>Beratung verbindlich abschliessen</button><div class="finish-note" id="finishNote">Alle drei Bestätigungen erforderlich</div></div></section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js"></script><script src="supabase-auth.js"></script><script src="supabase-data.js"></script><script src="crm-session.js?v=14"></script><script src="abschluss.js?v=5"></script>
+</body></html>

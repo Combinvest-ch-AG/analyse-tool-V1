@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>combinvest – Versicherungsberatung</title>
+  <meta name="description" content="Grundversicherung, Zusatzversicherung und Sachversicherungen übersichtlich erfassen und vergleichen.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="versicherungsberatung.css?v=1">
+</head>
+<body>
+  <header class="topbar"><div class="topbar-inner">
+    <a class="back" href="analyse.html?step=3">← Risikoanalyse</a>
+    <a class="brand" href="analyse.html?step=3"><span class="brand-mark">C</span><span><b>comb</b><b>invest</b></span></a>
+    <span class="customer-chip" id="customerChip">Versicherungen</span>
+  </div></header>
+
+  <main class="page">
+    <section class="hero">
+      <div><p class="eyebrow">Versicherungsberatung</p><h1>Absicherung auf einen Blick</h1><p>Grundversicherung berechnen, gewünschte Deckungen erfassen und offene Lücken erkennen.</p></div>
+      <div class="progress-ring"><strong id="progressValue">0/3</strong><span>bearbeitet</span></div>
+    </section>
+
+    <section class="journey" aria-label="Versicherungsbereiche">
+      <article class="journey-card" data-module="franchise">
+        <div class="card-top"><span class="number">1</span><span class="status" id="franchiseStatus">Offen</span></div>
+        <h2>Grundversicherung</h2>
+        <p>Franchise und Prämie mit offiziellen BAG-Daten vergleichen.</p>
+        <div class="comparison" id="franchiseComparison"></div>
+        <a class="primary" href="franchise.html?returnTo=versicherungsberatung.html">Franchise vergleichen →</a>
+      </article>
+      <article class="journey-card" data-module="supplementary">
+        <div class="card-top"><span class="number">2</span><span class="status" id="supplementaryStatus">Offen</span></div>
+        <h2>Zusatzversicherung</h2>
+        <p>Spital und ambulante Leistungen nach persönlichem Bedarf.</p>
+        <div class="comparison" id="supplementaryComparison"></div>
+        <a class="primary" href="zusatzversicherung.html?returnTo=versicherungsberatung.html">Deckungen auswählen →</a>
+      </article>
+      <article class="journey-card" data-module="insurance">
+        <div class="card-top"><span class="number">3</span><span class="status" id="insuranceStatus">Offen</span></div>
+        <h2>Hausrat, Haftpflicht & Auto</h2>
+        <p>Bestehende und gewünschte Sachdeckungen gegenüberstellen.</p>
+        <div class="comparison" id="insuranceComparison"></div>
+        <a class="primary" href="versicherungscheck.html?returnTo=versicherungsberatung.html">Bedarf erfassen →</a>
+      </article>
+    </section>
+
+    <section class="summary-card">
+      <div class="summary-head"><div><p class="eyebrow">Zusammenfassung</p><h2>Versicherungsbedarf</h2></div><span class="summary-state" id="summaryState">Noch nicht vollständig</span></div>
+      <div class="summary-grid">
+        <div><span>Bestehende Deckungen</span><strong id="existingCount">0</strong></div>
+        <div><span>Gewünschte Deckungen</span><strong id="wantedCount">0</strong></div>
+        <div class="gap"><span>Noch zu prüfen</span><strong id="gapCount">0</strong></div>
+      </div>
+      <div id="gapList" class="gap-list"></div>
+      <div class="summary-actions"><button id="saveSummary" type="button">Zusammenfassung übernehmen</button><a href="analyse.html?step=3">Zur Risikoanalyse</a><span id="saveStatus" aria-live="polite"></span></div>
+    </section>
+  </main>
+  <script src="crm-session.js?v=14"></script>
+  <script src="versicherungsberatung.js?v=2"></script>
+</body>
+</html>

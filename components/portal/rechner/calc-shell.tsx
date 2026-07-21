@@ -8,6 +8,8 @@ export function CalcShell({
   backHref,
   backLabel,
   chip,
+  explain,
+  source,
   children,
 }: {
   eyebrow: string
@@ -16,6 +18,8 @@ export function CalcShell({
   backHref: string
   backLabel: string
   chip?: string
+  explain?: string
+  source?: string
   children: React.ReactNode
 }) {
   return (
@@ -44,6 +48,23 @@ export function CalcShell({
       </header>
 
       {children}
+
+      {explain ? (
+        <section className="mt-6 rounded-2xl border border-border bg-card p-6">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-primary">Kurz erklärt</p>
+          <h2 className="mt-1.5 text-lg font-bold text-foreground">Das zeigt das Ergebnis</h2>
+          <p className="mt-2 max-w-2xl text-pretty leading-relaxed text-muted-foreground">{explain}</p>
+        </section>
+      ) : null}
+
+      {source ? (
+        <footer className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-muted/40 px-5 py-3 text-xs text-muted-foreground">
+          <span>
+            <span className="font-bold text-foreground">Berechnungsgrundlage:</span> {source}
+          </span>
+          <span className="font-semibold">Stand 2026</span>
+        </footer>
+      ) : null}
     </div>
   )
 }

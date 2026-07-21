@@ -22,6 +22,8 @@ export default async function FranchisePage({
       backHref="/rechner"
       backLabel="Rechner"
       chip="BAG-Prämien 2026"
+      explain="Sie sehen Prämie und Kostenbeteiligung je Franchise getrennt."
+      source="BAG / opendata.swiss, Prämien 2026; exakte Auswahl über Priminfo."
     >
       <FranchiseCalc defaults={{ plz: sp.plz, birthYear: sp.birthYear }} ctx={ctx} />
     </CalcShell>

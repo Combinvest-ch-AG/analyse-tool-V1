@@ -23,6 +23,8 @@ export default async function VorsorgePage({
       backHref="/rechner"
       backLabel="Rechner"
       chip="AHV-Skala 44"
+      explain="Vorhandene Renten werden dem gewünschten Einkommen gegenübergestellt."
+      source="AHV/IV, BVG, UVG sowie Ihre Ausweis- und Policenwerte."
     >
       <PensionGapCalc defaults={{ salary, age, children }} ctx={ctx} />
     </CalcShell>

@@ -24,6 +24,8 @@ export default async function TragbarkeitPage({
       backHref="/rechner"
       backLabel="Rechner"
       chip="Schweizer Standard"
+      explain="Die Quote zeigt die kalkulatorische Belastung Ihres Einkommens."
+      source="Banken-Praxis: 5 % Zins, 1 % Nebenkosten und rund 33 % Tragbarkeit."
     >
       <AffordabilityCalc defaults={{ income }} ctx={ctx} />
     </CalcShell>

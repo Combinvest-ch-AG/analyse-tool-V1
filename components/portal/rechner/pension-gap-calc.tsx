@@ -21,6 +21,12 @@ import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/cal
 
 const RISKS: Risk[] = ["iv", "retirement", "death"]
 
+const RISK_DESCRIPTIONS: Record<Risk, string> = {
+  iv: "Erwerbsunfähigkeit durch Krankheit oder Unfall",
+  retirement: "Einkommen nach dem ordentlichen Rentenalter",
+  death: "Absicherung der Hinterbliebenen",
+}
+
 function emptyValues(): ValuesByRisk {
   return { iv: {}, retirement: {}, death: {} }
 }
@@ -126,21 +132,28 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
         {/* Risk switcher */}
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Vorsorgerisiko</p>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {RISKS.map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setRisk(r)}
-                className={`rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${
-                  risk === r
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-muted-foreground hover:border-primary/40"
-                }`}
-              >
-                {RISK_LABELS[r]}
-              </button>
-            ))}
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            {RISKS.map((r) => {
+              const active = risk === r
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRisk(r)}
+                  aria-pressed={active}
+                  className={`flex flex-col gap-1 rounded-xl border px-3.5 py-3 text-left transition-colors ${
+                    active
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border bg-background hover:border-primary/40"
+                  }`}
+                >
+                  <span className={`text-sm font-bold ${active ? "text-primary" : "text-foreground"}`}>
+                    {RISK_LABELS[r]}
+                  </span>
+                  <span className="text-xs leading-snug text-muted-foreground">{RISK_DESCRIPTIONS[r]}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -371,6 +384,24 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
             ))}
           </div>
 
+          {/* Key metrics */}
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="rounded-xl border border-border bg-background p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Zielbedarf</p>
+              <p className="mt-1 text-base font-bold tabular-nums text-foreground">{formatCHF(per(gap.target))}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-background p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Gesamtleistung</p>
+              <p className="mt-1 text-base font-bold tabular-nums text-foreground">{formatCHF(per(gap.total))}</p>
+            </div>
+            <div className={`rounded-xl border p-3 ${hasGap ? "border-destructive/30 bg-destructive/5" : "border-success/30 bg-success/5"}`}>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Vorsorgelücke</p>
+              <p className={`mt-1 text-base font-bold tabular-nums ${hasGap ? "text-destructive" : "text-success"}`}>
+                {formatCHF(per(gap.gap))}
+              </p>
+            </div>
+          </div>
+
           {/* Stacked bar vs target */}
           <div className="mt-5">
             <div className="relative h-9 w-full overflow-hidden rounded-lg bg-muted">
@@ -396,23 +427,22 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
             </div>
           </div>
 
-          {/* Gap headline */}
-          <div className={`mt-5 rounded-xl p-4 ${hasGap ? "bg-destructive/5" : "bg-success/5"}`}>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {hasGap ? `Deckungslücke ${perSuffix}` : "Keine Deckungslücke"}
-            </p>
-            <p className={`mt-1 text-3xl font-bold tabular-nums ${hasGap ? "text-destructive" : "text-success"}`}>
-              {hasGap ? formatCHF(per(gap.gap)) : formatCHF(0)}
-            </p>
-            {hasGap && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                entspricht{" "}
+          {/* Gap context line */}
+          {hasGap ? (
+            <p className="mt-4 rounded-xl bg-destructive/5 px-4 py-3 text-sm text-muted-foreground">
+              Die Vorsorgelücke entspricht{" "}
+              <span className="font-semibold text-foreground">
                 {period === "month"
                   ? `${formatCHF(gap.gap)} pro Jahr`
                   : `${formatCHF(Math.round(gap.gap / 12))} pro Monat`}
-              </p>
-            )}
-          </div>
+              </span>
+              .
+            </p>
+          ) : (
+            <p className="mt-4 rounded-xl bg-success/5 px-4 py-3 text-sm font-semibold text-success">
+              Keine Deckungslücke – die Leistungen erreichen den Zielbedarf.
+            </p>
+          )}
 
           {/* Item legend */}
           <ul className="mt-5 flex flex-col gap-2">

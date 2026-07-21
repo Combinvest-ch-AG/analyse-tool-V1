@@ -73,10 +73,28 @@ export type SaveSnapshotResult =
   | { ok: true; lockVersion: number; completed: boolean }
   | { ok: false; error: string; conflict?: boolean }
 
+/** Reads the current optimistic lock_version for conflict reconciliation. */
+export async function getAnalysisLockVersion(analysisId: string): Promise<number | null> {
+  try {
+    const advisor = await getCurrentAdvisor()
+    if (!advisor) return null
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("analyses")
+      .select("lock_version")
+      .eq("id", analysisId)
+      .maybeSingle()
+    if (error || !data) return null
+    return Number((data as { lock_version: number | string }).lock_version)
+  } catch {
+    return null
+  }
+}
+
 /**
  * Persists a wizard snapshot via the optimistic-locking RPC. The client passes
- * the lock_version it last saw; a mismatch means another writer advanced the
- * row and the caller must reload.
+ * the lock_version it last saw; a mismatch raises 40001, which the caller
+ * reconciles via getAnalysisLockVersion and one retry.
  */
 export async function saveAnalysisSnapshot(input: {
   analysisId: string
@@ -87,31 +105,35 @@ export async function saveAnalysisSnapshot(input: {
   snapshot: Record<string, unknown>
   complete?: boolean
 }): Promise<SaveSnapshotResult> {
-  const advisor = await getCurrentAdvisor()
-  if (!advisor) return { ok: false, error: "Nicht angemeldet." }
+  try {
+    const advisor = await getCurrentAdvisor()
+    if (!advisor) return { ok: false, error: "Nicht angemeldet." }
 
-  const supabase = await createClient()
-  const { data, error } = await supabase.rpc("save_analysis_snapshot", {
-    p_analysis_id: input.analysisId,
-    p_expected_lock_version: input.expectedLockVersion,
-    p_step: input.step,
-    p_question: input.question,
-    p_progress: input.progress,
-    p_snapshot: input.snapshot,
-    p_complete: input.complete ?? false,
-  })
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc("save_analysis_snapshot", {
+      p_analysis_id: input.analysisId,
+      p_expected_lock_version: input.expectedLockVersion,
+      p_step: input.step,
+      p_question: input.question,
+      p_progress: input.progress,
+      p_snapshot: input.snapshot,
+      p_complete: input.complete ?? false,
+    })
 
-  if (error) {
-    const conflict = /lock|version|conflict|stale/i.test(error.message)
-    return { ok: false, error: error.message, conflict }
+    if (error) {
+      // 40001 (serialization_failure) is raised by the RPC on a lock mismatch
+      // or an RLS-forbidden row.
+      const conflict = error.code === "40001" || /lock|version|conflict|forbidden|stale/i.test(error.message)
+      return { ok: false, error: error.message, conflict }
+    }
+
+    // RPC RETURNS the full analyses row; read the new lock_version off it.
+    const row = (Array.isArray(data) ? data[0] : data) as { lock_version?: number | string } | null
+    const nextVersion = Number(row?.lock_version ?? input.expectedLockVersion + 1)
+
+    if (input.complete) revalidatePath(`/analyse/${input.analysisId}`)
+    return { ok: true, lockVersion: nextVersion, completed: input.complete ?? false }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Speichern fehlgeschlagen." }
   }
-
-  // RPC returns the new lock_version (bigint). Normalize to number.
-  const row = Array.isArray(data) ? data[0] : data
-  const nextVersion =
-    typeof row === "number"
-      ? row
-      : Number(row?.lock_version ?? input.expectedLockVersion + 1)
-
-  return { ok: true, lockVersion: nextVersion, completed: input.complete ?? false }
 }

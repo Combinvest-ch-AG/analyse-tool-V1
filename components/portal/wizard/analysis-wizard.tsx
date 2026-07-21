@@ -14,7 +14,7 @@ import {
 } from "@/lib/wizard/schema"
 import { WizardField } from "@/components/portal/wizard/wizard-field"
 import { NeedGauge } from "@/components/portal/wizard/need-gauge"
-import { saveAnalysisSnapshot } from "@/app/actions/portal"
+import { saveAnalysisSnapshot, getAnalysisLockVersion } from "@/app/actions/portal"
 
 type SaveStatus = "idle" | "saving" | "saved" | "conflict" | "error"
 
@@ -47,17 +47,20 @@ export function AnalysisWizard({
   answersRef.current = answers
   stepRef.current = stepIndex
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Serialize all writes so a manual save can never race the debounced
+  // autosave and self-conflict on the optimistic lock version.
+  const saveChain = useRef<Promise<boolean>>(Promise.resolve(true))
 
   const step = WIZARD_STEPS[stepIndex]
   const gauge = needScore(answers)
   const progress = progressPercent(answers)
   const answered = countAnswered(answers)
 
-  const persist = useCallback(
-    async (complete = false): Promise<boolean> => {
-      if (status === "conflict") return false
-      setStatus("saving")
+  // One save attempt. Never throws; always resolves to a boolean.
+  const persistOnce = useCallback(
+    async (complete: boolean): Promise<boolean> => {
       const currentAnswers = answersRef.current
+      setStatus("saving")
       const result = await saveAnalysisSnapshot({
         analysisId,
         expectedLockVersion: lockVersion.current,
@@ -67,15 +70,49 @@ export function AnalysisWizard({
         snapshot: { answers: currentAnswers, need_score: needScore(currentAnswers) },
         complete,
       })
-      if (!result.ok) {
-        setStatus(result.conflict ? "conflict" : "error")
+      if (result.ok) {
+        lockVersion.current = result.lockVersion
+        setStatus("saved")
+        return true
+      }
+      if (result.conflict) {
+        // Another writer advanced the row. Reconcile the lock version from the
+        // server and retry once so the advisor never hits a dead end.
+        const fresh = await getAnalysisLockVersion(analysisId)
+        if (fresh != null && fresh !== lockVersion.current) {
+          lockVersion.current = fresh
+          const retry = await saveAnalysisSnapshot({
+            analysisId,
+            expectedLockVersion: lockVersion.current,
+            step: stepRef.current + 1,
+            question: countAnswered(currentAnswers),
+            progress: progressPercent(currentAnswers),
+            snapshot: { answers: currentAnswers, need_score: needScore(currentAnswers) },
+            complete,
+          })
+          if (retry.ok) {
+            lockVersion.current = retry.lockVersion
+            setStatus("saved")
+            return true
+          }
+        }
+        setStatus("conflict")
         return false
       }
-      lockVersion.current = result.lockVersion
-      setStatus("saved")
-      return true
+      setStatus("error")
+      return false
     },
-    [analysisId, status],
+    [analysisId],
+  )
+
+  // Enqueue a save onto the serialized chain.
+  const persist = useCallback(
+    (complete = false): Promise<boolean> => {
+      const next = saveChain.current.catch(() => false).then(() => persistOnce(complete))
+      saveChain.current = next
+      return next
+    },
+    [persistOnce],
   )
 
   // Debounced autosave whenever answers change.
@@ -95,11 +132,12 @@ export function AnalysisWizard({
     setAnswers((prev) => ({ ...prev, [key]: value }))
   }
 
-  async function goToStep(next: number) {
+  // Navigation is optimistic: advance immediately, persist in the background.
+  function goToStep(next: number) {
     if (timer.current) clearTimeout(timer.current)
-    if (!isCompleted) await persist(false)
     setStepIndex(next)
     window.scrollTo({ top: 0, behavior: "smooth" })
+    if (!isCompleted) void persist(false)
   }
 
   async function complete() {

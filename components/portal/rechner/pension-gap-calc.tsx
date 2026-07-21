@@ -344,7 +344,7 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
       {/* Results */}
       <div className="lg:sticky lg:top-6 lg:self-start">
         <div className="rounded-2xl border border-border bg-card p-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-foreground">Deckung {RISK_LABELS[risk]}</p>
             <span
               className={`rounded-full px-3 py-1 text-xs font-bold ${
@@ -355,6 +355,22 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
             </span>
           </div>
 
+          {/* Year / Month switch */}
+          <div className="mt-4 inline-flex rounded-lg border border-border bg-background p-0.5 text-xs font-bold">
+            {(["year", "month"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={`rounded-md px-3 py-1.5 transition-colors ${
+                  period === p ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {p === "year" ? "Pro Jahr" : "Pro Monat"}
+              </button>
+            ))}
+          </div>
+
           {/* Stacked bar vs target */}
           <div className="mt-5">
             <div className="relative h-9 w-full overflow-hidden rounded-lg bg-muted">
@@ -363,7 +379,7 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
                   <div
                     key={seg.key}
                     style={{ width: `${(seg.value / scaleMax) * 100}%`, backgroundColor: COLORS[seg.key] }}
-                    title={`${seg.name}: ${formatCHF(seg.value)}`}
+                    title={`${seg.name}: ${formatCHF(per(seg.value))} ${perSuffix}`}
                   />
                 ))}
               </div>
@@ -375,22 +391,25 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
               />
             </div>
             <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-              <span>Vorhandene Leistungen: {formatCHF(gap.total)}</span>
-              <span>Ziel: {formatCHF(gap.target)}</span>
+              <span>Vorhandene Leistungen: {formatCHF(per(gap.total))}</span>
+              <span>Ziel: {formatCHF(per(gap.target))}</span>
             </div>
           </div>
 
           {/* Gap headline */}
           <div className={`mt-5 rounded-xl p-4 ${hasGap ? "bg-destructive/5" : "bg-success/5"}`}>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {hasGap ? "Jährliche Deckungslücke" : "Keine Deckungslücke"}
+              {hasGap ? `Deckungslücke ${perSuffix}` : "Keine Deckungslücke"}
             </p>
             <p className={`mt-1 text-3xl font-bold tabular-nums ${hasGap ? "text-destructive" : "text-success"}`}>
-              {hasGap ? formatCHF(gap.gap) : formatCHF(0)}
+              {hasGap ? formatCHF(per(gap.gap)) : formatCHF(0)}
             </p>
             {hasGap && (
               <p className="mt-1 text-sm text-muted-foreground">
-                entspricht {formatCHF(Math.round(gap.gap / 12))} pro Monat
+                entspricht{" "}
+                {period === "month"
+                  ? `${formatCHF(gap.gap)} pro Jahr`
+                  : `${formatCHF(Math.round(gap.gap / 12))} pro Monat`}
               </p>
             )}
           </div>
@@ -403,7 +422,7 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[item.key] }} aria-hidden="true" />
                   {item.name}
                 </span>
-                <span className="font-semibold tabular-nums text-foreground">{formatCHF(item.value)}</span>
+                <span className="font-semibold tabular-nums text-foreground">{formatCHF(per(item.value))}</span>
               </li>
             ))}
           </ul>
@@ -416,6 +435,17 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
       </div>
     </div>
     </>
+  )
+}
+
+function SectionHeading({ n, title }: { n: number; title: string }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[11px] font-extrabold text-primary-foreground">
+        {n}
+      </span>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{title}</p>
+    </div>
   )
 }
 

@@ -1,4 +1,5 @@
 import "server-only"
+import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
 
 export type AdvisorProfile = {
@@ -21,7 +22,7 @@ const PROFILE_COLUMNS =
  * Returns the authenticated advisor's profile, or null if there is no active
  * session / no active advisor profile linked to the auth user.
  */
-export async function getCurrentAdvisor(): Promise<AdvisorProfile | null> {
+export const getCurrentAdvisor = cache(async (): Promise<AdvisorProfile | null> => {
   const supabase = await createClient()
   const {
     data: { user },
@@ -37,7 +38,7 @@ export async function getCurrentAdvisor(): Promise<AdvisorProfile | null> {
 
   if (error || !data) return null
   return data as AdvisorProfile
-}
+})
 
 export function isManager(profile: AdvisorProfile | null): boolean {
   return profile?.role === "admin" || profile?.role === "manager"

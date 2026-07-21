@@ -1,8 +1,17 @@
 # Supabase setup
 
-1. Open the Supabase project and select **SQL Editor → New query**.
-2. Paste the complete contents of `schema.sql`.
-3. Run the query once. The script is designed to be safely rerunnable for the initial setup.
+Run these SQL files **in order** in the Supabase **SQL Editor → New query** of the
+new Zurich database. Each file is idempotent and safe to rerun.
+
+1. `schema.sql` — tables, enums, RLS policies, `save_analysis_snapshot` RPC, and the
+   Combinvest organization + advisor directory seed (33 advisors).
+2. `002_dashboard_rpc.sql` — `create_customer_with_analysis` and
+   `start_customer_analysis` RPCs used by the dashboard.
+3. `003_indexes.sql` — additive performance optimization: covering indexes for the
+   foreign keys PostgreSQL does not index automatically.
+
+Then finish configuration:
+
 4. In **Authentication → URL Configuration**, set the production Site URL and add local/preview redirect URLs.
 5. Create advisor users through Supabase Auth or activate Google login. Existing `advisor_profiles` are linked automatically by matching the verified email address.
 

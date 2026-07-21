@@ -26,6 +26,10 @@ export const BUILT_ROUTES = new Set<string>([
   "/rechner/anlegerprofil",
   "/rechner/pk-ausweis",
   "/rechner/freizuegigkeit",
+  "/versicherung/uebersicht",
+  "/versicherung/zusatz",
+  "/versicherung/sach-motor",
+  "/sealth",
 ])
 
 export const THEME_TOOLS: Record<string, ThemeTool> = {

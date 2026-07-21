@@ -138,6 +138,53 @@ export async function saveCalculatorResult(input: {
   }
 }
 
+export type SaveReferralResult = { ok: true } | { ok: false; error: string }
+
+/**
+ * Merges the post-advisory referral ("Weiterempfehlung") into the analysis
+ * snapshot under `referral`. Passing an empty object clears it (reset).
+ */
+export async function saveReferral(input: {
+  analysisId: string
+  payload: Record<string, unknown>
+}): Promise<SaveReferralResult> {
+  try {
+    const advisor = await getCurrentAdvisor()
+    if (!advisor) return { ok: false, error: "Nicht angemeldet." }
+
+    const supabase = await createClient()
+    const { data: row, error: readErr } = await supabase
+      .from("analyses")
+      .select("lock_version,current_step,current_question,progress_percent,latest_snapshot")
+      .eq("id", input.analysisId)
+      .maybeSingle()
+    if (readErr || !row) return { ok: false, error: readErr?.message ?? "Analyse nicht gefunden." }
+
+    const current = (row.latest_snapshot as Record<string, unknown> | null) ?? {}
+    const hasData = Object.keys(input.payload).length > 0
+    const snapshot = {
+      ...current,
+      referral: hasData ? { ...input.payload, updatedAt: new Date().toISOString() } : null,
+    }
+
+    const { error } = await supabase.rpc("save_analysis_snapshot", {
+      p_analysis_id: input.analysisId,
+      p_expected_lock_version: Number(row.lock_version),
+      p_step: Number(row.current_step ?? 3),
+      p_question: Number(row.current_question ?? 0),
+      p_progress: Number(row.progress_percent ?? 0),
+      p_snapshot: snapshot,
+      p_complete: false,
+    })
+    if (error) return { ok: false, error: error.message }
+
+    revalidatePath(`/analyse/${input.analysisId}/empfehlung`)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Speichern fehlgeschlagen." }
+  }
+}
+
 /**
  * Persists a wizard snapshot via the optimistic-locking RPC. The client passes
  * the lock_version it last saw; a mismatch raises 40001, which the caller

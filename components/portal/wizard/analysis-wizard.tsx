@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, ArrowRight, Check, Cloud, CloudOff, Loader2, RefreshCw } from "lucide-react"
+import { ArrowLeft, ArrowRight, Check, Cloud, CloudOff, Gift, Loader2, RefreshCw } from "lucide-react"
 import {
   QUESTIONS,
   TOTAL_QUESTIONS,
@@ -342,15 +342,24 @@ export function AnalysisWizard({
               <ArrowLeft className="h-4 w-4" />
               Zurück zum Vertragscheck
             </button>
-            <button
-              type="button"
-              onClick={complete}
-              disabled={completing || isCompleted}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-deep disabled:opacity-60"
-            >
-              {completing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {isCompleted ? "Abgeschlossen" : "Analyse abschließen"}
-            </button>
+            <div className="flex items-center gap-3">
+              <Link
+                href={`/analyse/${analysisId}/empfehlung`}
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+              >
+                <Gift className="h-4 w-4" />
+                Weiterempfehlen
+              </Link>
+              <button
+                type="button"
+                onClick={complete}
+                disabled={completing || isCompleted}
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-deep disabled:opacity-60"
+              >
+                {completing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {isCompleted ? "Abgeschlossen" : "Analyse abschließen"}
+              </button>
+            </div>
           </div>
         </div>
       )}

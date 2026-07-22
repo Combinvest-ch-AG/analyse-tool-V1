@@ -55,10 +55,13 @@ export function FranchiseCalc({
 
   const ageGroup = useMemo(() => ageGroupFromBirthYear(Number(birthYear), 2026), [birthYear])
 
-  const { data: cantonOffers } = useSWR<Offer[]>(
-    location && ageGroup ? `/data/priminfo-2026/premiums/${location.c}.json` : null,
-    fetcher,
-  )
+  const { data: cantonData, isLoading: premiumsLoading } = useSWR<{
+    year: number
+    source: "live" | "bundle"
+    offers: Offer[]
+  }>(location && ageGroup ? `/api/franchise/premiums/${location.c}` : null, fetcher)
+
+  const cantonOffers = cantonData?.offers
 
   const matches = useMemo(() => {
     if (!locations) return []
@@ -308,6 +311,32 @@ export function FranchiseCalc({
             options={(selectedOffer?.p ?? []).map(([f]) => ({ value: String(f), label: formatCHF(f) }))}
           />
         </div>
+
+        {location && ageGroup ? (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-[11.5px] text-muted-foreground">
+            {premiumsLoading || !cantonData ? (
+              <>
+                <span className="h-2 w-2 animate-pulse rounded-full bg-muted-foreground" />
+                Prämien werden geladen …
+              </>
+            ) : cantonData.source === "live" ? (
+              <>
+                <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
+                <span>
+                  <b className="font-semibold text-foreground">Live-Prämien {cantonData.year}</b> · direkt vom BAG
+                  (opendata.swiss)
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="h-2 w-2 rounded-full bg-primary" />
+                <span>
+                  <b className="font-semibold text-foreground">Prämien {cantonData.year}</b> · offizieller BAG-Datensatz
+                </span>
+              </>
+            )}
+          </div>
+        ) : null}
 
         <div className="my-5 border-t border-border" />
         <PanelHeading step={3} title="Erwartete Gesundheitskosten" sub="Arzt, Medikamente, Therapie und Spital – ohne Prämien." />

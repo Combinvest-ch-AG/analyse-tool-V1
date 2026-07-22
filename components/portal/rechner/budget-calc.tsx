@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Trash2, ArrowRight } from "lucide-react"
 import { formatCHF } from "@/lib/format"
 import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { BudgetSankey } from "@/components/portal/rechner/budget-sankey"
 
 type Item = { name: string; amount: number }
 type Category = { name: string; color: string; subs: Item[] }
@@ -91,37 +92,9 @@ export function BudgetCalc({
           <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
           Geldfluss
         </div>
-        {totals.exp > 0 ? (
-          <div className="mt-4 space-y-3">
-            {data.cats.filter((c) => catTotal(c) > 0).map((c, i) => {
-              const ct = catTotal(c)
-              const pct = totals.exp > 0 ? (ct / totals.exp) * 100 : 0
-              return (
-                <div key={i}>
-                  <div className="flex items-baseline justify-between text-[13px]">
-                    <span className="font-semibold text-foreground">{c.name}</span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {formatCHF(ct)} · {Math.round(pct)} %
-                    </span>
-                  </div>
-                  <div className="mt-1 h-3 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} />
-                  </div>
-                </div>
-              )
-            })}
-            <div className="mt-2 flex items-baseline justify-between border-t border-border pt-3 text-[13px]">
-              <span className="font-semibold text-foreground">Verbleibt (Überschuss)</span>
-              <span
-                className={`font-bold tabular-nums ${totals.bal >= 0 ? "text-success" : "text-destructive"}`}
-              >
-                {formatCHF(totals.bal)}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <p className="mt-4 text-center text-sm text-muted-foreground">Erfassen Sie unten Ihre Ausgaben.</p>
-        )}
+        <div className="mt-4">
+          <BudgetSankey income={data.income} cats={data.cats} />
+        </div>
       </div>
 
       {/* Advice */}

@@ -32,7 +32,8 @@ function safeNext(next: FormDataEntryValue | null): string {
 
 /**
  * Step 1: advisor enters their email. If the email belongs to an active
- * advisor profile, Supabase sends a magic link + a 6-digit code.
+ * advisor profile, Supabase sends a magic link + a one-time code
+ * (length follows the Supabase email OTP setting, currently 8 digits).
  */
 export async function requestLogin(
   _prev: LoginState,
@@ -91,7 +92,7 @@ export async function requestLogin(
 }
 
 /**
- * Step 2 (alternative to the link): advisor enters the 6-digit code.
+ * Step 2 (alternative to the link): advisor enters the one-time code.
  */
 export async function verifyCode(
   _prev: VerifyState,
@@ -106,8 +107,8 @@ export async function verifyCode(
   if (!EMAIL_RE.test(email)) {
     return { status: "error", message: "Sitzung abgelaufen. Bitte fordern Sie einen neuen Code an." }
   }
-  if (token.length !== 6) {
-    return { status: "error", message: "Bitte geben Sie den 6-stelligen Code aus der E-Mail ein." }
+  if (token.length < 6 || token.length > 10) {
+    return { status: "error", message: "Bitte geben Sie den vollständigen Code aus der E-Mail ein." }
   }
 
   const supabase = await createClient()

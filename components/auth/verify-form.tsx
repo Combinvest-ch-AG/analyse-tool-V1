@@ -53,7 +53,7 @@ export function VerifyForm({ email, next }: { email: string; next: string }) {
 
       <h1 className="text-2xl font-extrabold tracking-tight text-foreground">E-Mail bestätigen</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        Wir haben einen Login-Link und einen 6-stelligen Code an{" "}
+        Wir haben einen Login-Link und einen 8-stelligen Code an{" "}
         <span className="font-semibold text-foreground">{email}</span> gesendet.
         Klicken Sie auf den Link – oder geben Sie den Code hier ein.
       </p>
@@ -62,7 +62,7 @@ export function VerifyForm({ email, next }: { email: string; next: string }) {
         <input type="hidden" name="email" value={email} />
         <input type="hidden" name="next" value={next} />
 
-        <OtpInput />
+        <OtpInput length={8} />
 
         {state.status === "error" && (
           <div

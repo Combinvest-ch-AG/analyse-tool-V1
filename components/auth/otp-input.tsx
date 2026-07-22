@@ -2,13 +2,13 @@
 
 import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react"
 
-const LENGTH = 6
-
 /**
- * Accessible 6-digit segmented code input with auto-advance and paste support.
+ * Accessible segmented one-time-code input with auto-advance and paste support.
+ * Length is configurable to match the Supabase email OTP setting (6–10 digits).
  * Emits the joined value into a hidden input named `token` for form submission.
  */
-export function OtpInput({ disabled = false }: { disabled?: boolean }) {
+export function OtpInput({ disabled = false, length = 8 }: { disabled?: boolean; length?: number }) {
+  const LENGTH = length
   const [digits, setDigits] = useState<string[]>(Array(LENGTH).fill(""))
   const refs = useRef<Array<HTMLInputElement | null>>([])
 
@@ -68,7 +68,7 @@ export function OtpInput({ disabled = false }: { disabled?: boolean }) {
   return (
     <div>
       <input type="hidden" name="token" value={value} />
-      <div className="flex justify-between gap-2" role="group" aria-label="6-stelliger Sicherheitscode">
+      <div className="flex justify-between gap-2" role="group" aria-label={`${LENGTH}-stelliger Sicherheitscode`}>
         {digits.map((digit, i) => (
           <input
             key={i}

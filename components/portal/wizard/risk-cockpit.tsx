@@ -204,20 +204,31 @@ export function RiskCockpit({
                     </select>
                   </label>
 
-                  {(() => {
-                    const href = calculatorHref(a.key, answers, { analysisId, customerId })
-                    const calc = AREA_CALCULATORS[a.key]
-                    if (!href || !calc) return null
-                    return (
+                  <div className="mt-4 grid gap-2">
+                    {analysisId ? (
                       <Link
-                        href={href}
-                        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-sm font-extrabold text-primary-foreground transition-colors hover:bg-primary-deep"
+                        href={`/analyse/${analysisId}/thema/${a.key}`}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-sm font-extrabold text-primary-foreground transition-colors hover:bg-primary-deep"
                       >
-                        {calc.label}
+                        Bereich öffnen
                         <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                       </Link>
-                    )
-                  })()}
+                    ) : null}
+                    {(() => {
+                      const href = calculatorHref(a.key, answers, { analysisId, customerId })
+                      const calc = AREA_CALCULATORS[a.key]
+                      if (!href || !calc) return null
+                      return (
+                        <Link
+                          href={href}
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-bold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                        >
+                          {calc.label}
+                          <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                      )
+                    })()}
+                  </div>
                 </div>
               </article>
             )

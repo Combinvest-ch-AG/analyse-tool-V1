@@ -2,6 +2,22 @@
 
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+
+/**
+ * Ensures a confirmed auth user exists for this (already validated) advisor
+ * email. The 32 pre-seeded advisors have profiles but no auth user yet — and
+ * Supabase rejects OTP for unknown emails with "Signups not allowed for otp".
+ * Creating the user first turns the OTP into a normal login. The DB trigger
+ * `on_auth_user_link_advisor` links auth_user_id automatically.
+ */
+async function ensureAuthUser(email: string): Promise<boolean> {
+  const admin = createAdminClient()
+  const { error } = await admin.auth.admin.createUser({ email, email_confirm: true })
+  if (!error) return true
+  // "already registered" is the normal case for returning advisors.
+  return /already|registered|exists|duplicate/i.test(error.message ?? "")
+}
 
 export type LoginState = {
   status: "idle" | "error"
@@ -68,6 +84,15 @@ export async function requestLogin(
       status: "error",
       message:
         "Für diese E-Mail-Adresse liegt kein aktiver Zugang vor. Bitte wenden Sie sich an Ihre Administration.",
+      email,
+    }
+  }
+
+  // Guarantee the auth user exists so Supabase treats the OTP as a login.
+  if (!(await ensureAuthUser(email))) {
+    return {
+      status: "error",
+      message: "Der Login-Code konnte nicht gesendet werden. Bitte versuchen Sie es erneut.",
       email,
     }
   }
@@ -151,6 +176,8 @@ export async function resendCode(email: string): Promise<{ ok: boolean }> {
   const supabase = await createClient()
   const { data: canLogin } = await supabase.rpc("email_can_login", { p_email: clean })
   if (!canLogin) return { ok: false }
+
+  if (!(await ensureAuthUser(clean))) return { ok: false }
 
   const { error } = await supabase.auth.signInWithOtp({
     email: clean,

@@ -23,6 +23,7 @@ export default async function TragbarkeitPage({
       lead="Prüfen Sie auf einen Blick, ob Kaufpreis, Eigenkapital und Einkommen zusammenpassen — nach dem Schweizer Tragbarkeitsstandard."
       backHref="/rechner"
       backLabel="Rechner"
+      analysisId={sp.aid}
       chip="Schweizer Standard"
       explain="Die Quote zeigt die kalkulatorische Belastung Ihres Einkommens."
       source="Banken-Praxis: 5 % Zins, 1 % Nebenkosten und rund 33 % Tragbarkeit."

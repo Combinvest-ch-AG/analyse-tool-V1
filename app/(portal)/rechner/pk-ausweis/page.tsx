@@ -21,6 +21,7 @@ export default async function PkAusweisPage({
       lead="Übertragen Sie die zentralen Kennzahlen aus dem PK-Ausweis. Sie bilden die Grundlage für die Vorsorgelücken-Analyse und die Beratung."
       backHref="/rechner"
       backLabel="Rechner"
+      analysisId={sp.aid}
       chip="PK-Ausweis"
       explain="Die erfassten Leistungen werden in der Zusammenfassung übersichtlich dargestellt."
       source="Angaben stammen aus dem persönlichen Vorsorgeausweis Ihrer Pensionskasse."

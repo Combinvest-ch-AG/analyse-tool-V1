@@ -21,6 +21,7 @@ export default async function AnlegerprofilPage({
       lead="Acht kurze Fragen zu Risikobereitschaft, Anlagehorizont und Erfahrung ergeben ein Profil mit passender Aktienquote als Ausgangspunkt für das Gespräch."
       backHref="/rechner"
       backLabel="Rechner"
+      analysisId={sp.aid}
       chip="8 Fragen"
       explain="Aus den Antworten wird ein gewichteter Score und ein Anlegerprofil abgeleitet."
       source="Gewichtung nach FIDLEG-Logik: Risiko 50 %, Horizont 30 %, Wissen 20 %."

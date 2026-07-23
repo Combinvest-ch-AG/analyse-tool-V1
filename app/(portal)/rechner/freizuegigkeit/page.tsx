@@ -21,6 +21,7 @@ export default async function FreizuegigkeitPage({
       lead="Bereiten Sie den Auftrag dort vor, wo er fachlich hingehört: beim Vermögensaufbau. Der Entwurf wird mit der Kundenanalyse gespeichert."
       backHref="/rechner"
       backLabel="Rechner"
+      analysisId={sp.aid}
       chip="Auftragsentwurf"
     >
       <FreizuegigkeitForm ctx={ctx} />

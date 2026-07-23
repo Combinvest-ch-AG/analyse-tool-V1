@@ -34,7 +34,10 @@ export function CalcActionBar({
   })
 
   const canTransfer = !!ctx.analysisId
-  const backHref = ctx.analysisId ? `/analyse/${ctx.analysisId}?step=3` : "/dashboard"
+  // Aus einer Analyse geöffnet: zurück zur Risikoanalyse. Sonst: zurück zur
+  // Rechnerübersicht (nicht zur Startseite) – der Rechner gehört dorthin.
+  const backHref = ctx.analysisId ? `/analyse/${ctx.analysisId}` : "/rechner"
+  const backLabel = ctx.analysisId ? "Zur Risikoanalyse" : "Zu den Rechnern"
 
   function transfer() {
     if (!ctx.analysisId) return
@@ -100,7 +103,7 @@ export function CalcActionBar({
         href={backHref}
         className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-[13px] font-bold text-foreground transition-colors hover:bg-muted"
       >
-        Zur Risikoanalyse
+        {backLabel}
         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
       </Link>
 

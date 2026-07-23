@@ -47,6 +47,16 @@ export default async function ThemaPage({
   const analysis = await getAnalysis(id)
   if (!analysis) notFound()
 
+  // Analyse-Kontext an jeden Rechner-Link anhängen, damit die Rechner wissen,
+  // aus welcher Analyse sie geöffnet wurden – und "Zurück" wieder dorthin führt.
+  const withCtx = (href: string) => {
+    const [path, query] = href.split("?")
+    const params = new URLSearchParams(query)
+    params.set("aid", id)
+    if (analysis.customer_id) params.set("cid", analysis.customer_id)
+    return `${path}?${params.toString()}`
+  }
+
   const tools = theme.tools.map((t) => THEME_TOOLS[t]).filter(Boolean)
 
   return (
@@ -115,7 +125,7 @@ export default async function ThemaPage({
               )
               const cls = "block rounded-2xl border border-border bg-card p-5 text-left transition-colors"
               return live ? (
-                <Link key={tool.id} href={tool.href} className={`${cls} hover:border-primary/40`}>
+                <Link key={tool.id} href={withCtx(tool.href)} className={`${cls} hover:border-primary/40`}>
                   {inner}
                 </Link>
               ) : (
@@ -137,7 +147,7 @@ export default async function ThemaPage({
             <p className="mt-0.5 text-sm text-muted-foreground">Self, Health und Wealth passend zur persönlichen Situation kombinieren.</p>
           </div>
           <Link
-            href="/sealth"
+            href={withCtx("/sealth")}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary-deep"
           >
             Bedarfscheck starten <ArrowRight className="h-4 w-4" />

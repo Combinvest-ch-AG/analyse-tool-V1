@@ -7,6 +7,7 @@ export function CalcShell({
   lead,
   backHref,
   backLabel,
+  analysisId,
   chip,
   explain,
   source,
@@ -17,20 +18,25 @@ export function CalcShell({
   lead: string
   backHref: string
   backLabel: string
+  /** When the calculator was opened from a customer analysis, the back link
+   *  always returns to that analysis ("Zur Risikoanalyse"). */
+  analysisId?: string
   chip?: string
   explain?: string
   source?: string
   children: React.ReactNode
 }) {
+  const resolvedBackHref = analysisId ? `/analyse/${analysisId}` : backHref
+  const resolvedBackLabel = analysisId ? "Zur Risikoanalyse" : backLabel
   return (
     <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
       <div className="flex items-center justify-between gap-3">
         <Link
-          href={backHref}
+          href={resolvedBackHref}
           className="inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-[0.08em] text-primary hover:text-primary-deep"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {backLabel}
+          {resolvedBackLabel}
         </Link>
         {chip ? (
           <span className="rounded-full border border-border bg-card px-3 py-1 text-[11px] font-bold text-muted-foreground">

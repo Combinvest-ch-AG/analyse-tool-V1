@@ -21,6 +21,7 @@ export default async function AhvPage({
       lead="Drei Angaben genügen für eine verständliche Schätzung: durchschnittliches Jahreseinkommen, Beitragsjahre und gewünschtes Einkommen im Ruhestand."
       backHref="/rechner"
       backLabel="Rechner"
+      analysisId={sp.aid}
       chip="Skala 44"
       explain="Die geschätzte AHV-Rente wird Ihrem Wunscheinkommen gegenübergestellt."
       source="AHV-Rentenskala 44 (Stand 2026); verbindlich sind IK-Auszug und Rentenvorausberechnung."

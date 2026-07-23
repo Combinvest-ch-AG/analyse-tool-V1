@@ -22,6 +22,7 @@ export default async function VorsorgePage({
       lead="Deckungslücke bei Invalidität, Pensionierung und Todesfall — automatisch nach AHV-Skala 44 (2025/2026) und BVG-Minimum."
       backHref="/rechner"
       backLabel="Rechner"
+      analysisId={sp.aid}
       chip="AHV-Skala 44"
       explain="Vorhandene Renten werden dem gewünschten Einkommen gegenübergestellt."
       source="AHV/IV, BVG, UVG sowie Ihre Ausweis- und Policenwerte."

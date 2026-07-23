@@ -21,6 +21,7 @@ export default async function BudgetPage({
       lead="Erfassen Sie Einnahmen und Ausgaben – Geldfluss, Sparquote und der monatliche Überschuss aktualisieren sich in Echtzeit."
       backHref="/rechner"
       backLabel="Rechner"
+      analysisId={sp.aid}
       chip="Haushaltsbudget"
       explain="Die Sparquote zeigt, welcher Anteil Ihres Einkommens monatlich übrig bleibt."
       source="Ihre erfassten Einnahmen und Ausgaben; Richtwert solide Sparquote 15–20 %."

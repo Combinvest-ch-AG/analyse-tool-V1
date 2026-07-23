@@ -21,6 +21,7 @@ export default async function FranchisePage({
       lead="Vergleichen Sie alle verfügbaren Franchisen mit der exakten Prämie Ihres Wohnorts, Versicherers und Modells."
       backHref="/rechner"
       backLabel="Rechner"
+      analysisId={sp.aid}
       chip="BAG-Prämien 2026"
       explain="Sie sehen Prämie und Kostenbeteiligung je Franchise getrennt."
       source="BAG / opendata.swiss, Prämien 2026; exakte Auswahl über Priminfo."

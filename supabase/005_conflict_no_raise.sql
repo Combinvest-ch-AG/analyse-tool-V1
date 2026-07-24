@@ -21,7 +21,13 @@
 -- conflict behaviour changes from "raise" to "return empty".
 -- ===========================================================================
 
-create or replace function public.save_analysis_snapshot(
+-- The return type changes from `analyses` to `setof analyses`, which
+-- CREATE OR REPLACE cannot do — the existing function must be dropped first.
+drop function if exists public.save_analysis_snapshot(
+  uuid,bigint,smallint,smallint,numeric,jsonb,boolean,boolean
+);
+
+create function public.save_analysis_snapshot(
   p_analysis_id uuid,
   p_expected_lock_version bigint,
   p_step smallint,

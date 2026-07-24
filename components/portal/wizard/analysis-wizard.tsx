@@ -86,7 +86,7 @@ export function AnalysisWizard({
   })
 
   const persistOnce = useCallback(
-    async (complete: boolean): Promise<boolean> => {
+    async (complete: boolean, writeRevision: boolean): Promise<boolean> => {
       setStatus("saving")
       const payload = {
         analysisId,
@@ -96,6 +96,9 @@ export function AnalysisWizard({
         progress: progressPercent(answersRef.current),
         snapshot: buildSnapshot(),
         complete,
+        // Milestones (completion, step transitions) keep an immutable revision;
+        // frequent autosaves do not, to avoid revision/index write churn.
+        writeRevision: writeRevision || complete,
       }
       const result = await saveAnalysisSnapshot(payload)
       if (result.ok) {
@@ -125,19 +128,20 @@ export function AnalysisWizard({
   )
 
   const persist = useCallback(
-    (complete = false): Promise<boolean> => {
-      const next = saveChain.current.catch(() => false).then(() => persistOnce(complete))
+    (complete = false, writeRevision = false): Promise<boolean> => {
+      const next = saveChain.current.catch(() => false).then(() => persistOnce(complete, writeRevision))
       saveChain.current = next
       return next
     },
     [persistOnce],
   )
 
-  // Debounced autosave whenever answers / contracts / statuses change.
+  // Debounced autosave whenever answers / contracts / statuses change. A longer
+  // debounce collapses rapid edits into a single write, cutting DB load.
   useEffect(() => {
     if (isCompleted) return
     if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => void persist(false), 800)
+    timer.current = setTimeout(() => void persist(false, false), 2500)
     return () => {
       if (timer.current) clearTimeout(timer.current)
     }
@@ -153,7 +157,8 @@ export function AnalysisWizard({
     if (timer.current) clearTimeout(timer.current)
     setStep(next)
     window.scrollTo({ top: 0, behavior: "smooth" })
-    if (!isCompleted) void persist(false)
+    // A step transition is a milestone → keep a revision snapshot.
+    if (!isCompleted) void persist(false, true)
   }
 
   const q = QUESTIONS[qi]

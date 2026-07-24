@@ -298,6 +298,12 @@ export async function saveAnalysisSnapshot(input: {
   progress: number
   snapshot: Record<string, unknown>
   complete?: boolean
+  /**
+   * Whether to persist an immutable revision alongside the snapshot. High
+   * frequency autosaves pass false to avoid revision churn (which triggered
+   * heavy DB write/index load); milestones (step change, completion) pass true.
+   */
+  writeRevision?: boolean
 }): Promise<SaveSnapshotResult> {
   try {
     const advisor = await getCurrentAdvisor()
@@ -312,6 +318,7 @@ export async function saveAnalysisSnapshot(input: {
       p_progress: input.progress,
       p_snapshot: input.snapshot,
       p_complete: input.complete ?? false,
+      p_write_revision: input.writeRevision ?? false,
     })
 
     if (error) {

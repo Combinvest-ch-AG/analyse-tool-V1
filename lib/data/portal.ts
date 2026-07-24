@@ -66,51 +66,47 @@ const CUSTOMER_COLUMNS =
   "id,first_name,last_name,birthdate,email,phone,postcode,city,status,created_at,updated_at"
 const ANALYSIS_COLUMNS =
   "id,customer_id,title,status,current_step,current_question,progress_percent,latest_snapshot,lock_version,started_at,completed_at,created_at,updated_at"
-const APPOINTMENT_COLUMNS =
-  "id,customer_id,title,appointment_type,starts_at,ends_at,status,location"
 const CONTRACT_COLUMNS =
   "id,customer_id,policy_number,contract_type,provider_name,gross_premium,premium_interval,status,start_date,expiry_date"
 
 export type DashboardData = {
   customers: CustomerRow[]
   analyses: AnalysisRow[]
-  appointments: AppointmentRow[]
 }
 
+// Safety cap so list/dashboard queries can never trigger an unbounded scan as
+// the organization grows. Far above realistic per-org counts today.
+const LIST_LIMIT = 500
+
 /**
- * Loads everything the dashboard needs. RLS scopes all rows to the advisor's
- * organization, so no explicit advisor filter is required for customers /
- * analyses; appointments are additionally filtered to the advisor.
+ * Loads everything the dashboard and the customer/analysis list pages need.
+ * RLS scopes all rows to the advisor's organization, so no explicit advisor
+ * filter is required.
  */
-export async function getDashboardData(advisorId: string): Promise<DashboardData> {
+export async function getDashboardData(_advisorId: string): Promise<DashboardData> {
   const supabase = await createClient()
 
-  const [customersRes, analysesRes, appointmentsRes] = await Promise.all([
+  const [customersRes, analysesRes] = await Promise.all([
     supabase
       .from("customers")
       .select(CUSTOMER_COLUMNS)
       .neq("status", "archived")
-      .order("updated_at", { ascending: false }),
+      .order("updated_at", { ascending: false })
+      .limit(LIST_LIMIT),
     supabase
       .from("analyses")
       .select(ANALYSIS_COLUMNS)
       .neq("status", "cancelled")
-      .order("updated_at", { ascending: false }),
-    supabase
-      .from("appointments")
-      .select(APPOINTMENT_COLUMNS)
-      .eq("advisor_id", advisorId)
-      .order("starts_at", { ascending: true }),
+      .order("updated_at", { ascending: false })
+      .limit(LIST_LIMIT),
   ])
 
   if (customersRes.error) throw customersRes.error
   if (analysesRes.error) throw analysesRes.error
-  if (appointmentsRes.error) throw appointmentsRes.error
 
   return {
     customers: (customersRes.data ?? []) as CustomerRow[],
     analyses: (analysesRes.data ?? []) as AnalysisRow[],
-    appointments: (appointmentsRes.data ?? []) as AppointmentRow[],
   }
 }
 

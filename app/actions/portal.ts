@@ -120,7 +120,7 @@ export async function saveCalculatorResult(input: {
     calcResults[input.key] = { ...input.payload, savedAt: new Date().toISOString() }
     const snapshot = { ...current, calculatorResults: calcResults }
 
-    const { error } = await supabase.rpc("save_analysis_snapshot", {
+    const { data: saved, error } = await supabase.rpc("save_analysis_snapshot", {
       p_analysis_id: input.analysisId,
       p_expected_lock_version: Number(row.lock_version),
       p_step: Number(row.current_step ?? 3),
@@ -130,6 +130,11 @@ export async function saveCalculatorResult(input: {
       p_complete: false,
     })
     if (error) return { ok: false, error: error.message }
+    // Empty result = lock conflict (RPC no longer raises); report it instead of
+    // silently claiming success.
+    if (!(Array.isArray(saved) ? saved.length : saved)) {
+      return { ok: false, error: "Konflikt: Analyse wurde zwischenzeitlich geändert. Bitte neu laden." }
+    }
 
     revalidatePath(`/analyse/${input.analysisId}`)
     return { ok: true }
@@ -167,7 +172,7 @@ export async function saveReferral(input: {
       referral: hasData ? { ...input.payload, updatedAt: new Date().toISOString() } : null,
     }
 
-    const { error } = await supabase.rpc("save_analysis_snapshot", {
+    const { data: saved, error } = await supabase.rpc("save_analysis_snapshot", {
       p_analysis_id: input.analysisId,
       p_expected_lock_version: Number(row.lock_version),
       p_step: Number(row.current_step ?? 3),
@@ -177,6 +182,9 @@ export async function saveReferral(input: {
       p_complete: false,
     })
     if (error) return { ok: false, error: error.message }
+    if (!(Array.isArray(saved) ? saved.length : saved)) {
+      return { ok: false, error: "Konflikt: Analyse wurde zwischenzeitlich geändert. Bitte neu laden." }
+    }
 
     revalidatePath(`/analyse/${input.analysisId}/empfehlung`)
     return { ok: true }
@@ -213,7 +221,7 @@ export async function saveDocuments(input: {
       documents: { ...input.documents, savedAt: new Date().toISOString() },
     }
 
-    const { error } = await supabase.rpc("save_analysis_snapshot", {
+    const { data: saved, error } = await supabase.rpc("save_analysis_snapshot", {
       p_analysis_id: input.analysisId,
       p_expected_lock_version: Number(row.lock_version),
       p_step: Number(row.current_step ?? 3),
@@ -223,6 +231,9 @@ export async function saveDocuments(input: {
       p_complete: false,
     })
     if (error) return { ok: false, error: error.message }
+    if (!(Array.isArray(saved) ? saved.length : saved)) {
+      return { ok: false, error: "Konflikt: Analyse wurde zwischenzeitlich geändert. Bitte neu laden." }
+    }
 
     revalidatePath(`/analyse/${input.analysisId}/abschluss`)
     return { ok: true }
@@ -266,7 +277,7 @@ export async function saveClosing(input: {
       },
     }
 
-    const { error } = await supabase.rpc("save_analysis_snapshot", {
+    const { data: saved, error } = await supabase.rpc("save_analysis_snapshot", {
       p_analysis_id: input.analysisId,
       p_expected_lock_version: Number(row.lock_version),
       p_step: Number(row.current_step ?? 3),
@@ -276,6 +287,9 @@ export async function saveClosing(input: {
       p_complete: input.complete ?? false,
     })
     if (error) return { ok: false, error: error.message }
+    if (!(Array.isArray(saved) ? saved.length : saved)) {
+      return { ok: false, error: "Konflikt: Analyse wurde zwischenzeitlich geändert. Bitte neu laden." }
+    }
 
     revalidatePath(`/analyse/${input.analysisId}/abschluss`)
     revalidatePath(`/analyse/${input.analysisId}`)
@@ -322,15 +336,19 @@ export async function saveAnalysisSnapshot(input: {
     })
 
     if (error) {
-      // 40001 (serialization_failure) is raised by the RPC on a lock mismatch
-      // or an RLS-forbidden row.
-      const conflict = error.code === "40001" || /lock|version|conflict|forbidden|stale/i.test(error.message)
-      return { ok: false, error: error.message, conflict }
+      return { ok: false, error: error.message }
     }
 
-    // RPC RETURNS the full analyses row; read the new lock_version off it.
+    // The RPC returns SETOF analyses: exactly one row on success, ZERO rows on
+    // a lock conflict / RLS-forbidden row. It no longer raises on conflict, so
+    // an empty result — not an error code — signals a conflict. This keeps the
+    // transaction committed (no rollback storm) even when clients retry.
     const row = (Array.isArray(data) ? data[0] : data) as { lock_version?: number | string } | null
-    const nextVersion = Number(row?.lock_version ?? input.expectedLockVersion + 1)
+    if (!row) {
+      return { ok: false, error: "Konflikt: Analyse wurde zwischenzeitlich geändert.", conflict: true }
+    }
+
+    const nextVersion = Number(row.lock_version ?? input.expectedLockVersion + 1)
 
     if (input.complete) revalidatePath(`/analyse/${input.analysisId}`)
     return { ok: true, lockVersion: nextVersion, completed: input.complete ?? false }

@@ -77,6 +77,15 @@ export function AnalysisWizard({
   // Serialize writes so a manual save never races the debounced autosave and
   // self-conflicts on the optimistic lock version.
   const saveChain = useRef<Promise<boolean>>(Promise.resolve(true))
+  // Circuit breaker: if saves keep failing (e.g. the row was deleted, the
+  // session is stale, or a persistent conflict), STOP autosaving instead of
+  // retrying forever. A runaway retry loop was the source of ~2k aborted
+  // transactions/sec hammering the database.
+  const failureCount = useRef(0)
+  const MAX_CONSECUTIVE_FAILURES = 3
+  const [autosaveHalted, setAutosaveHalted] = useState(false)
+  const haltedRef = useRef(false)
+  haltedRef.current = autosaveHalted
 
   const buildSnapshot = () => ({
     answers: answersRef.current,
@@ -87,6 +96,9 @@ export function AnalysisWizard({
 
   const persistOnce = useCallback(
     async (complete: boolean, writeRevision: boolean): Promise<boolean> => {
+      // Circuit breaker tripped: refuse to keep calling the API.
+      if (haltedRef.current) return false
+
       setStatus("saving")
       const payload = {
         analysisId,
@@ -103,9 +115,13 @@ export function AnalysisWizard({
       const result = await saveAnalysisSnapshot(payload)
       if (result.ok) {
         lockVersion.current = result.lockVersion
+        failureCount.current = 0
         setStatus("saved")
         return true
       }
+
+      // A conflict gets exactly ONE reconciliation attempt with a fresh lock
+      // version — never an unbounded retry.
       if (result.conflict) {
         const fresh = await getAnalysisLockVersion(analysisId)
         if (fresh != null && fresh !== lockVersion.current) {
@@ -113,14 +129,19 @@ export function AnalysisWizard({
           const retry = await saveAnalysisSnapshot({ ...payload, expectedLockVersion: lockVersion.current })
           if (retry.ok) {
             lockVersion.current = retry.lockVersion
+            failureCount.current = 0
             setStatus("saved")
             return true
           }
         }
-        setStatus("conflict")
-        return false
       }
-      setStatus("error")
+
+      // Any unresolved failure (conflict or error) counts toward the breaker.
+      failureCount.current += 1
+      if (failureCount.current >= MAX_CONSECUTIVE_FAILURES) {
+        setAutosaveHalted(true)
+      }
+      setStatus(result.conflict ? "conflict" : "error")
       return false
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -139,14 +160,19 @@ export function AnalysisWizard({
   // Debounced autosave whenever answers / contracts / statuses change. A longer
   // debounce collapses rapid edits into a single write, cutting DB load.
   useEffect(() => {
-    if (isCompleted) return
+    if (isCompleted || autosaveHalted) return
     if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => void persist(false, false), 2500)
+    timer.current = setTimeout(() => {
+      // Never autosave from a backgrounded tab — a stale/hidden tab looping
+      // saves was exactly the pathological pattern we are guarding against.
+      if (typeof document !== "undefined" && document.hidden) return
+      void persist(false, false)
+    }, 2500)
     return () => {
       if (timer.current) clearTimeout(timer.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers, contracts, themeStatus])
+  }, [answers, contracts, themeStatus, autosaveHalted])
 
   function setAnswer(key: string, value: WizardAnswers[string]) {
     setAnswers((prev) => ({ ...prev, [key]: value }))
@@ -396,7 +422,14 @@ export function AnalysisWizard({
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <SaveIndicator status={status} onRetry={() => router.refresh()} />
+          <SaveIndicator
+            status={status}
+            onRetry={() => {
+              // Full reload guarantees a fresh lock version AND resets the
+              // autosave circuit breaker, rather than leaving stale client state.
+              if (typeof window !== "undefined") window.location.reload()
+            }}
+          />
           <Link
             href={`/kunde/${customerId}`}
             className="text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"

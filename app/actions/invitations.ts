@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache"
 import { getCurrentAdvisor } from "@/lib/auth/advisor"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -96,13 +95,13 @@ export async function inviteAdvisors(
     return { status: "error", message: "Bitte geben Sie mindestens eine gültige E-Mail-Adresse ein.", results: [] }
   }
 
-  const supabase = await createClient()
   const admin = createAdminClient()
   const results: InviteResult[] = []
 
   for (const invite of invites) {
     // 1. Upsert the advisor profile within the current organization.
-    const { error: profileError } = await supabase.from("advisor_profiles").upsert(
+    //    Use the admin client so RLS never blocks creating a colleague's profile.
+    const { error: profileError } = await admin.from("advisor_profiles").upsert(
       {
         organization_id: advisor.organization_id,
         email: invite.email,

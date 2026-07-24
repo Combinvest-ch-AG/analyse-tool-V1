@@ -1,30 +1,25 @@
 import Link from "next/link"
-import { FolderOpen, CheckCircle2, Users, CalendarClock, ArrowRight } from "lucide-react"
+import { FolderOpen, CheckCircle2, Users, ArrowRight } from "lucide-react"
 import { getCurrentAdvisor } from "@/lib/auth/advisor"
 import { getDashboardData } from "@/lib/data/portal"
 import { NewCustomerDialog } from "@/components/portal/new-customer-dialog"
-import { initials, fullName, formatDate, formatDateTime } from "@/lib/format"
+import { initials, fullName, formatDate } from "@/lib/format"
 
 export default async function DashboardPage() {
   const advisor = await getCurrentAdvisor()
   // Layout already guards, but keep types happy.
   if (!advisor) return null
 
-  const { customers, analyses, appointments } = await getDashboardData(advisor.id)
+  const { customers, analyses } = await getDashboardData(advisor.id)
   const customerById = new Map(customers.map((c) => [c.id, c]))
 
-  const now = Date.now()
   const openCount = analyses.filter((a) => a.status === "draft" || a.status === "in_progress").length
   const doneCount = analyses.filter((a) => a.status === "completed").length
-  const upcoming = appointments.filter(
-    (a) => new Date(a.starts_at).getTime() > now && a.status !== "cancelled",
-  )
 
   const stats = [
     { label: "Offene Analysen", value: openCount, icon: FolderOpen },
     { label: "Abgeschlossen", value: doneCount, icon: CheckCircle2 },
     { label: "Kunden", value: customers.length, icon: Users },
-    { label: "Kommende Termine", value: upcoming.length, icon: CalendarClock },
   ]
 
   return (
@@ -36,14 +31,14 @@ export default async function DashboardPage() {
             Guten Tag, {advisor.first_name}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ihre Kunden, Termine und laufenden Analysen im Überblick.
+            Ihre Kunden und laufenden Analysen im Überblick.
           </p>
         </div>
         <NewCustomerDialog label="Neue Analyse" />
       </div>
 
       {/* Stats */}
-      <section className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
         {stats.map((s) => {
           const Icon = s.icon
           return (
@@ -65,62 +60,45 @@ export default async function DashboardPage() {
         })}
       </section>
 
-      {/* Two-column: analyses + appointments */}
-      <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[1.5fr_1fr]">
-        <section id="analysen" className="scroll-mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-foreground">Letzte Analysen</h2>
-            <NewCustomerDialog variant="secondary" label="Neue Analyse" />
-          </div>
-          <div className="flex flex-col gap-2">
-            {analyses.length === 0 && <Empty>Noch keine Analyse vorhanden.</Empty>}
-            {analyses.slice(0, 6).map((a) => {
-              const c = customerById.get(a.customer_id)
-              const done = a.status === "completed"
-              return (
-                <Link
-                  key={a.id}
-                  href={`/kunde/${a.customer_id}`}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
-                >
-                  <Avatar>{initials(c?.first_name, c?.last_name)}</Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">
-                      {fullName(c?.first_name, c?.last_name)}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      Schritt {a.current_step ?? 1} · {Number(a.progress_percent ?? 0).toFixed(0)} % ·{" "}
-                      {formatDate(a.updated_at)}
-                    </p>
-                  </div>
-                  <Badge done={done}>{done ? "Profil öffnen" : "Profil & Analyse"}</Badge>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
-
-        <section id="termine" className="scroll-mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Nächste Termine</h2>
-          <div className="flex flex-col gap-2">
-            {upcoming.length === 0 && <Empty>Keine Termine geplant.</Empty>}
-            {upcoming.slice(0, 5).map((a) => {
-              const c = customerById.get(a.customer_id)
-              return (
-                <div key={a.id} className="flex items-center gap-3 rounded-xl border border-border bg-background p-3">
-                  <Avatar>{initials(c?.first_name, c?.last_name)}</Avatar>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">{a.title}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {fullName(c?.first_name, c?.last_name)} · {formatDateTime(a.starts_at)}
-                    </p>
-                  </div>
+      {/* Recent analyses */}
+      <section id="analysen" className="mt-6 scroll-mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-foreground">Letzte Analysen</h2>
+          <Link
+            href="/analysen"
+            className="flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-primary hover:underline"
+          >
+            Alle ansehen
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        <div className="flex flex-col gap-2">
+          {analyses.length === 0 && <Empty>Noch keine Analyse vorhanden.</Empty>}
+          {analyses.slice(0, 6).map((a) => {
+            const c = customerById.get(a.customer_id)
+            const done = a.status === "completed"
+            return (
+              <Link
+                key={a.id}
+                href={`/kunde/${a.customer_id}`}
+                className="flex items-center gap-3 rounded-xl border border-border bg-background p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
+              >
+                <Avatar>{initials(c?.first_name, c?.last_name)}</Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {fullName(c?.first_name, c?.last_name)}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Schritt {a.current_step ?? 1} · {Number(a.progress_percent ?? 0).toFixed(0)} % ·{" "}
+                    {formatDate(a.updated_at)}
+                  </p>
                 </div>
-              )
-            })}
-          </div>
-        </section>
-      </div>
+                <Badge done={done}>{done ? "Profil öffnen" : "Profil & Analyse"}</Badge>
+              </Link>
+            )
+          })}
+        </div>
+      </section>
 
       {/* Customers */}
       <section id="kunden" className="mt-5 scroll-mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">

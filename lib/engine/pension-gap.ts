@@ -2,6 +2,9 @@
 // 1:1-Port der Inline-Logik aus vorsorgerechner.html — Mathematik unverändert.
 // AHV/IV-Skala 44 (Werte 2025/2026), BVG-Gutschriftssätze, Koordination/Überentschädigung.
 
+import { ahvScale44 } from "./ahv-retirement"
+export { ahvScale44 } from "./ahv-retirement"
+
 export type Risk = "iv" | "retirement" | "death"
 export type ValueKey = "ahv" | "ahvChild" | "bvg" | "bvgChild" | "uvg" | "third" | "other"
 export type Cause = "illness" | "accident"
@@ -65,14 +68,6 @@ export function bvgCreditRate(a: number): number {
 
 export function bvgIvShare(d: number): number {
   return d < 40 ? 0 : d < 50 ? 0.25 + (d - 40) * 0.025 : d < 70 ? d / 100 : 1
-}
-
-export function ahvScale44(income: number): { usedIncome: number; monthly: number } {
-  const minimum = 1260
-  const step = 1512
-  const used = Math.min(90720, Math.max(15120, Math.ceil(Math.max(0, income) / step) * step))
-  const monthly = used <= 45360 ? 0.74 * minimum + (13 / 600) * used : 1.04 * minimum + (8 / 600) * used
-  return { usedIncome: used, monthly: Math.round(Math.max(minimum, Math.min(2520, monthly))) }
 }
 
 export interface GapInputs {

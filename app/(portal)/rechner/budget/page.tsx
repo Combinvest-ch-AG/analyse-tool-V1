@@ -24,7 +24,7 @@ export default async function BudgetPage({
       analysisId={sp.aid}
       chip="Haushaltsbudget"
       explain="Die Sparquote zeigt, welcher Anteil Ihres Einkommens monatlich übrig bleibt."
-      source="Ihre erfassten Einnahmen und Ausgaben; Richtwert solide Sparquote 15–20 %."
+      source="Ihre erfassten monatlichen Einnahmen und Ausgaben; keine automatisch ergänzten Schätzwerte."
     >
       <BudgetCalc ctx={ctx} />
     </CalcShell>

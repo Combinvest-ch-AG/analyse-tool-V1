@@ -16,7 +16,7 @@ export default async function AnlegerprofilPage({
   const ctx = { analysisId: sp.aid, customerId: sp.cid }
   return (
     <CalcShell
-      eyebrow="Anlageberatung · FIDLEG-Logik"
+      eyebrow="Anlageberatung · Combinvest Profilmodell"
       title="Anlegerprofil bestimmen"
       lead="Acht kurze Fragen zu Risikobereitschaft, Anlagehorizont und Erfahrung ergeben ein Profil mit passender Aktienquote als Ausgangspunkt für das Gespräch."
       backHref="/rechner"
@@ -24,7 +24,7 @@ export default async function AnlegerprofilPage({
       analysisId={sp.aid}
       chip="8 Fragen"
       explain="Aus den Antworten wird ein gewichteter Score und ein Anlegerprofil abgeleitet."
-      source="Gewichtung nach FIDLEG-Logik: Risiko 50 %, Horizont 30 %, Wissen 20 %."
+      source="Combinvest Beratungsmodell: Risiko 50 %, Horizont 30 %, Wissen 20 %. Keine gesetzlich vorgegebene FIDLEG-Punkteformel."
     >
       <AnlegerprofilCalc ctx={ctx} />
     </CalcShell>

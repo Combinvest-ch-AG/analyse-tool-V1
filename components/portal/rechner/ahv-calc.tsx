@@ -3,18 +3,10 @@
 import { useMemo, useState } from "react"
 import { TrendingUp } from "lucide-react"
 import { formatCHF } from "@/lib/format"
+import { calculateAhvRetirement } from "@/lib/engine/ahv-retirement"
 import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
 
-const MIN_RENT = 1260
-const MAX_RENT = 2520
 const LOW = 15120
-const HIGH = 90720
-
-function fullRent(income: number) {
-  if (income <= LOW) return MIN_RENT
-  if (income >= HIGH) return MAX_RENT
-  return MIN_RENT + (MAX_RENT - MIN_RENT) * ((income - LOW) / (HIGH - LOW))
-}
 
 export function AhvCalc({
   defaults,
@@ -27,12 +19,15 @@ export function AhvCalc({
   const [years, setYears] = useState(defaults?.years ?? 44)
   const [need, setNeed] = useState(defaults?.need ?? 6000)
 
-  const result = useMemo(() => {
-    const rent = (fullRent(income) * years) / 44
-    const gap = Math.max(0, need - rent)
-    const cover = need > 0 ? Math.min(100, (rent / need) * 100) : 0
-    return { rent, gap, cover, annual: rent * 12 }
-  }, [income, years, need])
+  const result = useMemo(
+    () =>
+      calculateAhvRetirement({
+        averageIncome: income,
+        contributionYears: years,
+        desiredMonthlyIncome: need,
+      }),
+    [income, years, need],
+  )
 
   return (
     <>
@@ -47,9 +42,10 @@ export function AhvCalc({
             wunscheinkommen: need,
           },
           results: [
-            `AHV-Rente ${formatCHF(result.rent)}/Monat`,
+            `AHV-Rente ${formatCHF(result.ordinaryMonthly)}/Monat`,
+            `Jahresrente inkl. 13. AHV ${formatCHF(result.annualIncluding13th)}`,
             `Deckung ${Math.round(result.cover)} %`,
-            `Vorsorgelücke ${formatCHF(result.gap)}/Monat`,
+            `Vorsorgelücke ${formatCHF(result.gapMonthly)}/Monat`,
           ],
         })}
         onReset={() => {
@@ -100,7 +96,7 @@ export function AhvCalc({
               Geschätzte AHV-Altersrente
             </div>
             <strong className="mt-1 block text-4xl font-black tabular-nums">
-              {formatCHF(result.rent)} <span className="text-lg font-semibold opacity-80">/ Monat</span>
+              {formatCHF(result.ordinaryMonthly)} <span className="text-lg font-semibold opacity-80">/ Monat</span>
             </strong>
             <span className="mt-1 block text-sm opacity-80">
               Rentenskala {years} · {years === 44 ? "Vollrente" : "Teilrente"}
@@ -108,12 +104,12 @@ export function AhvCalc({
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Metric label="AHV pro Jahr" value={formatCHF(result.annual)} />
-            <Metric label="Deckung Wunschbedarf" value={`${Math.round(result.cover)} %`} />
+            <Metric label="Pro Jahr inkl. 13. AHV" value={formatCHF(result.annualIncluding13th)} />
+            <Metric label="Monatswert für Jahresplanung" value={formatCHF(result.monthlyEquivalent)} />
             <Metric
               label="Vorsorgelücke / Monat"
-              value={formatCHF(result.gap)}
-              tone={result.gap > 0 ? "crit" : "good"}
+              value={formatCHF(result.gapMonthly)}
+              tone={result.gapMonthly > 0 ? "crit" : "good"}
             />
           </div>
 
@@ -135,13 +131,13 @@ export function AhvCalc({
                 <div
                   className="h-full bg-primary transition-[width] duration-500"
                   style={{ width: `${result.cover}%` }}
-                  title={`AHV-Rente: ${formatCHF(result.rent)} pro Monat`}
+                  title={`AHV-Jahreswert auf den Monat umgerechnet: ${formatCHF(result.monthlyEquivalent)}`}
                 />
-                {result.gap > 0 ? (
+                {result.gapMonthly > 0 ? (
                   <div
                     className="h-full bg-[#E7EDF8]"
                     style={{ width: `${100 - result.cover}%` }}
-                    title={`Noch nicht gedeckt: ${formatCHF(result.gap)} pro Monat`}
+                    title={`Noch nicht gedeckt: ${formatCHF(result.gapMonthly)} pro Monat`}
                   />
                 ) : null}
               </div>
@@ -150,22 +146,22 @@ export function AhvCalc({
                   <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                     <i className="h-3 w-3 rounded-full bg-primary" /> AHV-Rente
                   </span>
-                  <strong className="text-sm tabular-nums text-foreground">{formatCHF(result.rent)}</strong>
+                  <strong className="text-sm tabular-nums text-foreground">{formatCHF(result.monthlyEquivalent)}</strong>
                 </div>
                 <div className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2.5">
                   <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                     <i className="h-3 w-3 rounded-full bg-[#C8D3E6]" /> Noch zu decken
                   </span>
-                  <strong className="text-sm tabular-nums text-foreground">{formatCHF(result.gap)}</strong>
+                  <strong className="text-sm tabular-nums text-foreground">{formatCHF(result.gapMonthly)}</strong>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="mt-5 rounded-xl border border-border bg-secondary/40 p-4 text-[12.5px] text-muted-foreground">
-            <b className="text-foreground">Wichtig:</b> Planungsschätzung auf Basis Skala 44. Verbindlich sind
-            IK-Auszug und Rentenvorausberechnung Ihrer Ausgleichskasse. Ehepaarplafonierung, Splitting,
-            Gutschriften, Vorbezug und Aufschub sind hier nicht abschliessend berücksichtigt.
+            <b className="text-foreground">Berechnung 2026:</b> Skala 44 und die 13. Altersrente sind berücksichtigt.
+            Verbindlich bleiben IK-Auszug und Rentenvorausberechnung Ihrer Ausgleichskasse. Ehepaarplafonierung,
+            Splitting, Gutschriften, Vorbezug und Aufschub benötigen eine individuelle Prüfung.
           </div>
         </section>
       </div>

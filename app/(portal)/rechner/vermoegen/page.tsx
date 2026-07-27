@@ -26,8 +26,8 @@ export default async function VermoegenPage({
       backLabel="Rechner"
       analysisId={sp.aid}
       chip="8 Werkzeuge"
-      explain="Alle Berechnungen sind Modellrechnungen mit konstanter Rendite."
-      source="Zinseszinsformel; Renditen, Inflation und Steuersätze sind frei wählbare Annahmen."
+      explain="Das Diagramm trennt Einzahlungen und Entwicklung. Jeder Jahreswert kann direkt abgelesen werden."
+      source="Effektive Jahresrendite, monatliche Verzinsung, Beiträge am Monatsende; Renditen, Inflation und Steuersätze sind Annahmen."
     >
       <VermoegenCalc mode={mode} ctx={ctx} />
     </CalcShell>

@@ -189,8 +189,7 @@ export function BudgetCalc({
       </div>
 
       <p className="mt-4 text-[12.5px] text-muted-foreground">
-        Richtwert: Eine Sparquote ab 15–20 % gilt als solide Basis. Beträge werden gerundet dargestellt, intern wird
-        exakt gerechnet.
+        Alle Beträge beruhen auf Ihren Eingaben. Die Darstellung wird auf ganze Franken gerundet, intern wird exakt gerechnet.
       </p>
     </>
   )

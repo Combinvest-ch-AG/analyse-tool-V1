@@ -3,6 +3,12 @@
 import { useId, useMemo, useState } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { formatCHF } from "@/lib/format"
+import {
+  futureValue,
+  netReturnAfterCosts,
+  purchasingPower,
+  requiredMonthlySavings,
+} from "@/lib/engine/wealth"
 import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
 
 export type WealthMode =
@@ -58,12 +64,6 @@ const DEFAULTS: Data = {
   tax: 25,
 }
 
-function fv(cap: number, mon: number, yrs: number, r: number) {
-  const m = r / 1200
-  const n = yrs * 12
-  return m ? cap * Math.pow(1 + m, n) + (mon * (Math.pow(1 + m, n) - 1)) / m : cap + mon * n
-}
-
 type FieldDef =
   | { kind: "money"; key: keyof Data; label: string }
   | { kind: "range"; key: keyof Data; label: string; min: number; max: number; step: number; suffix?: string }
@@ -108,8 +108,9 @@ const FIELDS: Record<WealthMode, FieldDef[]> = {
     { kind: "range", key: "rate", label: "Erwartete Rendite p.a.", min: 0, max: 10, step: 0.1, suffix: " %" },
   ],
   "3a": [
-    { kind: "money", key: "contribution", label: "Jährliche Einzahlung" },
+    { kind: "money", key: "contribution", label: "Jährliche Einzahlung (mit PK max. CHF 7’258)" },
     { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 40, step: 1, suffix: " Jahre" },
+    { kind: "range", key: "rate", label: "Erwartete Rendite p.a.", min: 0, max: 10, step: 0.1, suffix: " %" },
     { kind: "range", key: "tax", label: "Grenzsteuersatz", min: 0, max: 45, step: 1, suffix: " %" },
   ],
   steuer: [
@@ -121,7 +122,7 @@ const FIELDS: Record<WealthMode, FieldDef[]> = {
 const LABELS: Record<WealthMode, [string, string, string]> = {
   inflation: ["Heute", "Kaufkraft danach", "Kaufkraftverlust"],
   ziel: ["Zielvermögen", "Nötige Sparrate / Monat", "Einzahlungen"],
-  "3a": ["Steuerersparnis / Jahr", "Vermögen bei 4 %", "Einzahlungen"],
+  "3a": ["Steuerersparnis / Jahr", "Vorsorgevermögen", "Einzahlungen"],
   steuer: ["Geschätzte Abgabenwirkung", "Nach Abzug", "Grenzsteuersatz"],
   zins: ["Endwert Rendite 1", "Einzahlungen", "Endwert Rendite 2"],
   start: ["Sofort starten", "Einzahlungen", "Später starten"],
@@ -135,29 +136,45 @@ function compute(mode: WealthMode, d: Data) {
   let c = 0
   if (mode === "inflation") {
     a = d.capital
-    b = d.capital / Math.pow(1 + d.inflation / 100, d.years)
+    b = purchasingPower(d.capital, d.years, d.inflation)
     c = a - b
   } else if (mode === "ziel") {
-    const m = d.rate / 1200
-    const n = d.years * 12
-    const capgrow = d.capital * Math.pow(1 + m, n)
     a = d.target
-    b = m ? Math.max(0, ((a - capgrow) * m) / (Math.pow(1 + m, n) - 1)) : Math.max(0, (a - d.capital) / n)
-    c = d.capital + b * n
+    b = requiredMonthlySavings({
+      capital: d.capital,
+      target: d.target,
+      years: d.years,
+      annualRatePct: d.rate,
+    })
+    c = d.capital + b * d.years * 12
   } else if (mode === "3a") {
     a = (d.contribution * d.tax) / 100
-    b = fv(0, d.contribution / 12, d.years, 4)
+    b = futureValue({ capital: 0, monthly: d.contribution / 12, years: d.years, annualRatePct: d.rate })
     c = d.contribution * d.years
   } else if (mode === "steuer") {
     a = (d.income * d.tax) / 100
     b = d.income - a
     c = d.tax
   } else {
-    a = fv(d.capital, d.monthly, d.years, d.rate)
+    a = futureValue({ capital: d.capital, monthly: d.monthly, years: d.years, annualRatePct: d.rate })
     b = d.capital + d.monthly * 12 * d.years
-    if (mode === "zins") c = fv(d.capital, d.monthly, d.years, d.rate2)
-    else if (mode === "start") c = fv(d.capital, d.monthly, Math.max(0, d.years - d.delay), d.rate)
-    else if (mode === "kosten") c = fv(d.capital, d.monthly, d.years, Math.max(0, d.rate - d.ter))
+    if (mode === "zins") {
+      c = futureValue({ capital: d.capital, monthly: d.monthly, years: d.years, annualRatePct: d.rate2 })
+    } else if (mode === "start") {
+      c = futureValue({
+        capital: d.capital,
+        monthly: d.monthly,
+        years: Math.max(0, d.years - d.delay),
+        annualRatePct: d.rate,
+      })
+    } else if (mode === "kosten") {
+      c = futureValue({
+        capital: d.capital,
+        monthly: d.monthly,
+        years: d.years,
+        annualRatePct: netReturnAfterCosts(d.rate, d.ter),
+      })
+    }
     else c = a - b
   }
   return { a, b, c }
@@ -172,21 +189,31 @@ function buildSeries(mode: WealthMode, d: Data) {
   for (let y = 0; y <= yrs; y++) {
     const v =
       mode === "inflation"
-        ? d.capital / Math.pow(1 + d.inflation / 100, y)
+        ? purchasingPower(d.capital, y, d.inflation)
         : mode === "ziel"
-          ? fv(d.capital, targetResult, y, d.rate)
+          ? futureValue({ capital: d.capital, monthly: targetResult, years: y, annualRatePct: d.rate })
           : mode === "3a"
-            ? fv(0, d.contribution / 12, y, 4)
+            ? futureValue({ capital: 0, monthly: d.contribution / 12, years: y, annualRatePct: d.rate })
             : mode === "steuer"
               ? d.income
-              : fv(d.capital, d.monthly || 0, y, d.rate || 0)
+              : futureValue({ capital: d.capital, monthly: d.monthly || 0, years: y, annualRatePct: d.rate || 0 })
     const v2 =
       mode === "zins"
-        ? fv(d.capital, d.monthly, y, d.rate2)
+        ? futureValue({ capital: d.capital, monthly: d.monthly, years: y, annualRatePct: d.rate2 })
         : mode === "start"
-          ? fv(d.capital, d.monthly, Math.max(0, y - d.delay), d.rate)
+          ? futureValue({
+              capital: d.capital,
+              monthly: d.monthly,
+              years: Math.max(0, y - d.delay),
+              annualRatePct: d.rate,
+            })
           : mode === "kosten"
-            ? fv(d.capital, d.monthly, y, Math.max(0, d.rate - d.ter))
+            ? futureValue({
+                capital: d.capital,
+                monthly: d.monthly,
+                years: y,
+                annualRatePct: netReturnAfterCosts(d.rate, d.ter),
+              })
             : mode === "ziel"
               ? d.capital + targetResult * 12 * y
               : mode === "3a"
@@ -438,17 +465,17 @@ function LineChart({
   const areaPath = `${toPath(s1)} L${(W - pad.r).toFixed(1)},${(H - pad.b).toFixed(1)} L${pad.l.toFixed(1)},${(H - pad.b).toFixed(1)} Z`
   const xTicks = Array.from(new Set([0, Math.round(n / 4), Math.round(n / 2), Math.round((n * 3) / 4), n]))
   const yTicks = [0, 0.25, 0.5, 0.75, 1]
-  const active = hoverIndex ?? n
+  const active = Math.min(hoverIndex ?? n, n)
   const activeX = xAt(active)
-  const tooltipWidth = 176
-  const tooltipX = Math.min(Math.max(activeX - tooltipWidth / 2, pad.l), W - pad.r - tooltipWidth)
 
   return (
-    <div className="mt-6 rounded-2xl border border-border bg-background p-4 sm:p-5">
+    <figure className="mt-6 rounded-2xl border border-border bg-background p-4 sm:p-5">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-extrabold text-foreground">Entwicklung über die Zeit</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Fahren Sie über die Kurve, um den Wert jedes Jahres zu sehen.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Bewegen Sie den Regler oder fahren Sie über die Kurve – die Werte bleiben immer sichtbar.
+          </p>
         </div>
         <div className="flex flex-wrap gap-4 text-[11.5px] text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
@@ -462,12 +489,39 @@ function LineChart({
         </div>
       </div>
 
+      <div
+        className="mb-3 grid gap-2 rounded-2xl border border-[#dce5f3] bg-[#f7faff] p-3 sm:grid-cols-[100px_1fr_1fr]"
+        aria-live="polite"
+      >
+        <div className="flex items-center rounded-xl bg-[#e8f0ff] px-3 py-2">
+          <div>
+            <span className="block text-[10px] font-extrabold uppercase tracking-wide text-[#587096]">Zeitpunkt</span>
+            <strong className="text-base text-[#111d36]">Jahr {active}</strong>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 shadow-sm">
+          <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#52617a]">
+            <i className="h-2.5 w-2.5 rounded-full bg-[#3978f6]" /> {label1}
+          </span>
+          <strong className="whitespace-nowrap text-sm tabular-nums text-[#111d36]">{formatCHF(s1[active])}</strong>
+        </div>
+        {hasCompare && label2 ? (
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 shadow-sm">
+            <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#52617a]">
+              <i className="h-2.5 w-2.5 rounded-full bg-[#f59e42]" /> {label2}
+            </span>
+            <strong className="whitespace-nowrap text-sm tabular-nums text-[#111d36]">{formatCHF(s2[active])}</strong>
+          </div>
+        ) : (
+          <div className="hidden sm:block" />
+        )}
+      </div>
+
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="h-auto w-full touch-none"
         role="img"
         aria-label={`${label1} nach Jahren`}
-        onPointerLeave={() => setHoverIndex(null)}
         onPointerMove={(event) => {
           const bounds = event.currentTarget.getBoundingClientRect()
           const localX = ((event.clientX - bounds.left) / bounds.width) * W
@@ -475,10 +529,14 @@ function LineChart({
           setHoverIndex(Math.max(0, Math.min(n, index)))
         }}
       >
+        <title>
+          {label1}: im Jahr {active} {formatCHF(s1[active])}
+          {hasCompare && label2 ? `; ${label2}: ${formatCHF(s2[active])}` : ""}
+        </title>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.015" />
+            <stop offset="0%" stopColor="#3978f6" stopOpacity="0.24" />
+            <stop offset="100%" stopColor="#3978f6" stopOpacity="0.025" />
           </linearGradient>
         </defs>
 
@@ -486,8 +544,8 @@ function LineChart({
           const gridY = pad.t + (1 - ratio) * plotHeight
           return (
             <g key={ratio}>
-              <line x1={pad.l} x2={W - pad.r} y1={gridY} y2={gridY} stroke="var(--border)" strokeWidth="1" />
-              <text x={pad.l - 12} y={gridY + 4} textAnchor="end" fill="var(--muted-foreground)" fontSize="10">
+              <line x1={pad.l} x2={W - pad.r} y1={gridY} y2={gridY} stroke="#dce4ef" strokeWidth="1" />
+              <text x={pad.l - 12} y={gridY + 4} textAnchor="end" fill="#65748b" fontSize="11" fontWeight="600">
                 {compact(max * ratio)}
               </text>
             </g>
@@ -499,8 +557,9 @@ function LineChart({
             x={xAt(tick)}
             y={H - 14}
             textAnchor="middle"
-            fill="var(--muted-foreground)"
-            fontSize="10"
+            fill="#65748b"
+            fontSize="11"
+            fontWeight="600"
           >
             Jahr {tick}
           </text>
@@ -520,7 +579,7 @@ function LineChart({
         <path
           d={toPath(s1)}
           fill="none"
-          stroke="var(--primary)"
+          stroke="#3978f6"
           strokeWidth="3.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -531,50 +590,64 @@ function LineChart({
           x2={activeX}
           y1={pad.t}
           y2={H - pad.b}
-          stroke="var(--foreground)"
+          stroke="#111d36"
           strokeDasharray="4 5"
-          strokeOpacity={hoverIndex == null ? 0 : 0.32}
+          strokeOpacity="0.28"
         />
-        <circle cx={activeX} cy={yAt(s1[active])} r="5" fill="var(--card)" stroke="var(--primary)" strokeWidth="3" />
+        <circle cx={activeX} cy={yAt(s1[active])} r="5" fill="#ffffff" stroke="#3978f6" strokeWidth="3" />
         {hasCompare ? (
-          <circle cx={activeX} cy={yAt(s2[active])} r="4.5" fill="var(--card)" stroke="#f59e42" strokeWidth="3" />
+          <circle cx={activeX} cy={yAt(s2[active])} r="4.5" fill="#ffffff" stroke="#f59e42" strokeWidth="3" />
         ) : null}
 
-        {hoverIndex != null ? (
-          <g pointerEvents="none">
-            <rect
-              x={tooltipX}
-              y={34}
-              width={tooltipWidth}
-              height={hasCompare ? 76 : 58}
-              rx="12"
-              fill="var(--card)"
-              stroke="var(--border)"
-            />
-            <text x={tooltipX + 14} y={54} fill="var(--muted-foreground)" fontSize="10" fontWeight="700">
-              JAHR {active}
-            </text>
-            <circle cx={tooltipX + 16} cy={72} r="4" fill="var(--primary)" />
-            <text x={tooltipX + 28} y={76} fill="var(--foreground)" fontSize="11" fontWeight="700">
-              {compact(s1[active])}
-            </text>
-            {hasCompare ? (
-              <>
-                <circle cx={tooltipX + 16} cy={94} r="4" fill="#f59e42" />
-                <text x={tooltipX + 28} y={98} fill="var(--foreground)" fontSize="11" fontWeight="700">
-                  {compact(s2[active])}
-                </text>
-              </>
-            ) : null}
-          </g>
-        ) : null}
         <rect x={pad.l} y={pad.t} width={plotWidth} height={plotHeight} fill="transparent" />
       </svg>
 
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs">
-        <span className="text-muted-foreground">Wert am Ende</span>
-        <span className="font-extrabold tabular-nums text-foreground">{formatCHF(s1[n])}</span>
+      <div className="mt-2">
+        <label className="flex items-center justify-between gap-3 text-xs font-semibold text-muted-foreground">
+          <span>Jahr auswählen</span>
+          <span className="font-extrabold tabular-nums text-foreground">{active} / {n}</span>
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={n}
+          step={1}
+          value={active}
+          onChange={(event) => setHoverIndex(Number(event.target.value))}
+          className="mt-2 w-full accent-[var(--color-primary)]"
+          aria-label="Jahr im Diagramm auswählen"
+        />
       </div>
-    </div>
+
+      <details className="mt-4 border-t border-border pt-3">
+        <summary className="cursor-pointer text-xs font-bold text-primary">Alle Jahreswerte anzeigen</summary>
+        <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-border">
+          <table className="w-full min-w-[440px] text-left text-xs">
+            <thead className="sticky top-0 bg-[#eef3fb] text-[#52617a]">
+              <tr>
+                <th className="px-3 py-2 font-bold">Jahr</th>
+                <th className="px-3 py-2 text-right font-bold">{label1}</th>
+                {hasCompare && label2 ? <th className="px-3 py-2 text-right font-bold">{label2}</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {s1.map((value, index) => (
+                <tr key={index} className="border-t border-border bg-white">
+                  <td className="px-3 py-2 font-semibold text-foreground">{index}</td>
+                  <td className="px-3 py-2 text-right font-bold tabular-nums text-foreground">{formatCHF(value)}</td>
+                  {hasCompare && label2 ? (
+                    <td className="px-3 py-2 text-right font-bold tabular-nums text-foreground">{formatCHF(s2[index])}</td>
+                  ) : null}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <figcaption className="mt-3 text-[11.5px] leading-relaxed text-muted-foreground">
+        Effektive Jahresrendite, monatliche Verzinsung und Sparbeiträge jeweils am Monatsende.
+      </figcaption>
+    </figure>
   )
 }

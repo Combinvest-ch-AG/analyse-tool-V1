@@ -237,8 +237,8 @@ export function ClosingFlow({
           <section className="rounded-2xl border border-border bg-card p-5">
             <SectionHead
               n={3}
-              title="Dokumente und Unterschriften"
-              desc="Beratungsbericht und erforderliche Dokumente versandbereit erstellen."
+              title="Kundenbericht und Dokumente"
+              desc="Die Finanzanalyse für den Kunden sowie erforderliche Dokumente versandbereit erstellen."
               badge={
                 hasDocuments
                   ? { label: "Erstellt", cls: "bg-success/10 text-success" }
@@ -258,7 +258,7 @@ export function ClosingFlow({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3.5 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
               >
-                <FileText className="h-3.5 w-3.5" /> Beratungsbericht als PDF
+                <FileText className="h-3.5 w-3.5" /> Kundenbericht als PDF
               </a>
             </div>
           </section>

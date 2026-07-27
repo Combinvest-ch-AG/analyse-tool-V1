@@ -5,7 +5,7 @@ import { buildAdvisoryReport } from "@/lib/report/advisory-report"
 
 function filename(name: string): string {
   const clean = name.replace(/[^a-zA-Z0-9äöüÄÖÜéèàç -]/g, "").replace(/\s+/g, "-") || "Kunde"
-  return `Combinvest-Beratungsbericht-${clean}-${new Date().toISOString().slice(0, 10)}.pdf`
+  return `Combinvest-Finanzanalyse-${clean}-${new Date().toISOString().slice(0, 10)}.pdf`
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {

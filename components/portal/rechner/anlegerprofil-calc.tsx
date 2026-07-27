@@ -225,29 +225,54 @@ export function AnlegerprofilCalc({ ctx }: { ctx?: CalcContext }) {
               <p className="mt-1 text-sm font-semibold text-primary">{result.profile.equity}</p>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{result.profile.description}</p>
 
-              <div className="mt-5 rounded-xl bg-muted/50 p-4">
+              <div className="mt-5 rounded-2xl border border-border bg-background p-5">
                 <div className="flex items-baseline justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Gesamt-Score</span>
-                  <span className="text-2xl font-bold tabular-nums text-foreground">{result.total}</span>
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Profil-Spektrum</span>
+                    <p className="mt-1 text-xs text-muted-foreground">Von sicherheitsorientiert bis chancenorientiert</p>
+                  </div>
+                  <span className="text-2xl font-black tabular-nums text-foreground">{result.total}<small className="text-xs font-semibold text-muted-foreground">/100</small></span>
                 </div>
-                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border">
-                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${result.total}%` }} />
+                <div className="relative mt-5">
+                  <div className="flex h-4 overflow-hidden rounded-full">
+                    {PROFILES.map((profile, index) => (
+                      <span
+                        key={profile.name}
+                        className="h-full border-r border-white/50 last:border-0"
+                        style={{
+                          width: `${profile.range[1] - profile.range[0] + (index === 0 ? 1 : 0)}%`,
+                          background: ["#6B83A6", "#5B8FB9", "#4D9EB6", "#419E91", "#53A66B", "#D3A84D", "#E47A55"][index],
+                        }}
+                        title={`${profile.name}: ${profile.range[0]}–${profile.range[1]} Punkte`}
+                      />
+                    ))}
+                  </div>
+                  <span
+                    className="absolute -top-2 h-8 w-1 -translate-x-1/2 rounded-full bg-foreground shadow-[0_0_0_3px_var(--card)] transition-[left] duration-500"
+                    style={{ left: `${result.total}%` }}
+                    aria-label={`Ihr Profilwert: ${result.total} von 100`}
+                  />
+                  <div className="mt-2 flex justify-between text-[10px] font-semibold text-muted-foreground">
+                    <span>Sicherheit</span>
+                    <span>Ausgewogen</span>
+                    <span>Chance</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-4 grid gap-2">
                 {([
                   ["Risikobereitschaft", result.pct.risk],
                   ["Anlagehorizont", result.pct.horizon],
                   ["Wissen & Erfahrung", result.pct.knowledge],
                 ] as const).map(([label, val]) => (
-                  <div key={label}>
+                  <div key={label} className="rounded-xl border border-border bg-background px-3.5 py-3">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">{label}</span>
-                      <span className="font-semibold tabular-nums text-foreground">{Math.round(val)}%</span>
+                      <span className="font-semibold text-foreground">{label}</span>
+                      <span className="font-extrabold tabular-nums text-primary">{Math.round(val)}%</span>
                     </div>
-                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-border">
-                      <div className="h-full rounded-full bg-primary/70" style={{ width: `${val}%` }} />
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${val}%` }} />
                     </div>
                   </div>
                 ))}

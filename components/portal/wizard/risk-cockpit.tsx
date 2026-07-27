@@ -112,7 +112,7 @@ export function RiskCockpit({
             className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2.5 text-[13px] font-extrabold text-primary-foreground transition-colors hover:bg-primary-deep"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
-            PDF-Beratungsbericht
+            Kundenbericht als PDF
           </a>
         ) : null}
       </div>

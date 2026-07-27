@@ -403,28 +403,62 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
           </div>
 
           {/* Stacked bar vs target */}
-          <div className="mt-5">
-            <div className="relative h-9 w-full overflow-hidden rounded-lg bg-muted">
+          <div className="mt-5 rounded-2xl border border-border bg-background p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-extrabold text-foreground">Ihre Leistungen im Verhältnis zum Ziel</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Jeder Farbabschnitt zeigt, woher Ihr abgesichertes Einkommen stammt.
+                </p>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${hasGap ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"}`}>
+                {Math.min(100, Math.round((gap.total / Math.max(1, gap.target)) * 100))} % gedeckt
+              </span>
+            </div>
+
+            <div className="relative mt-5 h-11 w-full overflow-hidden rounded-full bg-muted">
               <div className="flex h-full w-full">
                 {barSegments.map((seg) => (
                   <div
                     key={seg.key}
                     style={{ width: `${(seg.value / scaleMax) * 100}%`, backgroundColor: COLORS[seg.key] }}
                     title={`${seg.name}: ${formatCHF(per(seg.value))} ${perSuffix}`}
+                    className="h-full border-r border-white/40 last:border-r-0"
                   />
                 ))}
               </div>
               {/* target marker */}
               <div
-                className="absolute inset-y-0 w-0.5 bg-foreground"
+                className="absolute inset-y-0 w-0.5 bg-foreground shadow-[0_0_0_2px_rgba(255,255,255,0.7)]"
                 style={{ left: `${(gap.target / scaleMax) * 100}%` }}
                 aria-hidden="true"
               />
             </div>
-            <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-              <span>Vorhandene Leistungen: {formatCHF(per(gap.total))}</span>
-              <span>Ziel: {formatCHF(per(gap.target))}</span>
+            <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+              <span>
+                Vorhanden: <b className="text-foreground">{formatCHF(per(gap.total))}</b>
+              </span>
+              <span>
+                Ziel: <b className="text-foreground">{formatCHF(per(gap.target))}</b>
+              </span>
             </div>
+
+            {/* Item legend */}
+            <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+              {gap.items.map((item) => (
+                <li key={item.key} className="flex items-center justify-between rounded-xl bg-muted/45 px-3 py-2 text-sm">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: COLORS[item.key] }}
+                      aria-hidden="true"
+                    />
+                    {item.name}
+                  </span>
+                  <span className="font-semibold tabular-nums text-foreground">{formatCHF(per(item.value))}</span>
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Gap context line */}
@@ -443,19 +477,6 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
               Keine Deckungslücke – die Leistungen erreichen den Zielbedarf.
             </p>
           )}
-
-          {/* Item legend */}
-          <ul className="mt-5 flex flex-col gap-2">
-            {gap.items.map((item) => (
-              <li key={item.key} className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[item.key] }} aria-hidden="true" />
-                  {item.name}
-                </span>
-                <span className="font-semibold tabular-nums text-foreground">{formatCHF(per(item.value))}</span>
-              </li>
-            ))}
-          </ul>
 
           <p className="mt-5 text-xs leading-relaxed text-muted-foreground">
             Richtwerte auf Basis AHV-Skala 44 (2025/2026) und BVG-Mindestgutschriften. Massgebend sind der individuelle

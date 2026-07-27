@@ -17,7 +17,10 @@ type Snapshot = {
   answers?: WizardAnswers
   themeStatus?: Record<string, ThemeStatus>
   contracts?: Record<string, Contract>
-  calculatorResults?: Record<string, { results?: string[]; savedAt?: string }>
+  calculatorResults?: Record<string, ReportCalculator>
+  closing?: {
+    appointment?: { date?: string; time?: string; place?: string; purpose?: string }
+  }
   notes?: Array<string | { text?: string; note?: string }>
 }
 
@@ -57,8 +60,11 @@ export function buildReportData(
 
   const calculators: Record<string, ReportCalculator> = {}
   Object.entries(snapshot.calculatorResults ?? {}).forEach(([key, value]) => {
-    if (!value || !Array.isArray(value.results) || !value.results.length) return
-    calculators[key] = { results: value.results, calculationYear: YEAR }
+    if (!value || typeof value !== "object") return
+    calculators[key] = {
+      ...value,
+      calculationYear: Number(value.calculationYear) || YEAR,
+    }
   })
 
   return {
@@ -96,7 +102,10 @@ export function buildReportData(
       question: q.t,
       answer: answerLabel(q, answers[q.id] ?? null),
     })),
-    modules: { calculators },
+    modules: {
+      calculators,
+      appointment: snapshot.closing?.appointment,
+    },
     notes: snapshot.notes,
   }
 }

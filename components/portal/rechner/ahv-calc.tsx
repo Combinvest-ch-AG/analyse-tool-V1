@@ -117,17 +117,49 @@ export function AhvCalc({
             />
           </div>
 
-          <div className="mt-5">
-            <div className="h-4 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-success transition-all"
-                style={{ width: `${result.cover}%` }}
-              />
+          <div className="mt-5 rounded-2xl border border-border bg-background p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-extrabold text-foreground">AHV und gewünschtes Einkommen</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Monatliche Gegenüberstellung – Pensionskasse und Säule 3a sind noch nicht enthalten.
+                </p>
+              </div>
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-extrabold text-primary">
+                {Math.round(result.cover)} % gedeckt
+              </span>
             </div>
-            <p className="mt-2 text-[12.5px] text-muted-foreground">
-              Die AHV deckt den dargestellten Anteil Ihres gewünschten Monatseinkommens. Säule 2 und 3a kommen
-              zusätzlich hinzu.
-            </p>
+
+            <div className="mt-5">
+              <div className="relative flex h-7 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full bg-primary transition-[width] duration-500"
+                  style={{ width: `${result.cover}%` }}
+                  title={`AHV-Rente: ${formatCHF(result.rent)} pro Monat`}
+                />
+                {result.gap > 0 ? (
+                  <div
+                    className="h-full bg-[#E7EDF8]"
+                    style={{ width: `${100 - result.cover}%` }}
+                    title={`Noch nicht gedeckt: ${formatCHF(result.gap)} pro Monat`}
+                  />
+                ) : null}
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <div className="flex items-center justify-between rounded-xl bg-primary/5 px-3 py-2.5">
+                  <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                    <i className="h-3 w-3 rounded-full bg-primary" /> AHV-Rente
+                  </span>
+                  <strong className="text-sm tabular-nums text-foreground">{formatCHF(result.rent)}</strong>
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2.5">
+                  <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                    <i className="h-3 w-3 rounded-full bg-[#C8D3E6]" /> Noch zu decken
+                  </span>
+                  <strong className="text-sm tabular-nums text-foreground">{formatCHF(result.gap)}</strong>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="mt-5 rounded-xl border border-border bg-secondary/40 p-4 text-[12.5px] text-muted-foreground">

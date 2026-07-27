@@ -88,9 +88,18 @@ export function BudgetCalc({
 
       {/* Flow */}
       <div className="mt-4 rounded-2xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-          Geldfluss
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-extrabold text-foreground">Ihr monatlicher Geldfluss</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Fahren Sie über eine Verbindung, um Betrag und Anteil exakt zu sehen.
+            </p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${
+            totals.bal >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+          }`}>
+            {totals.bal >= 0 ? "Überschuss" : "Defizit"} {formatCHF(Math.abs(totals.bal))}
+          </span>
         </div>
         <div className="mt-4">
           <BudgetSankey income={data.income} cats={data.cats} />
@@ -111,7 +120,11 @@ export function BudgetCalc({
           tone="crit"
           title={`Ihre Ausgaben übersteigen Ihr Einkommen um ${formatCHF(-totals.bal)}.`}
           body="Fixkosten wie Krankenkasse und Versicherungen sind oft der grösste Hebel – der Franchise-Vergleich zeigt Ihr Sparpotenzial."
-          href="/rechner/franchise"
+          href={
+            ctx?.analysisId
+              ? `/rechner/franchise?aid=${encodeURIComponent(ctx.analysisId)}&cid=${encodeURIComponent(ctx.customerId ?? "")}`
+              : "/rechner/franchise"
+          }
           cta="Franchise-Vergleich öffnen"
         />
       ) : null}

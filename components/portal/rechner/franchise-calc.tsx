@@ -472,42 +472,63 @@ export function FranchiseCalc({
             </div>
 
             {/* Chart */}
-            <div className="mt-6">
+            <div className="mt-6 rounded-2xl border border-border bg-background p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h2 className="text-base font-extrabold text-foreground">Jahreskosten im Vergleich</h2>
                   <p className="text-[12.5px] text-muted-foreground">
-                    Prämie und Ihre erwartete Kostenbeteiligung auf einen Blick.
+                    Gesamtkosten pro Franchise. Die günstigste Variante ist hervorgehoben.
                   </p>
                 </div>
                 <div className="flex gap-4 text-[12px] text-muted-foreground">
                   <span className="inline-flex items-center gap-1.5">
-                    <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-primary" />
+                    <i className="inline-block h-2.5 w-2.5 rounded-full bg-primary" />
                     Prämie
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#c7b489]" />
+                    <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#f59e42]" />
                     Kostenbeteiligung
                   </span>
                 </div>
               </div>
-              <div className="mt-3 space-y-1.5">
+              <div className="mt-5 flex justify-between pl-20 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <span>CHF 0</span>
+                <span>{formatCHF(maxTotal)} pro Jahr</span>
+              </div>
+              <div className="mt-2 space-y-2">
                 {orderedByFranchise.map((row) => (
                   <div
                     key={row.franchise}
-                    className={`flex items-center gap-3 rounded-lg px-2 py-1.5 ${
-                      row.franchise === best.franchise ? "bg-accent" : ""
+                    className={`grid grid-cols-[72px_minmax(0,1fr)_104px] items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                      row.franchise === best.franchise
+                        ? "border-primary/30 bg-primary/5 shadow-sm"
+                        : "border-transparent hover:border-border hover:bg-muted/30"
                     }`}
                   >
-                    <span className="w-16 text-[12px] font-bold tabular-nums text-foreground">
+                    <span className="text-[12px] font-bold tabular-nums text-foreground">
                       {formatCHF(row.franchise)}
+                      {row.franchise === best.franchise ? (
+                        <small className="mt-0.5 block text-[9px] font-extrabold uppercase tracking-wide text-primary">
+                          Beste Wahl
+                        </small>
+                      ) : null}
                     </span>
-                    <span className="flex h-4 flex-1 overflow-hidden rounded-md bg-muted">
-                      <span className="h-full bg-primary" style={{ width: `${(row.annualPremium / maxTotal) * 100}%` }} />
-                      <span className="h-full bg-[#c7b489]" style={{ width: `${(row.costSharing / maxTotal) * 100}%` }} />
+                    <span
+                      className="flex h-5 overflow-hidden rounded-full bg-muted"
+                      title={`Prämie ${formatCHF(row.annualPremium)}, Kostenbeteiligung ${formatCHF(row.costSharing)}`}
+                    >
+                      <span
+                        className="h-full bg-primary"
+                        style={{ width: `${(row.annualPremium / maxTotal) * 100}%` }}
+                      />
+                      <span
+                        className="h-full bg-[#f59e42]"
+                        style={{ width: `${(row.costSharing / maxTotal) * 100}%` }}
+                      />
                     </span>
-                    <span className="w-24 text-right text-[12px] font-extrabold tabular-nums text-foreground">
+                    <span className="text-right text-[12px] font-extrabold tabular-nums text-foreground">
                       {formatCHF(row.annualTotal)}
+                      <small className="mt-0.5 block text-[9px] font-medium text-muted-foreground">pro Jahr</small>
                     </span>
                   </div>
                 ))}

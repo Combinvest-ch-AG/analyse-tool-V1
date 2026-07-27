@@ -15,6 +15,7 @@
     "test:affordability": "node --test engine/affordability-engine.test.mjs"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",
     "chart.js": "^4.4.1",

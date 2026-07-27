@@ -119,27 +119,31 @@ export function AffordabilityCalc({ defaults, ctx }: { defaults?: { income?: num
         </p>
 
         {/* Meter */}
-        <div className="mt-7">
+        <div className="mt-7 rounded-2xl border border-border bg-background p-5">
+          <div className="mb-4">
+            <h3 className="text-sm font-extrabold text-foreground">Tragbarkeitsband</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Der Marker zeigt Ihre Quote im Vergleich zum Schweizer Richtwert.</p>
+          </div>
           <div className="mb-2.5 flex justify-between text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
             <span>0 %</span>
-            <span>Wohnkosten-Quote</span>
+            <span>Richtwert 33.3 %</span>
             <span>50 %</span>
           </div>
-          <div className="relative h-3 overflow-visible rounded-full bg-muted">
+          <div className="relative h-4 overflow-visible rounded-full bg-muted">
+            <div className="absolute inset-y-0 left-0 rounded-l-full bg-success/70" style={{ width: "66.6%" }} />
+            <div className="absolute inset-y-0 bg-[#f4b64f]/80" style={{ left: "66.6%", width: "13.4%" }} />
+            <div className="absolute inset-y-0 right-0 rounded-r-full bg-destructive/70" style={{ width: "20%" }} />
             <div
-              className={`absolute inset-y-0 left-0 rounded-full transition-all duration-300 ${
-                r.tragbar ? "bg-success" : "bg-destructive"
-              }`}
-              style={{ width: `${Math.min(100, (Number.isFinite(r.quote) ? r.quote : 0) / scaleMax * 100)}%` }}
-            />
-            <div
-              className="absolute -top-1.5 -bottom-1.5 w-px bg-[#b8923b]"
-              style={{ left: `${(RULES.tragbarkeitsLimit / scaleMax) * 100}%` }}
+              className="absolute -top-2 h-8 w-1 -translate-x-1/2 rounded-full bg-foreground shadow-[0_0_0_3px_var(--card)] transition-all duration-300"
+              style={{ left: `${Math.min(100, (Number.isFinite(r.quote) ? r.quote : 0) / scaleMax * 100)}%` }}
             >
-              <b className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-extrabold text-[#b8923b]">
-                33.3 %
-              </b>
+              <span className="sr-only">Ihre Quote: {quoteText} %</span>
             </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-success/70" /> Tragbar</span>
+            <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#f4b64f]" /> Prüfen</span>
+            <span className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-destructive/70" /> Über Richtwert</span>
           </div>
         </div>
 
@@ -152,11 +156,11 @@ export function AffordabilityCalc({ defaults, ctx }: { defaults?: { income?: num
         </div>
 
         {/* Breakdown */}
-        <div className="mt-9">
+        <div className="mt-9 rounded-2xl border border-border bg-background p-5">
           <h3 className="mb-3.5 text-[12px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">
             Zusammensetzung der kalkulatorischen Wohnkosten
           </h3>
-          <div className="flex h-4 gap-0.5 overflow-hidden rounded-lg">
+          <div className="flex h-6 gap-0.5 overflow-hidden rounded-full bg-muted">
             {parts.map((p) => (
               <span
                 key={p.label}
@@ -166,15 +170,17 @@ export function AffordabilityCalc({ defaults, ctx }: { defaults?: { income?: num
               />
             ))}
           </div>
-          <div className="mt-3.5 flex flex-wrap gap-x-6 gap-y-2">
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {parts.map((p) => (
-              <div key={p.label} className="text-[13px]">
+              <div key={p.label} className="flex items-center justify-between rounded-xl bg-muted/40 px-3 py-2 text-[13px]">
+                <span>
                 <i
                   className="mr-2 inline-block h-2.5 w-2.5 rounded-[3px] align-middle"
                   style={{ background: p.color }}
                 />
-                <span className="font-extrabold text-foreground">{formatCHF(p.value)}</span>{" "}
                 <span className="text-muted-foreground">{p.label}</span>
+                </span>
+                <span className="font-extrabold text-foreground">{formatCHF(p.value)}</span>
               </div>
             ))}
           </div>

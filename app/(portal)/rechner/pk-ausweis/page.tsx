@@ -4,7 +4,7 @@ import { PkAusweisCalc } from "@/components/portal/rechner/pk-ausweis-calc"
 
 export const metadata: Metadata = {
   title: "PK-Ausweis erfassen · Combinvest",
-  description: "Erfassen Sie die wichtigsten Werte aus dem Vorsorgeausweis der Pensionskasse als Grundlage für die Vorsorgeanalyse.",
+  description: "Erfassen Sie die wichtigsten Werte aus dem Vorsorgeausweis der Pensionskasse als Grundlage für die Vorsorgelückenanalyse.",
 }
 
 export default async function PkAusweisPage({
@@ -18,7 +18,7 @@ export default async function PkAusweisPage({
     <CalcShell
       eyebrow="2. Säule · Datenerfassung"
       title="Vorsorgeausweis erfassen"
-      lead="Übertragen Sie die zentralen Kennzahlen aus dem PK-Ausweis. Sie bilden die Grundlage für die Vorsorgelücken-Analyse und die Beratung."
+      lead="Übertragen Sie die zentralen Kennzahlen aus dem PK-Ausweis. Sie bilden die Grundlage für die Vorsorgelückenanalyse und die Beratung."
       backHref="/rechner"
       backLabel="Rechner"
       analysisId={sp.aid}

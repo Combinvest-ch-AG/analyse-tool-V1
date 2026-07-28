@@ -92,7 +92,7 @@ export function PkAusweisCalc({ ctx }: { ctx?: CalcContext }) {
           <div className="mt-4 rounded-xl bg-muted/50 p-4">
             <p className="text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">{filled} von {FIELDS.length}</span> Feldern erfasst. Diese Werte
-              dienen als Grundlage für die Vorsorgeanalyse und den späteren Lückenrechner.
+              dienen als Grundlage für die Vorsorgelückenanalyse.
             </p>
           </div>
         </div>

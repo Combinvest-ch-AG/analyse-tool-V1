@@ -17,7 +17,7 @@ type Filter = "all" | ThemeStatus
 // Which risk areas map to an available calculator (Phase 4).
 const AREA_CALCULATORS: Partial<Record<AreaKey, { base: string; label: string }>> = {
   health: { base: "/rechner/franchise", label: "Franchise vergleichen" },
-  pensiongap: { base: "/rechner/vorsorge", label: "Vorsorgelücke berechnen" },
+  pensiongap: { base: "/rechner/vorsorge", label: "Vorsorgelückenanalyse öffnen" },
   "real-estate": { base: "/rechner/tragbarkeit", label: "Tragbarkeit prüfen" },
 }
 

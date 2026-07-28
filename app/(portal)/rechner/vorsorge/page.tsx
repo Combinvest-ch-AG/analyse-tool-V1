@@ -2,7 +2,7 @@ import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { PensionGapCalc } from "@/components/portal/rechner/pension-gap-calc"
 
 export const metadata = {
-  title: "Vorsorgerechner · Combinvest",
+  title: "Vorsorgelückenanalyse · Combinvest",
 }
 
 export default async function VorsorgePage({
@@ -17,8 +17,8 @@ export default async function VorsorgePage({
   const ctx = { analysisId: sp.aid, customerId: sp.cid }
   return (
     <CalcShell
-      eyebrow="Vorsorge & Rentenlücke"
-      title="Wie gross ist Ihre Vorsorgelücke?"
+      eyebrow="Vorsorge"
+      title="Vorsorgelückenanalyse"
       lead="Deckungslücke bei Invalidität, Pensionierung und Todesfall — automatisch nach AHV-Skala 44 (2025/2026) und BVG-Minimum."
       backHref="/rechner"
       backLabel="Rechner"

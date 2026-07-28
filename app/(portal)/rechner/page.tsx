@@ -46,7 +46,7 @@ const CATEGORIES: Category[] = [
       {
         href: "/rechner/vorsorge",
         icon: Umbrella,
-        title: "Vorsorgerechner",
+        title: "Vorsorgelückenanalyse",
         desc: "Deckungslücke bei Invalidität, Pensionierung und Todesfall – nach AHV-Skala 44 und BVG-Minimum.",
       },
       {
@@ -59,7 +59,7 @@ const CATEGORIES: Category[] = [
         href: "/rechner/pk-ausweis",
         icon: FileText,
         title: "Vorsorgeausweis erfassen",
-        desc: "Kennzahlen aus dem PK-Ausweis übertragen – Grundlage für die Vorsorgelücken-Analyse.",
+        desc: "Kennzahlen aus dem PK-Ausweis übertragen – Grundlage für die Vorsorgelückenanalyse.",
       },
       {
         href: "/rechner/freizuegigkeit",

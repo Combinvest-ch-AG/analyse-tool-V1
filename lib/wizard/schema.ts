@@ -1,6 +1,6 @@
 // Data-driven definition of the Combinvest "Finanzstatus Check" wizard.
 // Ported 1:1 from the legacy analyse.html so the deterministic relevance
-// engine, the 19-question flow, the contract check and the risk cockpit all
+// engine, the profiling flow, the contract check and the risk cockpit all
 // stay faithful to the original advisory tool.
 
 export type FieldType = "single" | "multi" | "slider" | "text"

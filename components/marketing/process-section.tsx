@@ -4,7 +4,7 @@ const steps = [
   {
     icon: ClipboardCheck,
     title: "Finanzstatus-Check",
-    body: "19 gezielte Fragen zur persönlichen und finanziellen Situation. Das System berechnet sofort die Relevanz für alle acht Lebensbereiche.",
+    body: "20 gezielte Fragen zur persönlichen und finanziellen Situation. Das System berechnet sofort die Relevanz für alle acht Lebensbereiche.",
   },
   {
     icon: FileSearch,

@@ -16,8 +16,8 @@ export function SiteHeader() {
           <Image
             src="/combinvest-logo.png"
             alt="Combinvest"
-            width={150}
-            height={34}
+            width={117}
+            height={53}
             priority
             className="h-8 w-auto"
           />

@@ -11,8 +11,8 @@ export function Wordmark({
     <Image
       src="/combinvest-logo.png"
       alt="Combinvest"
-      width={168}
-      height={34}
+      width={117}
+      height={53}
       priority
       className="h-7 w-auto"
     />

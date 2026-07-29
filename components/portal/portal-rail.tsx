@@ -39,7 +39,7 @@ export function PortalRail({
       {/* Mobile top bar */}
       <div className="flex items-center justify-between border-b border-border bg-[#0b1933] px-4 py-3 text-white lg:hidden">
         <Link href="/dashboard" className="flex items-center">
-          <Image src="/combinvest-logo.png" alt="Combinvest" width={120} height={26} className="h-6 w-auto brightness-0 invert" />
+          <Image src="/combinvest-logo.png" alt="Combinvest" width={117} height={53} className="h-6 w-auto brightness-0 invert" />
         </Link>
         <button
           type="button"
@@ -63,8 +63,8 @@ export function PortalRail({
             <Image
               src="/combinvest-logo.png"
               alt="Combinvest"
-              width={150}
-              height={32}
+              width={117}
+              height={53}
               className="h-8 w-auto brightness-0 invert"
               priority
             />

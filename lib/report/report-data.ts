@@ -48,6 +48,7 @@ export function buildReportData(
   const contracts: Record<string, ReportContract> = {}
   Object.entries(snapshot.contracts ?? {}).forEach(([key, c]) => {
     contracts[key] = {
+      product: c.product ?? key.split("::")[0],
       company: c.company,
       pol: c.pol,
       premium: c.premium,

@@ -296,26 +296,96 @@ export function scores(answers: WizardAnswers): Record<AreaKey, number> {
 }
 
 /* =============== Vertragscheck =============== */
-export const PRODUCTS = [
-  "Vorsorgeversicherung", "VorsorgeBank 3a", "Hypothek", "Private Haftpflicht", "Sparplan", "Krankenkasse",
-  "Gebäude", "Rechtsschutz", "Hausrat", "Motorfahrzeug", "Kindersparplan", "Todesfall", "Erwerbsunfähigkeit", "Kredit",
+export type ProductCategory = "insurance" | "wealth" | "financing" | "subscriptions"
+
+export type ProductDefinition = {
+  id: string
+  label: string
+  category: ProductCategory
+  description: string
+}
+
+export const PRODUCT_CATEGORIES: Array<{ id: ProductCategory; label: string; shortLabel: string }> = [
+  { id: "insurance", label: "Versicherungen", shortLabel: "Versicherung" },
+  { id: "wealth", label: "Vorsorge & Vermögen", shortLabel: "Vorsorge" },
+  { id: "financing", label: "Bank & Finanzierung", shortLabel: "Finanzierung" },
+  { id: "subscriptions", label: "Abonnemente & Fixkosten", shortLabel: "Abos" },
 ]
+
+export const PRODUCT_DEFINITIONS: ProductDefinition[] = [
+  { id: "Krankenkasse", label: "Krankenkasse", category: "insurance", description: "Grund- und Zusatzversicherung" },
+  { id: "Private Haftpflicht", label: "Privathaftpflicht", category: "insurance", description: "Schäden gegenüber Dritten" },
+  { id: "Hausrat", label: "Hausrat", category: "insurance", description: "Inventar und persönliche Gegenstände" },
+  { id: "Gebäude", label: "Gebäudeversicherung", category: "insurance", description: "Versicherung für Wohneigentum" },
+  { id: "Motorfahrzeug", label: "Motorfahrzeug", category: "insurance", description: "Auto, Motorrad oder weiteres Fahrzeug" },
+  { id: "Rechtsschutz", label: "Rechtsschutz", category: "insurance", description: "Privat- und Verkehrsrechtsschutz" },
+  { id: "Reiseversicherung", label: "Reiseversicherung", category: "insurance", description: "Annullation, Assistance und Reisegepäck" },
+  { id: "Tierversicherung", label: "Tierversicherung", category: "insurance", description: "Tierarzt- und Behandlungskosten" },
+  { id: "Todesfall", label: "Todesfall", category: "insurance", description: "Kapital oder Rente im Todesfall" },
+  { id: "Erwerbsunfähigkeit", label: "Erwerbsunfähigkeit", category: "insurance", description: "Rente bei Erwerbsunfähigkeit" },
+  { id: "Vorsorgeversicherung", label: "Vorsorgeversicherung", category: "wealth", description: "Gebundene oder freie Vorsorgelösung" },
+  { id: "VorsorgeBank 3a", label: "Säule 3a Bank", category: "wealth", description: "Bank- oder Wertschriftenlösung" },
+  { id: "Sparplan", label: "Spar- oder Anlageplan", category: "wealth", description: "Regelmässiger Vermögensaufbau" },
+  { id: "Kindersparplan", label: "Kindersparplan", category: "wealth", description: "Sparen oder Anlegen für Kinder" },
+  { id: "Vermögensverwaltung", label: "Vermögensverwaltung", category: "wealth", description: "Mandat oder digitale Vermögensverwaltung" },
+  { id: "Depot / Anlagekonto", label: "Depot / Anlagekonto", category: "wealth", description: "Wertschriftendepot oder Anlagekonto" },
+  { id: "Hypothek", label: "Hypothek", category: "financing", description: "Finanzierung von Wohneigentum" },
+  { id: "Bankkonto / Paket", label: "Bankkonto / Paket", category: "financing", description: "Konten, Karten und Bankgebühren" },
+  { id: "Kredit", label: "Kredit", category: "financing", description: "Privat- oder Konsumkredit" },
+  { id: "Leasing", label: "Leasing", category: "financing", description: "Fahrzeug- oder Objektleasing" },
+  { id: "Kreditkarte", label: "Kreditkarte", category: "financing", description: "Karte mit Jahres- oder Monatsgebühr" },
+  { id: "Mobilfunkabo", label: "Handyabo", category: "subscriptions", description: "Mobilfunk und Gerät" },
+  { id: "Internet & TV", label: "Internet & TV", category: "subscriptions", description: "Internet-, Festnetz- und TV-Paket" },
+  { id: "Streaming", label: "Film & Serien", category: "subscriptions", description: "Netflix, Disney+, Max und weitere" },
+  { id: "Musikabo", label: "Musik", category: "subscriptions", description: "Spotify, Apple Music und weitere" },
+  { id: "Fitnessabo", label: "Fitness & Sport", category: "subscriptions", description: "Fitnesscenter, Verein oder Sportpass" },
+  { id: "Software & Cloud", label: "Software & Cloud", category: "subscriptions", description: "Cloudspeicher und digitale Dienste" },
+  { id: "Zeitung & Medien", label: "Zeitung & Medien", category: "subscriptions", description: "Zeitungen, Magazine und digitale Medien" },
+  { id: "Mitgliedschaft", label: "Mitgliedschaft", category: "subscriptions", description: "Verein, Verband oder weitere Mitgliedschaft" },
+  { id: "Sonstiges Abo", label: "Weiteres Abo", category: "subscriptions", description: "Weitere regelmässige Fixkosten" },
+]
+
+export const PRODUCTS = PRODUCT_DEFINITIONS.map((product) => product.id)
 
 export const INTERVALS: Record<string, string> = {
   monthly: "Monatlich", quarterly: "Vierteljährlich", semiannual: "Halbjährlich", annual: "Jährlich", oneoff: "Einmalig",
 }
 
-export const COMPANIES = [
+const FINANCIAL_COMPANIES = [
   "Agrisano", "Allianz Suisse", "Appenzeller Versicherungen", "Assura", "Atupri", "AXA", "Baloise", "Basler Kantonalbank",
   "Bank Cler", "Banque Cantonale Vaudoise", "Banque Cantonale de Genève", "Cembra Money Bank", "Concordia", "CSS",
-  "Die Mobiliar", "EGK", "elipsLife", "Generali Schweiz", "Glarner Kantonalbank", "Groupe Mutuel", "Helsana", "Helvetia",
+  "Die Mobiliar", "EGK", "elipsLife", "Everon", "Generali Schweiz", "Glarner Kantonalbank", "Groupe Mutuel", "Helsana", "Helvetia",
   "Hypothekarbank Lenzburg", "KPT", "Luzerner Kantonalbank", "Migros Bank", "Neon", "Obwaldner Kantonalbank", "ÖKK", "Pax",
   "PostFinance", "Protekta", "Raiffeisen", "Sanitas", "Schwyzer Kantonalbank", "Simpego", "Smile", "Solothurner Kantonalbank",
   "St. Galler Kantonalbank", "Swiss Life", "Swissquote", "Sympany", "Thurgauer Kantonalbank", "UBS", "Valiant", "Vaudoise",
-  "Visana", "Zuger Kantonalbank", "Zürcher Kantonalbank", "Zurich Versicherung",
-].sort((a, b) => a.localeCompare(b, "de-CH"))
+  "VIAC", "Visana", "Yuh", "Zuger Kantonalbank", "Zürcher Kantonalbank", "Zurich Versicherung",
+  "frankly", "findependent", "Saxo Bank Schweiz", "Selma Finance", "True Wealth",
+]
+
+const SUBSCRIPTION_COMPANIES = [
+  "Netflix", "Disney+", "Spotify", "Max (HBO)", "Apple TV+", "Apple Music", "Amazon Prime Video", "YouTube Premium",
+  "Sky Show", "Paramount+", "DAZN", "Audible", "Deezer", "Google One", "iCloud+", "Microsoft 365", "Dropbox",
+  "Adobe", "Swisscom", "Sunrise", "Salt", "Wingo", "Yallo", "M-Budget Mobile", "Coop Mobile", "Quickline",
+  "Galaxus Mobile", "Digital Republic", "blue TV", "ACTIV FITNESS", "PureGym", "NonStop Gym", "basefit.ch",
+]
+
+export const COMPANIES = [...new Set([...FINANCIAL_COMPANIES, ...SUBSCRIPTION_COMPANIES])]
+  .sort((a, b) => a.localeCompare(b, "de-CH"))
+
+export const PROVIDERS_BY_PRODUCT: Record<string, string[]> = {
+  Vermögensverwaltung: ["Everon", "True Wealth", "Selma Finance", "Swissquote", "UBS", "Zürcher Kantonalbank", "Raiffeisen"],
+  "Depot / Anlagekonto": ["Everon", "Swissquote", "Saxo Bank Schweiz", "Yuh", "Neon", "UBS", "Zürcher Kantonalbank", "Raiffeisen"],
+  "VorsorgeBank 3a": ["VIAC", "frankly", "finpension", "UBS", "Zürcher Kantonalbank", "Raiffeisen", "Migros Bank"],
+  Streaming: ["Netflix", "Disney+", "Max (HBO)", "Amazon Prime Video", "Apple TV+", "Sky Show", "Paramount+", "DAZN", "YouTube Premium"],
+  Musikabo: ["Spotify", "Apple Music", "YouTube Premium", "Deezer", "Audible"],
+  Mobilfunkabo: ["Swisscom", "Sunrise", "Salt", "Wingo", "Yallo", "M-Budget Mobile", "Coop Mobile", "Galaxus Mobile", "Digital Republic"],
+  "Internet & TV": ["Swisscom", "Sunrise", "Salt", "Quickline", "Wingo", "Yallo", "blue TV"],
+  "Software & Cloud": ["Microsoft 365", "Google One", "iCloud+", "Dropbox", "Adobe"],
+  Fitnessabo: ["ACTIV FITNESS", "PureGym", "NonStop Gym", "basefit.ch"],
+}
 
 export type Contract = {
+  product?: string
   company?: string
   pol?: string
   start?: string

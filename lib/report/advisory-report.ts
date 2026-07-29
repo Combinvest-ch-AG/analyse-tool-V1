@@ -63,6 +63,7 @@ export type ReportStatus = "open" | "progress" | "done"
 export type ReportArea = { key: string; name: string; score: number; status: ReportStatus }
 export type ReportAnswer = { id: string; question: string; answer: string }
 export type ReportContract = {
+  product?: string
   company?: string
   pol?: string
   premium?: number | null
@@ -721,12 +722,12 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   if (contractKeys.length) {
     addPage(
       "Ihre Verträge",
-      "Bestehende Vorsorge- und Versicherungsverträge",
-      "Die erfassten Verträge bilden die Grundlage für die weitere Prüfung. Verbindlich bleiben die Originalpolicen.",
+      "Bestehende Verträge und Abonnemente",
+      "Die erfassten Verträge und laufenden Kosten bilden die Grundlage für die weitere Prüfung. Verbindlich bleiben die Originalunterlagen.",
     )
     const annualTotal = contractKeys.reduce((sum, key) => sum + annualPremium(data.contracts[key] ?? {}), 0)
     metricCard(M, y, 242, "Erfasste Verträge", String(contractKeys.length))
-    metricCard(M + 258, y, 249, "Prämien pro Jahr", chf(annualTotal), BLUE)
+    metricCard(M + 258, y, 249, "Kosten pro Jahr", chf(annualTotal), BLUE)
     y -= 104
     drawText("Produkt", M, y, { size: 7, bold: true, color: MUTED })
     drawText("Gesellschaft", M + 150, y, { size: 7, bold: true, color: MUTED })
@@ -737,7 +738,7 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
     contractKeys.forEach((key) => {
       ensure(44, "Weitere Verträge")
       const contract = data.contracts[key] ?? {}
-      drawText(key, M, y, { size: 9, bold: true, maxWidth: 138 })
+      drawText(contract.product || key.split("::")[0], M, y, { size: 9, bold: true, maxWidth: 138 })
       drawText(contract.company || "Nicht erfasst", M + 150, y, { size: 8.5, maxWidth: 165 })
       drawText(
         contract.premium != null

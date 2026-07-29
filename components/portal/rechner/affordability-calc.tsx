@@ -14,7 +14,7 @@ const SLIDERS: Record<Field, { min: number; max: number; step: number }> = {
 }
 
 export function AffordabilityCalc({ defaults, ctx }: { defaults?: { income?: number }; ctx?: CalcContext }) {
-  const defaultInc = defaults?.income && defaults.income > 0 ? defaults.income : 150000
+  const defaultInc = Math.max(0, defaults?.income ?? 0)
   const [wert, setWert] = useState(1000000)
   const [ek, setEk] = useState(200000)
   const [inc, setInc] = useState(defaultInc)

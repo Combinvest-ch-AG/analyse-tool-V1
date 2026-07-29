@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { AffordabilityCalc } from "@/components/portal/rechner/affordability-calc"
+import { getAnalysis } from "@/lib/data/portal"
+import type { WizardAnswers } from "@/lib/wizard/schema"
 
 export const metadata: Metadata = {
   title: "Tragbarkeitsrechner · Combinvest",
@@ -14,7 +16,11 @@ export default async function TragbarkeitPage({
   searchParams: Promise<{ income?: string; aid?: string; cid?: string }>
 }) {
   const sp = await searchParams
-  const income = Number(sp.income) || undefined
+  const analysis = sp.aid ? await getAnalysis(sp.aid) : null
+  const snapshot = (analysis?.latest_snapshot ?? {}) as { answers?: WizardAnswers }
+  const income = sp.income != null
+    ? Math.max(0, Number(sp.income) || 0)
+    : Math.max(0, Number(snapshot.answers?.brutto) || 0)
   const ctx = { analysisId: sp.aid, customerId: sp.cid }
   return (
     <CalcShell

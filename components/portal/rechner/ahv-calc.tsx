@@ -15,7 +15,7 @@ export function AhvCalc({
   defaults?: { income?: number; years?: number; need?: number }
   ctx?: CalcContext
 }) {
-  const [income, setIncome] = useState(defaults?.income ?? 72000)
+  const [income, setIncome] = useState(defaults?.income ?? 0)
   const [years, setYears] = useState(defaults?.years ?? 44)
   const [need, setNeed] = useState(defaults?.need ?? 6000)
 
@@ -49,7 +49,7 @@ export function AhvCalc({
           ],
         })}
         onReset={() => {
-          setIncome(72000)
+          setIncome(defaults?.income ?? 0)
           setYears(44)
           setNeed(6000)
         }}

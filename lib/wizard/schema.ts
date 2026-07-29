@@ -7,6 +7,19 @@ export type FieldType = "single" | "multi" | "slider" | "text"
 
 export type Option = [value: string, label: string]
 
+export type DetailField = {
+  id: string
+  label: string
+  type: "text" | "number" | "ages"
+  placeholder?: string
+  hint?: string
+  min?: number
+  max?: number
+  required?: boolean
+  showWhen: string[]
+  countFrom?: string
+}
+
 export type Question = {
   id: string
   t: string
@@ -22,43 +35,160 @@ export type Question = {
   placeholder?: string
   inputmode?: "numeric" | "text"
   maxlength?: number
+  directInput?: boolean
+  details?: DetailField[]
 }
 
 const chf = (v: number) => "CHF " + Number(v).toLocaleString("de-CH")
 
-/* =============== Fragenkatalog (19 Fragen) =============== */
+/* =============== Fragenkatalog =============== */
 export const QUESTIONS: Question[] = [
-  { id: "geschlecht", t: "Geschlecht", type: "single", opts: [["M", "Männlich"], ["W", "Weiblich"]] },
+  { id: "geschlecht", t: "Geschlecht", type: "single", opts: [["M", "Männlich"], ["W", "Weiblich"], ["divers", "Divers"]] },
   { id: "alter", t: "Wann sind Sie geboren?", sub: "Ihr Alter in Jahren", type: "slider", min: 18, max: 80, def: 35, fmt: (v) => v + " Jahre" },
-  { id: "sport", t: "Betreiben Sie regelmässig Sport?", type: "single", opts: [["nein", "Nein"], ["gelegentlich", "Gelegentlich"], ["regelmaessig", "Regelmässig"]] },
-  { id: "rauchen", t: "Rauchen Sie?", type: "single", opts: [["nein", "Nein"], ["ja", "Ja"]] },
-  { id: "zivilstand", t: "Zivilstand", type: "single", opts: [["ledig", "Ledig"], ["partnerschaft", "Partnerschaft"], ["verheiratet", "Verheiratet"], ["geschieden", "Geschieden"]] },
-  { id: "kinder", t: "Haben Sie Kinder?", type: "single", opts: [["nein", "Nein"], ["ja", "Ja"]] },
   {
-    id: "abhaengige", t: "Sind Personen finanziell von Ihnen abhängig?", sub: "Mehrfachauswahl möglich", type: "multi",
-    opts: [["nein", "Nein"], ["partner", "Partner/in"], ["kinder", "Kinder"], ["andere", "Andere"]], exclusive: "nein",
+    id: "sport",
+    t: "Wie regelmässig sind Sie sportlich aktiv?",
+    sub: "Diese Angaben können später in den Sealth-Bedarfscheck übernommen werden.",
+    type: "single",
+    opts: [["nein", "Aktuell nicht"], ["gelegentlich", "Gelegentlich"], ["regelmaessig", "Regelmässig"]],
+    details: [
+      { id: "sport_art", label: "Welche Sportart?", type: "text", placeholder: "z. B. Fitness, Fussball oder Yoga", showWhen: ["gelegentlich", "regelmaessig"] },
+      { id: "sport_ort", label: "Wo üben Sie diese aus?", type: "text", placeholder: "z. B. Fitnesscenter Bern oder Verein", showWhen: ["gelegentlich", "regelmaessig"] },
+    ],
+  },
+  {
+    id: "rauchen",
+    t: "Konsumieren Sie Tabakwaren oder Nikotinprodukte?",
+    sub: "Mehrfachauswahl möglich.",
+    type: "multi",
+    opts: [["keine", "Keine"], ["zigaretten", "Zigaretten"], ["zigarren", "Zigarren"], ["snus", "Snus"], ["ezigarette", "E-Zigarette / Vape"], ["andere", "Andere"]],
+    exclusive: "keine",
+    details: [
+      {
+        id: "tabak_menge_tag",
+        label: "Wie viele Einheiten konsumieren Sie durchschnittlich pro Tag?",
+        type: "number",
+        placeholder: "z. B. 5",
+        min: 1,
+        max: 200,
+        required: true,
+        showWhen: ["zigaretten", "zigarren", "snus", "ezigarette", "andere"],
+      },
+      { id: "tabak_details", label: "Ergänzung", type: "text", placeholder: "Produkt oder Konsum genauer beschreiben", showWhen: ["andere"] },
+    ],
+  },
+  {
+    id: "zivilstand",
+    t: "Wie ist Ihr Zivilstand?",
+    type: "single",
+    opts: [
+      ["ledig", "Ledig"],
+      ["verheiratet", "Verheiratet"],
+      ["eingetragene_partnerschaft", "Eingetragene Partnerschaft"],
+      ["konkubinat", "Konkubinat"],
+      ["geschieden", "Geschieden"],
+      ["verwitwet", "Verwitwet"],
+    ],
+  },
+  {
+    id: "kinder",
+    t: "Haben Sie Kinder?",
+    type: "single",
+    opts: [["nein", "Nein"], ["ja", "Ja"]],
+    details: [
+      { id: "kinder_anzahl", label: "Anzahl Kinder", type: "number", min: 1, max: 12, required: true, showWhen: ["ja"] },
+      {
+        id: "kinder_alter",
+        label: "Alter der Kinder",
+        type: "ages",
+        hint: "Bitte für jedes Kind das aktuelle Alter eintragen.",
+        min: 0,
+        max: 40,
+        required: true,
+        showWhen: ["ja"],
+        countFrom: "kinder_anzahl",
+      },
+    ],
+  },
+  {
+    id: "abhaengige", t: "Sind ausser Ihren Kindern weitere Personen finanziell von Ihnen abhängig?", sub: "Mehrfachauswahl möglich", type: "multi",
+    opts: [["nein", "Nein"], ["partner", "Partner/in"], ["eltern", "Eltern"], ["andere", "Andere"]], exclusive: "nein",
   },
   { id: "motorfahrzeug", t: "Motorfahrzeug vorhanden?", type: "single", opts: [["nein", "Nein"], ["ja", "Ja"]] },
   { id: "haustiere", t: "Haustiere?", type: "single", opts: [["nein", "Nein"], ["ja", "Ja"]] },
-  { id: "wohnen", t: "Wohnsituation", type: "single", opts: [["miete", "Miete"], ["eigentum", "Eigentum"], ["familie", "Bei Familie"]] },
-  { id: "plz", t: "Wie lautet Ihre Adresse?", sub: "Postleitzahl genügt", type: "text", placeholder: "z. B. 3250", inputmode: "numeric", maxlength: 4 },
-  { id: "ausbildung", t: "Höchste Ausbildung", type: "single", opts: [["obligatorisch", "Obligatorisch"], ["lehre", "Lehre / EFZ"], ["hf", "HF / FH"], ["uni", "Universität"]] },
-  { id: "konfession", t: "Konfession", type: "single", opts: [["keine", "Keine"], ["christlich", "Christlich"], ["muslimisch", "Muslimisch"], ["andere", "Andere"]] },
-  { id: "erwerb", t: "Erwerbssituation", type: "single", opts: [["angestellt", "Angestellt"], ["selbstaendig", "Selbständig"], ["student", "Student"], ["keine", "Nicht erwerbstätig"]] },
-  { id: "brutto", t: "Jahresbruttoeinkommen", sub: "Brutto pro Jahr in CHF", type: "slider", min: 0, max: 400000, step: 5000, def: 90000, fmt: chf },
+  { id: "wohnen", t: "Wie wohnen Sie aktuell?", type: "single", opts: [["miete", "Miete"], ["eigentum", "Eigentum"], ["wg", "Wohngemeinschaft (WG)"], ["familie", "Bei Familie"]] },
+  { id: "ausbildung", t: "Höchste abgeschlossene Ausbildung", type: "single", opts: [["obligatorisch", "Obligatorische Schule"], ["lehre", "Lehre / EFZ"], ["hf", "HF / FH"], ["uni", "Universität / ETH"], ["andere", "Andere"]] },
   {
-    id: "kk_prio", t: "Krankenversicherung — was ist Ihnen wichtig?", sub: "Mehrfachauswahl möglich", type: "multi",
-    opts: [["arztwahl", "Freie Arztwahl"], ["spitalwahl", "Freie Spitalwahl (CH)"], ["privat", "Privat / Halbprivat"], ["preis", "Bestes Preis-Leistungs-Verhältnis"], ["deckung", "Maximale Deckung"]],
+    id: "konfession",
+    t: "Steuerrelevante Konfession",
+    sub: "Die Zugehörigkeit kann je nach Kanton die Kirchensteuer beeinflussen.",
+    type: "single",
+    opts: [["keine", "Keine"], ["reformiert", "Christlich / evangelisch-reformiert"], ["katholisch", "Römisch-katholisch"], ["christkatholisch", "Christkatholisch"], ["andere", "Andere"]],
   },
   {
-    id: "zukunft", t: "Finanzielle Zukunft — was ist Ihnen wichtig?", sub: "Mehrfachauswahl möglich", type: "multi",
-    opts: [["einkommensverluste", "Geringe Einkommensverluste"], ["staat", "Unabhängig vom Staat"], ["familie", "Unabhängig von Familie"], ["lebensstandard", "Lebensstandard sichern"], ["vermoegen", "Vermögen ausbauen"]],
+    id: "erwerb",
+    t: "Wie ist Ihre aktuelle Erwerbssituation?",
+    type: "single",
+    opts: [["angestellt", "Angestellt"], ["selbstaendig", "Selbständig"], ["lehrling", "Lehrling"], ["student", "Student/in"], ["keine", "Nicht erwerbstätig"]],
+    details: [
+      {
+        id: "beruf",
+        label: "Beruf oder aktuelle Tätigkeit",
+        type: "text",
+        placeholder: "z. B. Kundenberater, Pflegefachfrau oder Kaufmann EFZ",
+        showWhen: ["angestellt", "selbstaendig", "lehrling", "student"],
+      },
+    ],
   },
   {
-    id: "ziele", t: "Finanzielle Ziele", sub: "Mehrfachauswahl möglich", type: "multi",
-    opts: [["vermoegensaufbau", "Vermögensaufbau"], ["eigenheim", "Eigenheim"], ["rendite", "Renditeobjekt"], ["fruehpension", "Frühpensionierung"], ["steuer", "Steueroptimierung"], ["freiheit", "Finanzielle Freiheit"]],
+    id: "brutto",
+    t: "Wie hoch ist Ihr Jahresbruttoeinkommen?",
+    sub: "Exakten Betrag eingeben oder mit dem Regler einstellen.",
+    type: "slider",
+    min: 0,
+    max: 500000,
+    step: 1000,
+    def: 0,
+    fmt: chf,
+    directInput: true,
   },
-  { id: "fixkosten", t: "Wie lange könnten Sie Ihre Fixkosten ohne Einkommen decken?", type: "single", opts: [["unter3", "Unter 3 Monate"], ["3bis6", "3–6 Monate"], ["ueber6", "Über 6 Monate"]] },
+  {
+    id: "kk_prio", t: "Was ist Ihnen bei der Krankenversicherung wichtig?", sub: "Mehrfachauswahl möglich", type: "multi",
+    opts: [["arztwahl", "Freie Arztwahl"], ["spitalwahl", "Freie Spitalwahl (CH)"], ["privat", "Privat / Halbprivat"], ["preis", "Bestes Preis-Leistungs-Verhältnis"], ["deckung", "Umfassende Deckung"]],
+  },
+  {
+    id: "invaliditaet_ziel",
+    t: "Was ist Ihnen bei Invalidität wichtig?",
+    sub: "Mehrfachauswahl möglich",
+    type: "multi",
+    opts: [["ahv_bvg_pruefen", "Leistungen aus AHV/IV und BVG kennen"], ["lebensstandard", "Lebensstandard sichern"], ["unabhaengig_ahv_bvg", "Zusätzlich unabhängig von AHV/BVG absichern"], ["familie", "Familie finanziell entlasten"]],
+  },
+  {
+    id: "pension_ziel",
+    t: "Was ist Ihnen für die Pensionierung wichtig?",
+    sub: "Mehrfachauswahl möglich",
+    type: "multi",
+    opts: [["ahv_bvg_ergaenzen", "AHV und BVG gezielt ergänzen"], ["lebensstandard", "Lebensstandard erhalten"], ["fruehpension", "Frühpensionierung ermöglichen"], ["flexibilitaet", "Finanziell flexibel bleiben"]],
+  },
+  {
+    id: "tod_ziel",
+    t: "Was soll im Todesfall finanziell abgesichert sein?",
+    sub: "Mehrfachauswahl möglich",
+    type: "multi",
+    opts: [["partner", "Partner/in"], ["kinder", "Kinder"], ["wohnen", "Wohneigentum oder Miete"], ["schulden", "Kredite und übrige Verpflichtungen"], ["bestattung", "Bestattungs- und Übergangskosten"], ["kein_bedarf", "Aktuell kein Bedarf"]],
+    exclusive: "kein_bedarf",
+  },
+  {
+    id: "ziele", t: "Welche finanziellen Ziele verfolgen Sie?", sub: "Mehrfachauswahl möglich", type: "multi",
+    opts: [["vermoegensaufbau", "Vermögensaufbau"], ["eigenheim", "Eigenheim"], ["rendite", "Renditeobjekt"], ["fruehpension", "Frühpensionierung"], ["selbstaendigkeit", "Selbständigkeit planen"], ["steuer", "Steueroptimierung"], ["freiheit", "Finanzielle Freiheit"]],
+  },
+  {
+    id: "liquiditaet",
+    t: "Wie hoch ist Ihr aktuell frei verfügbares Vermögen?",
+    sub: "Kontoguthaben und kurzfristig verfügbare Anlagen – ohne gebundene Vorsorge und selbstbewohntes Wohneigentum.",
+    type: "single",
+    opts: [["bis20", "Bis CHF 20’000"], ["20bis50", "CHF 20’001–50’000"], ["50bis100", "CHF 50’001–100’000"], ["100bis250", "CHF 100’001–250’000"], ["ueber250", "Mehr als CHF 250’000"]],
+  },
 ]
 
 export const TOTAL_QUESTIONS = QUESTIONS.length
@@ -99,40 +229,69 @@ function has(answers: WizardAnswers, id: string, v: string): boolean {
 }
 const clamp = (n: number) => Math.max(0, Math.min(5, Math.round(n)))
 
+function hasAny(answers: WizardAnswers, id: string, values: string[]): boolean {
+  return values.some((value) => has(answers, id, value))
+}
+
+function usesTobacco(answers: WizardAnswers): boolean {
+  const value = answers.rauchen
+  if (value === "ja") return true // Compatibility with existing analyses.
+  return Array.isArray(value) && value.some((item) => item !== "keine")
+}
+
+function liquidityScore(answers: WizardAnswers): number {
+  const values: Record<string, number> = {
+    bis20: 0,
+    "20bis50": 1,
+    "50bis100": 2,
+    "100bis250": 3,
+    ueber250: 4,
+  }
+  return values[String(answers.liquiditaet)] ?? 0
+}
+
 /** Deterministic relevance engine — 8 area scores (0–5) from the profile. */
 export function scores(answers: WizardAnswers): Record<AreaKey, number> {
   const age = Number(answers.alter) || 35
   const brutto = Number(answers.brutto) || 0
-  const famVerantwortung = has(answers, "abhaengige", "partner") || has(answers, "abhaengige", "kinder") || has(answers, "abhaengige", "andere")
   const kinderJa = answers.kinder === "ja"
+  const famVerantwortung = kinderJa || has(answers, "abhaengige", "partner") || has(answers, "abhaengige", "eltern")
+    || has(answers, "abhaengige", "kinder") || has(answers, "abhaengige", "andere")
 
   return {
-    health: clamp(2 + (age > 50 ? 1 : 0) + (age > 65 ? 1 : 0) + (answers.rauchen === "ja" ? 1 : 0)
+    health: clamp(2 + (age > 50 ? 1 : 0) + (age > 65 ? 1 : 0) + (usesTobacco(answers) ? 1 : 0)
       + (answers.sport === "nein" ? 1 : 0) - (answers.sport === "regelmaessig" ? 1 : 0)
       + (has(answers, "kk_prio", "privat") || has(answers, "kk_prio", "deckung") ? 1 : 0)),
 
     pensiongap: clamp(2 + (age >= 30 ? 1 : 0) + (age >= 48 ? 1 : 0)
       + (answers.erwerb === "selbstaendig" ? 1 : 0)
-      + (has(answers, "zukunft", "staat") || has(answers, "ziele", "fruehpension") ? 1 : 0)),
+      + (hasAny(answers, "invaliditaet_ziel", ["ahv_bvg_pruefen", "unabhaengig_ahv_bvg", "lebensstandard"])
+        || hasAny(answers, "pension_ziel", ["ahv_bvg_ergaenzen", "fruehpension", "lebensstandard"])
+        || has(answers, "ziele", "fruehpension")
+        || has(answers, "zukunft", "staat") ? 1 : 0)),
 
     investment: clamp(1 + (brutto >= 80000 ? 1 : 0) + (brutto >= 150000 ? 1 : 0)
       + (has(answers, "ziele", "vermoegensaufbau") || has(answers, "ziele", "freiheit") ? 1 : 0)
-      + (has(answers, "zukunft", "vermoegen") ? 1 : 0) + (age < 45 ? 1 : 0)),
+      + (has(answers, "ziele", "selbstaendigkeit") ? 1 : 0)
+      + (has(answers, "zukunft", "vermoegen") ? 1 : 0)
+      + (liquidityScore(answers) >= 2 ? 1 : 0) + (age < 45 ? 1 : 0)),
 
     "real-estate": clamp((has(answers, "ziele", "eigenheim") ? 2 : 0) + (has(answers, "ziele", "rendite") ? 1 : 0)
       + (answers.wohnen === "eigentum" ? 1 : 0) + (answers.wohnen === "miete" && brutto >= 120000 ? 1 : 0) + (brutto >= 200000 ? 1 : 0)),
 
     "values-protection": clamp(1 + (famVerantwortung ? 1 : 0) + (answers.wohnen === "eigentum" ? 1 : 0)
-      + (answers.motorfahrzeug === "ja" ? 1 : 0) + (answers.haustiere === "ja" ? 1 : 0) + (answers.zivilstand === "verheiratet" ? 1 : 0)),
+      + (answers.motorfahrzeug === "ja" ? 1 : 0) + (answers.haustiere === "ja" ? 1 : 0)
+      + (["verheiratet", "eingetragene_partnerschaft", "konkubinat"].includes(String(answers.zivilstand)) ? 1 : 0)),
 
-    children: clamp(kinderJa ? (3 + (has(answers, "abhaengige", "kinder") ? 1 : 0) + (brutto < 80000 ? 1 : 0)) : 0),
+    children: clamp(kinderJa ? (3 + (has(answers, "tod_ziel", "kinder") || has(answers, "abhaengige", "kinder") ? 1 : 0) + (brutto < 80000 ? 1 : 0)) : 0),
 
-    "property-creation": clamp(1 + (answers.fixkosten === "unter3" ? 2 : answers.fixkosten === "3bis6" ? 1 : 0)
-      + (has(answers, "zukunft", "lebensstandard") || has(answers, "zukunft", "einkommensverluste") ? 1 : 0)
+    "property-creation": clamp(1 + (answers.liquiditaet === "bis20" ? 2 : answers.liquiditaet === "20bis50" ? 1 : 0)
+      + (has(answers, "invaliditaet_ziel", "lebensstandard") || has(answers, "zukunft", "lebensstandard") ? 1 : 0)
       + (answers.erwerb === "selbstaendig" ? 1 : 0) + (famVerantwortung ? 1 : 0)),
 
     "tax-advantage": clamp((brutto >= 80000 ? 1 : 0) + (brutto >= 130000 ? 2 : brutto >= 100000 ? 1 : 0)
-      + (has(answers, "ziele", "steuer") ? 2 : 0) + (answers.wohnen === "eigentum" ? 1 : 0)),
+      + (has(answers, "ziele", "steuer") ? 2 : 0) + (answers.wohnen === "eigentum" ? 1 : 0)
+      + (answers.konfession && answers.konfession !== "keine" && answers.konfession !== "andere" ? 1 : 0)),
   }
 }
 
@@ -171,10 +330,37 @@ export type ThemeStatus = "open" | "progress" | "done"
 /* =============== Helpers =============== */
 export function isAnswered(q: Question, answers: WizardAnswers): boolean {
   const v = answers[q.id]
-  if (q.type === "multi") return Array.isArray(v) && v.length > 0
-  if (q.type === "slider") return true
-  if (q.type === "text") return !!(v && String(v).trim())
-  return v != null
+  const mainAnswered =
+    q.type === "multi"
+      ? Array.isArray(v) && v.length > 0
+      : q.type === "slider"
+        ? q.directInput
+          ? typeof v === "number"
+          : true
+        : q.type === "text"
+          ? !!(v && String(v).trim())
+          : v != null
+  if (!mainAnswered) return false
+
+  for (const detail of q.details ?? []) {
+    const selected = Array.isArray(v) ? v : [String(v)]
+    if (!detail.required || !detail.showWhen.some((item) => selected.includes(item))) continue
+    const detailValue = answers[detail.id]
+    if (detail.type === "ages") {
+      const count = Number(answers[detail.countFrom ?? ""]) || 0
+      if (
+        !Array.isArray(detailValue)
+        || count < 1
+        || detailValue.length < count
+        || detailValue.slice(0, count).some((item) => String(item).trim() === "")
+      ) return false
+    } else if (detail.type === "number") {
+      if (detailValue == null || detailValue === "" || Number(detailValue) < (detail.min ?? 0)) return false
+    } else if (!detailValue || !String(detailValue).trim()) {
+      return false
+    }
+  }
+  return true
 }
 
 export function countAnswered(answers: WizardAnswers): number {
@@ -200,4 +386,21 @@ export function answerLabel(q: Question, value: WizardAnswers[string]): string {
   if (value == null || value === "") return "—"
   if (q.type === "slider" && q.fmt) return q.fmt(Number(value))
   return String(value)
+}
+
+/** Human-readable answer including any conditional detail fields. */
+export function answerSummary(q: Question, answers: WizardAnswers): string {
+  const parts = [answerLabel(q, answers[q.id] ?? null)]
+  const main = answers[q.id]
+  const selected = Array.isArray(main) ? main : [String(main)]
+
+  for (const detail of q.details ?? []) {
+    if (!detail.showWhen.some((item) => selected.includes(item))) continue
+    const value = answers[detail.id]
+    if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) continue
+    const formatted = Array.isArray(value) ? value.join(", ") : String(value)
+    const suffix = detail.type === "ages" ? " Jahre" : detail.id === "tabak_menge_tag" ? " pro Tag" : ""
+    parts.push(`${detail.label.replace(/[?:]+$/, "")}: ${formatted}${suffix}`)
+  }
+  return parts.join(" · ")
 }

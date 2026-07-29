@@ -42,7 +42,7 @@ interface Props {
 
 export function PensionGapCalc({ defaults, ctx }: Props) {
   const [risk, setRisk] = useState<Risk>("iv")
-  const [salary, setSalary] = useState(defaults?.salary ?? 90000)
+  const [salary, setSalary] = useState(defaults?.salary ?? 0)
   const [targetPct, setTargetPct] = useState(90)
   const [age, setAge] = useState(defaults?.age ?? 40)
   const [startAge, setStartAge] = useState(25)
@@ -109,7 +109,7 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
       })}
       onReset={() => {
         setRisk("iv")
-        setSalary(defaults?.salary ?? 90000)
+        setSalary(defaults?.salary ?? 0)
         setTargetPct(90)
         setAge(defaults?.age ?? 40)
         setStartAge(25)

@@ -16,6 +16,15 @@ function ageFromBirthdate(birthdate?: string | null): number | null {
   return Math.max(18, Math.min(80, age))
 }
 
+function normalizeLegacyAnswers(input: WizardAnswers): WizardAnswers {
+  const answers = { ...input }
+  if (answers.rauchen === "ja") answers.rauchen = ["zigaretten"]
+  if (answers.rauchen === "nein") answers.rauchen = ["keine"]
+  if (answers.zivilstand === "partnerschaft") answers.zivilstand = "konkubinat"
+  if (answers.konfession === "christlich" || answers.konfession === "muslimisch") answers.konfession = "andere"
+  return answers
+}
+
 export default async function AnalysisPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const analysis = await getAnalysis(id)
@@ -30,7 +39,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
     contracts?: Contracts
     themeStatus?: Record<string, ThemeStatus>
   }
-  const stored = snapshot.answers ?? {}
+  const stored = normalizeLegacyAnswers(snapshot.answers ?? {})
 
   const prefill: WizardAnswers = {}
   const age = ageFromBirthdate(customer.birthdate)

@@ -1,7 +1,7 @@
 import {
   AREAS,
   QUESTIONS,
-  answerLabel,
+  answerSummary,
   countAnswered,
   scores,
   TOTAL_QUESTIONS,
@@ -100,7 +100,7 @@ export function buildReportData(
     answers: QUESTIONS.map((q) => ({
       id: q.id,
       question: q.t,
-      answer: answerLabel(q, answers[q.id] ?? null),
+      answer: answerSummary(q, answers),
     })),
     modules: {
       calculators,

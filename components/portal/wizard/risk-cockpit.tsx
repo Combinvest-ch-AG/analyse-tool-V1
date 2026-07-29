@@ -32,13 +32,13 @@ function calculatorHref(
   const params = new URLSearchParams()
   const salary = Number(answers.brutto) || 0
   const age = Number(answers.alter) || 0
-  const hasChildren = answers.kinder === "ja"
+  const childCount = answers.kinder === "ja" ? Math.max(0, Number(answers.kinder_anzahl) || 0) : 0
   const plz = typeof answers.plz === "string" ? answers.plz : ""
 
   if (key === "pensiongap") {
     if (salary) params.set("salary", String(salary))
     if (age) params.set("age", String(age))
-    params.set("children", hasChildren ? "2" : "0")
+    params.set("children", String(childCount))
   } else if (key === "real-estate") {
     if (salary) params.set("income", String(salary))
   } else if (key === "health") {

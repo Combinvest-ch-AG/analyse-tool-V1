@@ -12,11 +12,11 @@ type Category = { name: string; color: string; subs: Item[] }
 
 const PALETTE = ["#EE6A20", "#256ABF", "#159B8A", "#C2554E", "#3F7CC0", "#B07A1E"]
 
-function defaultData(monthlyIncome?: number): { income: Item[]; cats: Category[] } {
-  const lohn = monthlyIncome && monthlyIncome > 0 ? Math.round(monthlyIncome / 50) * 50 : 4500
+function defaultData(monthlyIncome?: number, profiledIncome = false): { income: Item[]; cats: Category[] } {
+  const lohn = monthlyIncome && monthlyIncome > 0 ? Math.round(monthlyIncome) : 0
   return {
     income: [
-      { name: "Lohn (netto)", amount: lohn },
+      { name: profiledIncome ? "Bruttolohn (aus Profiling)" : "Lohn (netto)", amount: lohn },
       { name: "Nebeneinkommen", amount: 0 },
     ],
     cats: [
@@ -34,10 +34,10 @@ export function BudgetCalc({
   defaults,
   ctx,
 }: {
-  defaults?: { monthlyIncome?: number }
+  defaults?: { monthlyIncome?: number; profiledIncome?: boolean }
   ctx?: CalcContext
 }) {
-  const [data, setData] = useState(() => defaultData(defaults?.monthlyIncome))
+  const [data, setData] = useState(() => defaultData(defaults?.monthlyIncome, defaults?.profiledIncome))
 
   const totals = useMemo(() => {
     const inc = data.income.reduce((t, x) => t + clamp(x.amount), 0)
@@ -72,7 +72,7 @@ export function BudgetCalc({
             `Überschuss ${formatCHF(totals.bal)} (${savingsRate} % Sparquote)`,
           ],
         })}
-        onReset={() => setData(defaultData(defaults?.monthlyIncome))}
+        onReset={() => setData(defaultData(defaults?.monthlyIncome, defaults?.profiledIncome))}
       />
 
       {/* Metrics */}

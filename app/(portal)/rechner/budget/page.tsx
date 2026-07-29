@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { BudgetCalc } from "@/components/portal/rechner/budget-calc"
+import { getAnalysis } from "@/lib/data/portal"
+import type { WizardAnswers } from "@/lib/wizard/schema"
 
 export const metadata: Metadata = {
   title: "Budgetrechner · Combinvest",
@@ -14,6 +16,9 @@ export default async function BudgetPage({
 }) {
   const sp = await searchParams
   const ctx = { analysisId: sp.aid, customerId: sp.cid }
+  const analysis = sp.aid ? await getAnalysis(sp.aid) : null
+  const snapshot = (analysis?.latest_snapshot ?? {}) as { answers?: WizardAnswers }
+  const annualGrossIncome = Math.max(0, Number(snapshot.answers?.brutto) || 0)
   return (
     <CalcShell
       eyebrow="Haushalt · Einnahmen & Ausgaben"
@@ -26,7 +31,10 @@ export default async function BudgetPage({
       explain="Die Sparquote zeigt, welcher Anteil Ihres Einkommens monatlich übrig bleibt."
       source="Ihre erfassten monatlichen Einnahmen und Ausgaben; keine automatisch ergänzten Schätzwerte."
     >
-      <BudgetCalc ctx={ctx} />
+      <BudgetCalc
+        ctx={ctx}
+        defaults={annualGrossIncome > 0 ? { monthlyIncome: annualGrossIncome / 12, profiledIncome: true } : undefined}
+      />
     </CalcShell>
   )
 }

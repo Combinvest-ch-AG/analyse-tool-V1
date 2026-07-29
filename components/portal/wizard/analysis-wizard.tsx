@@ -30,6 +30,14 @@ const STEPS = [
   { id: "auswertung", title: "Auswertung" },
 ]
 
+function profilingSection(index: number): string {
+  if (index <= 3) return "Person & Gesundheit"
+  if (index <= 8) return "Familie & Haushalt"
+  if (index <= 12) return "Wohnen & Hintergrund"
+  if (index <= 14) return "Arbeit & Einkommen"
+  return "Absicherung & Ziele"
+}
+
 export function AnalysisWizard({
   analysisId,
   customerId,
@@ -174,13 +182,35 @@ export function AnalysisWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, contracts, themeStatus, autosaveHalted])
 
-  function setAnswer(key: string, value: WizardAnswers[string]) {
-    setAnswers((prev) => ({ ...prev, [key]: value }))
+  function setQuestionAnswer(key: string, value: WizardAnswers[string]) {
+    const question = QUESTIONS.find((item) => item.id === key)
+    setAnswers((prev) => {
+      const next = { ...prev, [key]: value }
+      if (!question?.details) return next
+      const selected = Array.isArray(value) ? value : value == null ? [] : [String(value)]
+      for (const detail of question.details) {
+        if (!detail.showWhen.some((item) => selected.includes(item))) delete next[detail.id]
+      }
+      return next
+    })
+  }
+
+  function setDetailAnswer(key: string, value: WizardAnswers[string]) {
+    setAnswers((prev) => {
+      const next = { ...prev, [key]: value }
+      if (key === "kinder_anzahl") {
+        const count = Math.max(0, Number(value) || 0)
+        const ages = Array.isArray(prev.kinder_alter) ? prev.kinder_alter : []
+        next.kinder_alter = ages.slice(0, count)
+      }
+      return next
+    })
   }
 
   function goToStep(next: number) {
     if (next < 1 || next > 3) return
     if (timer.current) clearTimeout(timer.current)
+    stepRef.current = next
     setStep(next)
     window.scrollTo({ top: 0, behavior: "smooth" })
     // A step transition is a milestone → keep a revision snapshot.
@@ -193,7 +223,9 @@ export function AnalysisWizard({
   function nextQuestion() {
     if (!currentAnswered) return
     if (qi < QUESTIONS.length - 1) {
-      setQi(qi + 1)
+      const next = qi + 1
+      qiRef.current = next
+      setQi(next)
       if (!isCompleted) void persist(false)
     } else {
       goToStep(2)
@@ -201,7 +233,9 @@ export function AnalysisWizard({
   }
   function prevQuestion() {
     if (qi > 0) {
-      setQi(qi - 1)
+      const previous = qi - 1
+      qiRef.current = previous
+      setQi(previous)
       if (!isCompleted) void persist(false)
     }
   }
@@ -257,7 +291,7 @@ export function AnalysisWizard({
           {/* Question card */}
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <div className="mb-2 flex justify-between text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-              <span>Profiling</span>
+              <span>Profiling · {profilingSection(qi)}</span>
               <span>
                 {qi + 1}/{QUESTIONS.length}
               </span>
@@ -275,7 +309,18 @@ export function AnalysisWizard({
             {q.sub && <p className="mt-1 text-[13px] text-muted-foreground">{q.sub}</p>}
 
             <div className="mt-5">
-              <WizardField question={q} value={answers[q.id] ?? null} onChange={(v) => setAnswer(q.id, v)} />
+              <WizardField
+                question={q}
+                value={answers[q.id] ?? null}
+                answers={answers}
+                onChange={(v) => setQuestionAnswer(q.id, v)}
+                onDetailChange={setDetailAnswer}
+              />
+              {!currentAnswered && answers[q.id] != null ? (
+                <p className="mt-3 text-xs font-semibold text-destructive">
+                  Bitte die markierten Detailfelder ergänzen.
+                </p>
+              ) : null}
             </div>
 
             <div className="mt-7 flex items-center justify-between gap-3">

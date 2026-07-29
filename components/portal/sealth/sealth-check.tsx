@@ -42,7 +42,13 @@ function healthEligible(k: PlanKey) {
   return k === "protect" || k === "sealth" || k === "premium"
 }
 
-export function SealthCheck({ ctx }: { ctx: { analysisId?: string; customerId?: string } }) {
+export function SealthCheck({
+  ctx,
+  profileSport,
+}: {
+  ctx: { analysisId?: string; customerId?: string }
+  profileSport?: { frequency?: string; activity?: string; location?: string }
+}) {
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<(number | null)[]>(Array(QUESTIONS.length).fill(null))
   const [done, setDone] = useState(false)
@@ -107,6 +113,7 @@ export function SealthCheck({ ctx }: { ctx: { analysisId?: string; customerId?: 
   const payload = {
     answers,
     scores,
+    profileSport,
     recommendation: recommended,
     selectedPackage: activePlan,
     annualPrice: PLANS[activePlan].annual,
@@ -151,6 +158,14 @@ export function SealthCheck({ ctx }: { ctx: { analysisId?: string; customerId?: 
           </span>
         </div>
         <h2 className="mt-3 text-pretty text-xl font-bold text-foreground">{q.q}</h2>
+        {q.d === "health" && (profileSport?.activity || profileSport?.location) ? (
+          <div className="mt-3 rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-primary">Aus dem Profiling übernommen</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {[profileSport.activity, profileSport.location].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+        ) : null}
         <div className="mt-4 grid gap-2">
           {q.o.map(([val, label]) => {
             const on = answers[step] === val

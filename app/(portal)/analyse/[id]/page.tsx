@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react"
 import { getAnalysis, getCustomerById } from "@/lib/data/portal"
 import { AnalysisWizard } from "@/components/portal/wizard/analysis-wizard"
 import { fullName } from "@/lib/format"
-import type { Contracts, ThemeStatus, WizardAnswers } from "@/lib/wizard/schema"
+import { PROFILING_SCHEMA_VERSION, type Contracts, type ThemeStatus, type WizardAnswers } from "@/lib/wizard/schema"
 
 function ageFromBirthdate(birthdate?: string | null): number | null {
   if (!birthdate) return null
@@ -38,6 +38,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
     answers?: WizardAnswers
     contracts?: Contracts
     themeStatus?: Record<string, ThemeStatus>
+    profiling_schema_version?: number
   }
   const stored = normalizeLegacyAnswers(snapshot.answers ?? {})
 
@@ -47,6 +48,11 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
   if (customer.postcode) prefill.plz = customer.postcode
 
   const answers: WizardAnswers = { ...prefill, ...stored }
+  const storedQuestion = typeof analysis.current_question === "number" ? analysis.current_question : 0
+  const initialQuestion =
+    Number(snapshot.profiling_schema_version || 0) < PROFILING_SCHEMA_VERSION && storedQuestion >= 6
+      ? storedQuestion + 1
+      : storedQuestion
 
   return (
     <main className="px-5 py-8 sm:px-8 lg:px-10">
@@ -66,7 +72,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
         initialContracts={snapshot.contracts ?? {}}
         initialThemeStatus={snapshot.themeStatus ?? {}}
         initialStep={analysis.current_step ?? 1}
-        initialQuestion={typeof analysis.current_question === "number" ? analysis.current_question : 0}
+        initialQuestion={initialQuestion}
         initialLockVersion={analysis.lock_version}
         isCompleted={analysis.status === "completed"}
       />

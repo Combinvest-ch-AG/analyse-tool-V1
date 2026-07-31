@@ -3,8 +3,9 @@ import {
   QUESTIONS,
   answerSummary,
   countAnswered,
+  isQuestionVisible,
   scores,
-  TOTAL_QUESTIONS,
+  visibleQuestionCount,
   type Contract,
   type ThemeStatus,
   type WizardAnswers,
@@ -73,7 +74,7 @@ export function buildReportData(
     createdAt: analysis.created_at,
     analysisId: analysis.id,
     answerCount: countAnswered(answers),
-    questionCount: TOTAL_QUESTIONS,
+    questionCount: visibleQuestionCount(answers),
     areas: AREAS.map((a) => ({
       key: a.key,
       name: a.name,
@@ -98,11 +99,13 @@ export function buildReportData(
           email: advisor.email,
         }
       : undefined,
-    answers: QUESTIONS.map((q) => ({
-      id: q.id,
-      question: q.t,
-      answer: answerSummary(q, answers),
-    })),
+    answers: QUESTIONS
+      .filter((q) => isQuestionVisible(q, answers))
+      .map((q) => ({
+        id: q.id,
+        question: q.t,
+        answer: answerSummary(q, answers),
+      })),
     modules: {
       calculators,
       appointment: snapshot.closing?.appointment,

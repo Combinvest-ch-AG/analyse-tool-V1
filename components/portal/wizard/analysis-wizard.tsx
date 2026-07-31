@@ -6,11 +6,13 @@ import Link from "next/link"
 import { ArrowLeft, ArrowRight, Check, Cloud, CloudOff, Gift, Loader2, RefreshCw } from "lucide-react"
 import {
   QUESTIONS,
-  TOTAL_QUESTIONS,
+  PROFILING_SCHEMA_VERSION,
   countAnswered,
   isAnswered,
+  isQuestionVisible,
   needScore,
   progressPercent,
+  visibleQuestionCount,
   type AreaKey,
   type Contracts,
   type ThemeStatus,
@@ -32,10 +34,23 @@ const STEPS = [
 
 function profilingSection(index: number): string {
   if (index <= 3) return "Person & Gesundheit"
-  if (index <= 8) return "Familie & Haushalt"
+  if (index <= 9) return "Familie & Haushalt"
   if (index <= 12) return "Wohnen & Hintergrund"
   if (index <= 14) return "Arbeit & Einkommen"
   return "Absicherung & Ziele"
+}
+
+function adjacentVisibleQuestion(from: number, direction: 1 | -1, answers: WizardAnswers): number | null {
+  for (let index = from + direction; index >= 0 && index < QUESTIONS.length; index += direction) {
+    if (isQuestionVisible(QUESTIONS[index], answers)) return index
+  }
+  return null
+}
+
+function initialVisibleQuestion(index: number, answers: WizardAnswers): number {
+  const safe = Math.min(Math.max(index, 0), QUESTIONS.length - 1)
+  if (isQuestionVisible(QUESTIONS[safe], answers)) return safe
+  return adjacentVisibleQuestion(safe, 1, answers) ?? adjacentVisibleQuestion(safe, -1, answers) ?? 0
 }
 
 export function AnalysisWizard({
@@ -66,7 +81,7 @@ export function AnalysisWizard({
   const [contracts, setContracts] = useState<Contracts>(initialContracts)
   const [themeStatus, setThemeStatus] = useState<Record<string, ThemeStatus>>(initialThemeStatus)
   const [step, setStep] = useState(Math.min(Math.max(initialStep, 1), 3))
-  const [qi, setQi] = useState(Math.min(Math.max(initialQuestion, 0), QUESTIONS.length - 1))
+  const [qi, setQi] = useState(() => initialVisibleQuestion(initialQuestion, initialAnswers))
   const [status, setStatus] = useState<SaveStatus>(isCompleted ? "saved" : "idle")
   const [completing, setCompleting] = useState(false)
 
@@ -100,6 +115,7 @@ export function AnalysisWizard({
     contracts: contractsRef.current,
     themeStatus: themeRef.current,
     need_score: needScore(answersRef.current),
+    profiling_schema_version: PROFILING_SCHEMA_VERSION,
   })
 
   const persistOnce = useCallback(
@@ -191,6 +207,10 @@ export function AnalysisWizard({
       for (const detail of question.details) {
         if (!detail.showWhen.some((item) => selected.includes(item))) delete next[detail.id]
       }
+      for (const dependent of QUESTIONS) {
+        if (dependent.visibleWhen?.id !== key) continue
+        if (!dependent.visibleWhen.values.some((item) => selected.includes(item))) delete next[dependent.id]
+      }
       return next
     })
   }
@@ -222,8 +242,8 @@ export function AnalysisWizard({
 
   function nextQuestion() {
     if (!currentAnswered) return
-    if (qi < QUESTIONS.length - 1) {
-      const next = qi + 1
+    const next = adjacentVisibleQuestion(qi, 1, answers)
+    if (next != null) {
       qiRef.current = next
       setQi(next)
       if (!isCompleted) void persist(false)
@@ -232,8 +252,8 @@ export function AnalysisWizard({
     }
   }
   function prevQuestion() {
-    if (qi > 0) {
-      const previous = qi - 1
+    const previous = adjacentVisibleQuestion(qi, -1, answers)
+    if (previous != null) {
       qiRef.current = previous
       setQi(previous)
       if (!isCompleted) void persist(false)
@@ -251,6 +271,8 @@ export function AnalysisWizard({
   const gauge = needScore(answers)
   const progress = progressPercent(answers)
   const answered = countAnswered(answers)
+  const visibleQuestions = visibleQuestionCount(answers)
+  const hasNextQuestion = adjacentVisibleQuestion(qi, 1, answers) != null
 
   return (
     <div className="grid grid-cols-1 gap-6">
@@ -339,7 +361,7 @@ export function AnalysisWizard({
                 disabled={!currentAnswered}
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-deep disabled:opacity-50"
               >
-                {qi === QUESTIONS.length - 1 ? "Zum Vertragscheck" : "Weiter"}
+                {hasNextQuestion ? "Weiter" : "Zum Vertragscheck"}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -458,7 +480,7 @@ export function AnalysisWizard({
             <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
               <span>Fortschritt</span>
               <span>
-                {answered}/{TOTAL_QUESTIONS}
+                {answered}/{visibleQuestions}
               </span>
             </div>
             <div className="mt-1.5 h-2 w-28 overflow-hidden rounded-full bg-muted">

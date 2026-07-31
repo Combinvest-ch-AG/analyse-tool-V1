@@ -48,8 +48,8 @@ export const THEME_TOOLS: Record<string, ThemeTool> = {
   tragbar: { id: "tragbar", title: "Wohnrechner — Tragbarkeit", icon: "home", desc: "Können Sie sich die Finanzierung Ihrer Wunschimmobilie leisten?", href: "/rechner/tragbarkeit" },
   steuer: { id: "steuer", title: "Steuerwirkung", icon: "calc", desc: "Schätzen Sie die Wirkung eines frei wählbaren Grenzsteuersatzes.", href: "/rechner/vermoegen?tool=steuer" },
   inflation: { id: "inflation", title: "Inflationsrechner", icon: "chart", desc: "Sehen Sie, wie Inflation die künftige Kaufkraft eines Betrags verändert.", href: "/rechner/vermoegen?tool=inflation" },
-  kosten: { id: "kosten", title: "Anlagekosten (TER)", icon: "calc", desc: "Vermögensentwicklung vor und nach laufenden Produktkosten vergleichen.", href: "/rechner/vermoegen?tool=kosten" },
-  sparziel: { id: "sparziel", title: "Sparzielrechner", icon: "target", desc: "Monatliche Sparrate für Ihr persönliches Zielvermögen berechnen.", href: "/rechner/vermoegen?tool=ziel" },
+  kosten: { id: "kosten", title: "TER-Vergleich", icon: "calc", desc: "Zwei Anlagen mit unterschiedlichen laufenden Kosten direkt vergleichen.", href: "/rechner/vermoegen?tool=kosten" },
+  sparziel: { id: "sparziel", title: "Zielvermögensrechner", icon: "target", desc: "Berechnen, wann Startkapital und Sparrate Ihr Zielvermögen erreichen.", href: "/rechner/vermoegen?tool=ziel" },
   freizuegigkeit: { id: "freizuegigkeit", title: "Freizügigkeitskonto", icon: "doc", desc: "Anfrage für Konto oder Depot strukturiert aus der Vermögensberatung vorbereiten.", href: "/rechner/freizuegigkeit" },
 }
 

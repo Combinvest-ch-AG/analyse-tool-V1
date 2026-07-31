@@ -37,6 +37,7 @@ export type Question = {
   maxlength?: number
   directInput?: boolean
   details?: DetailField[]
+  visibleWhen?: { id: string; values: string[] }
 }
 
 const chf = (v: number) => "CHF " + Number(v).toLocaleString("de-CH")
@@ -109,6 +110,21 @@ export const QUESTIONS: Question[] = [
         countFrom: "kinder_anzahl",
       },
     ],
+  },
+  {
+    id: "kinder_bedarf",
+    t: "Was ist Ihnen für Ihre Kinder besonders wichtig?",
+    sub: "Mehrfachauswahl möglich. Die Auswahl fliesst direkt in das Live-Relevanzprofil ein.",
+    type: "multi",
+    opts: [
+      ["sparen", "Regelmässig für die Kinder sparen"],
+      ["ausbildung", "Ausbildung und Start ins Erwachsenenleben finanzieren"],
+      ["invaliditaet", "Kind bei Invalidität finanziell absichern"],
+      ["tod", "Versorgung der Kinder im Todesfall sichern"],
+      ["kein_bedarf", "Aktuell kein zusätzlicher Bedarf"],
+    ],
+    exclusive: "kein_bedarf",
+    visibleWhen: { id: "kinder", values: ["ja"] },
   },
   {
     id: "abhaengige", t: "Sind ausser Ihren Kindern weitere Personen finanziell von Ihnen abhängig?", sub: "Mehrfachauswahl möglich", type: "multi",
@@ -192,6 +208,7 @@ export const QUESTIONS: Question[] = [
 ]
 
 export const TOTAL_QUESTIONS = QUESTIONS.length
+export const PROFILING_SCHEMA_VERSION = 2
 
 /* =============== Relevanz-Modell (transparent, 0–5) =============== */
 export type AreaKey =
@@ -255,6 +272,9 @@ export function scores(answers: WizardAnswers): Record<AreaKey, number> {
   const age = Number(answers.alter) || 35
   const brutto = Number(answers.brutto) || 0
   const kinderJa = answers.kinder === "ja"
+  const kinderBedarf = Array.isArray(answers.kinder_bedarf) ? answers.kinder_bedarf : []
+  const kinderSparen = kinderBedarf.includes("sparen") || kinderBedarf.includes("ausbildung")
+  const kinderSchutz = kinderBedarf.includes("invaliditaet") || kinderBedarf.includes("tod")
   const famVerantwortung = kinderJa || has(answers, "abhaengige", "partner") || has(answers, "abhaengige", "eltern")
     || has(answers, "abhaengige", "kinder") || has(answers, "abhaengige", "andere")
 
@@ -273,6 +293,7 @@ export function scores(answers: WizardAnswers): Record<AreaKey, number> {
     investment: clamp(1 + (brutto >= 80000 ? 1 : 0) + (brutto >= 150000 ? 1 : 0)
       + (has(answers, "ziele", "vermoegensaufbau") || has(answers, "ziele", "freiheit") ? 1 : 0)
       + (has(answers, "ziele", "selbstaendigkeit") ? 1 : 0)
+      + (kinderSparen ? 1 : 0)
       + (has(answers, "zukunft", "vermoegen") ? 1 : 0)
       + (liquidityScore(answers) >= 2 ? 1 : 0) + (age < 45 ? 1 : 0)),
 
@@ -281,9 +302,15 @@ export function scores(answers: WizardAnswers): Record<AreaKey, number> {
 
     "values-protection": clamp(1 + (famVerantwortung ? 1 : 0) + (answers.wohnen === "eigentum" ? 1 : 0)
       + (answers.motorfahrzeug === "ja" ? 1 : 0) + (answers.haustiere === "ja" ? 1 : 0)
+      + (kinderSchutz ? 1 : 0)
       + (["verheiratet", "eingetragene_partnerschaft", "konkubinat"].includes(String(answers.zivilstand)) ? 1 : 0)),
 
-    children: clamp(kinderJa ? (3 + (has(answers, "tod_ziel", "kinder") || has(answers, "abhaengige", "kinder") ? 1 : 0) + (brutto < 80000 ? 1 : 0)) : 0),
+    children: clamp(kinderJa
+      ? 2
+        + Math.min(2, kinderBedarf.filter((item) => item !== "kein_bedarf").length)
+        + (kinderSchutz ? 1 : 0)
+        + (has(answers, "tod_ziel", "kinder") ? 1 : 0)
+      : 0),
 
     "property-creation": clamp(1 + (answers.liquiditaet === "bis20" ? 2 : answers.liquiditaet === "20bis50" ? 1 : 0)
       + (has(answers, "invaliditaet_ziel", "lebensstandard") || has(answers, "zukunft", "lebensstandard") ? 1 : 0)
@@ -394,11 +421,42 @@ export type Contract = {
   interval?: string
   notes?: string
 }
+
+export const CONTRACT_INTERVAL_FACTOR: Record<string, number> = {
+  monthly: 12,
+  quarterly: 4,
+  semiannual: 2,
+  annual: 1,
+  oneoff: 0,
+}
+
+export function contractAnnualAmount(contract: Contract): number {
+  const premium = Math.max(0, Number(contract.premium) || 0)
+  return premium * (CONTRACT_INTERVAL_FACTOR[contract.interval || "monthly"] ?? 12)
+}
+
+export function contractMonthlyAmount(contract: Contract): number {
+  return Math.round((contractAnnualAmount(contract) / 12) * 100) / 100
+}
+
 export type Contracts = Record<string, Contract>
 export type ThemeStatus = "open" | "progress" | "done"
 
 /* =============== Helpers =============== */
+export function isQuestionVisible(q: Question, answers: WizardAnswers): boolean {
+  if (!q.visibleWhen) return true
+  const value = answers[q.visibleWhen.id]
+  return q.visibleWhen.values.some((expected) =>
+    Array.isArray(value) ? value.includes(expected) : value === expected,
+  )
+}
+
+export function visibleQuestionCount(answers: WizardAnswers): number {
+  return QUESTIONS.filter((q) => isQuestionVisible(q, answers)).length
+}
+
 export function isAnswered(q: Question, answers: WizardAnswers): boolean {
+  if (!isQuestionVisible(q, answers)) return true
   const v = answers[q.id]
   const mainAnswered =
     q.type === "multi"
@@ -434,11 +492,12 @@ export function isAnswered(q: Question, answers: WizardAnswers): boolean {
 }
 
 export function countAnswered(answers: WizardAnswers): number {
-  return QUESTIONS.reduce((n, q) => (isAnswered(q, answers) ? n + 1 : n), 0)
+  return QUESTIONS.reduce((n, q) => (isQuestionVisible(q, answers) && isAnswered(q, answers) ? n + 1 : n), 0)
 }
 
 export function progressPercent(answers: WizardAnswers): number {
-  return Math.round((countAnswered(answers) / TOTAL_QUESTIONS) * 100)
+  const visible = visibleQuestionCount(answers)
+  return visible > 0 ? Math.round((countAnswered(answers) / visible) * 100) : 0
 }
 
 /** 0–100 overall "Handlungsbedarf" = average of the 8 area scores. */

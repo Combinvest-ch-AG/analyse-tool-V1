@@ -98,7 +98,20 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
       calcKey="pension-gap"
       buildPayload={() => ({
         calculator: "pension-gap",
-        inputs: { risk, salary, targetPct, age, cause, degree, children, ahvMode, bvgMode },
+        inputs: {
+          risk,
+          salary,
+          targetPct,
+          age,
+          startAge,
+          cause,
+          degree,
+          children,
+          ahvMode,
+          averageIncome,
+          contributionGaps,
+          bvgMode,
+        },
         results: [
           `Risiko ${RISK_LABELS[risk]}`,
           `Deckung ${coverPct} %`,
@@ -268,9 +281,14 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
               on={ahvMode === "scale44"}
               onToggle={() => setAhvMode(ahvMode === "scale44" ? "manual" : "scale44")}
             />
-            {ahvMode === "scale44" && risk === "iv" && (
+            {ahvMode === "scale44" && risk !== "death" && (
               <div className="grid gap-4 rounded-lg bg-background p-3 sm:grid-cols-2">
-                <MoneyInput label="Ø Jahreseinkommen (optional)" value={averageIncome} onChange={setAverageIncome} />
+                <div>
+                  <MoneyInput label="Ø Jahreseinkommen (optional)" value={averageIncome} onChange={setAverageIncome} />
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                    Leer = Jahreslohn von {formatCHF(salary)} verwenden.
+                  </p>
+                </div>
                 <NumberInput
                   label="Beitragslücken (Jahre)"
                   value={contributionGaps}
@@ -286,6 +304,33 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
               onToggle={() => setBvgMode(bvgMode === "minimum" ? "statement" : "minimum")}
             />
           </div>
+
+          {(resolved.ahvCalc || resolved.bvgEstimate) && (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {resolved.ahvCalc?.possible && (
+                <div className="rounded-xl border border-success/20 bg-success/5 px-3 py-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-success">AHV automatisch</p>
+                  <p className="mt-1 text-sm font-bold tabular-nums text-foreground">
+                    {formatCHF(resolved.values[risk].ahv || 0)} / Jahr
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Skala {resolved.ahvCalc.scale}, Einkommen {formatCHF(resolved.ahvCalc.income)}
+                  </p>
+                </div>
+              )}
+              {resolved.bvgEstimate && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-primary">BVG-Minimum automatisch</p>
+                  <p className="mt-1 text-sm font-bold tabular-nums text-foreground">
+                    Versicherter Lohn {formatCHF(resolved.bvgEstimate.coordinated)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Kann mit dem PK-Ausweis präzisiert werden.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Manual / resolved values — expert overrides */}
@@ -385,7 +430,7 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
           </div>
 
           {/* Key metrics */}
-          <div className="mt-5 grid grid-cols-3 gap-2">
+          <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
             <div className="rounded-xl border border-border bg-background p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Zielbedarf</p>
               <p className="mt-1 text-base font-bold tabular-nums text-foreground">{formatCHF(per(gap.target))}</p>
@@ -394,9 +439,9 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Gesamtleistung</p>
               <p className="mt-1 text-base font-bold tabular-nums text-foreground">{formatCHF(per(gap.total))}</p>
             </div>
-            <div className={`rounded-xl border p-3 ${hasGap ? "border-destructive/30 bg-destructive/5" : "border-success/30 bg-success/5"}`}>
+            <div className={`rounded-xl border-2 p-3 ${hasGap ? "border-destructive/60 bg-destructive/10" : "border-success/40 bg-success/5"}`}>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Vorsorgelücke</p>
-              <p className={`mt-1 text-base font-bold tabular-nums ${hasGap ? "text-destructive" : "text-success"}`}>
+              <p className={`mt-1 text-xl font-black tabular-nums ${hasGap ? "text-destructive" : "text-success"}`}>
                 {formatCHF(per(gap.gap))}
               </p>
             </div>
@@ -416,7 +461,7 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
               </span>
             </div>
 
-            <div className="relative mt-5 h-11 w-full overflow-hidden rounded-full bg-muted">
+            <div className="relative mt-5 h-11 w-full overflow-hidden rounded-full bg-destructive/10">
               <div className="flex h-full w-full">
                 {barSegments.map((seg) => (
                   <div
@@ -426,6 +471,13 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
                     className="h-full border-r border-white/40 last:border-r-0"
                   />
                 ))}
+                {hasGap && gap.target >= gap.total ? (
+                  <div
+                    className="h-full border-l border-white/70 bg-destructive/70"
+                    style={{ width: `${(gap.gap / scaleMax) * 100}%` }}
+                    title={`Vorsorgelücke: ${formatCHF(per(gap.gap))} ${perSuffix}`}
+                  />
+                ) : null}
               </div>
               {/* target marker */}
               <div
@@ -463,15 +515,14 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
 
           {/* Gap context line */}
           {hasGap ? (
-            <p className="mt-4 rounded-xl bg-destructive/5 px-4 py-3 text-sm text-muted-foreground">
-              Die Vorsorgelücke entspricht{" "}
-              <span className="font-semibold text-foreground">
+            <div className="mt-4 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-destructive">Fehlende Absicherung</p>
+              <p className="mt-1 text-base font-black tabular-nums text-destructive">
                 {period === "month"
                   ? `${formatCHF(gap.gap)} pro Jahr`
                   : `${formatCHF(Math.round(gap.gap / 12))} pro Monat`}
-              </span>
-              .
-            </p>
+              </p>
+            </div>
           ) : (
             <p className="mt-4 rounded-xl bg-success/5 px-4 py-3 text-sm font-semibold text-success">
               Keine Deckungslücke – die Leistungen erreichen den Zielbedarf.

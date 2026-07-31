@@ -127,7 +127,7 @@ export function AhvCalc({
             </div>
 
             <div className="mt-5">
-              <div className="relative flex h-7 overflow-hidden rounded-full bg-muted">
+              <div className="relative flex h-7 overflow-hidden rounded-full bg-destructive/10">
                 <div
                   className="h-full bg-primary transition-[width] duration-500"
                   style={{ width: `${result.cover}%` }}
@@ -135,7 +135,7 @@ export function AhvCalc({
                 />
                 {result.gapMonthly > 0 ? (
                   <div
-                    className="h-full bg-[#E7EDF8]"
+                    className="h-full bg-destructive/70"
                     style={{ width: `${100 - result.cover}%` }}
                     title={`Noch nicht gedeckt: ${formatCHF(result.gapMonthly)} pro Monat`}
                   />
@@ -148,11 +148,11 @@ export function AhvCalc({
                   </span>
                   <strong className="text-sm tabular-nums text-foreground">{formatCHF(result.monthlyEquivalent)}</strong>
                 </div>
-                <div className="flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2.5">
+                <div className="flex items-center justify-between rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2.5">
                   <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                    <i className="h-3 w-3 rounded-full bg-[#C8D3E6]" /> Noch zu decken
+                    <i className="h-3 w-3 rounded-full bg-destructive" /> Vorsorgelücke
                   </span>
-                  <strong className="text-sm tabular-nums text-foreground">{formatCHF(result.gapMonthly)}</strong>
+                  <strong className="text-base font-black tabular-nums text-destructive">{formatCHF(result.gapMonthly)}</strong>
                 </div>
               </div>
             </div>
@@ -190,10 +190,20 @@ function Slider({
 }) {
   return (
     <div className="mb-5 last:mb-0">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-center justify-between gap-3">
         <label className="text-[13px] font-semibold text-foreground">{label}</label>
-        <span className="text-sm font-bold text-primary tabular-nums">{value}</span>
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={current}
+          onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
+          className="w-28 rounded-lg border border-border bg-background px-2 py-1 text-right text-sm font-bold tabular-nums text-primary outline-none focus:border-primary"
+          aria-label={`${label} direkt eingeben`}
+        />
       </div>
+      <p className="mt-1 text-right text-[11px] font-semibold text-muted-foreground">{value}</p>
       <input
         type="range"
         min={min}

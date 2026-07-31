@@ -8,6 +8,7 @@ import {
   PRODUCT_CATEGORIES,
   PRODUCT_DEFINITIONS,
   PROVIDERS_BY_PRODUCT,
+  contractAnnualAmount,
   type Contract,
   type Contracts,
   type ProductCategory,
@@ -16,22 +17,10 @@ import {
 const chf = (n: number) =>
   "CHF " + Number(n || 0).toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-const intervalFactor: Record<string, number> = {
-  monthly: 12,
-  quarterly: 4,
-  semiannual: 2,
-  annual: 1,
-  oneoff: 0,
-}
-
 const definitionById = new Map(PRODUCT_DEFINITIONS.map((product) => [product.id, product]))
 
 function contractProduct(key: string, contract: Contract): string {
   return contract.product || key.split("::")[0]
-}
-
-function annualCost(contract: Contract): number {
-  return Number(contract.premium || 0) * (intervalFactor[contract.interval || "monthly"] ?? 12)
 }
 
 function newContractKey(product: string, contracts: Contracts): string {
@@ -85,7 +74,7 @@ export function ContractCheck({
     })
   }, [category, search])
 
-  const annual = entries.reduce((sum, { contract }) => sum + annualCost(contract), 0)
+  const annual = entries.reduce((sum, { contract }) => sum + contractAnnualAmount(contract), 0)
   const monthly = annual / 12
 
   function openNew(product: string) {

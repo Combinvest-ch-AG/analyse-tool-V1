@@ -49,6 +49,39 @@ export function requiredMonthlySavings({
   return ((goal - grownCapital) * rate) / (Math.pow(1 + rate, months) - 1)
 }
 
+export function monthsToTarget({
+  capital,
+  monthly,
+  target,
+  annualRatePct,
+  maxYears = 120,
+}: {
+  capital: number
+  monthly: number
+  target: number
+  annualRatePct: number
+  maxYears?: number
+}): number {
+  const cap = Math.max(0, Number(capital) || 0)
+  const contribution = Math.max(0, Number(monthly) || 0)
+  const goal = Math.max(0, Number(target) || 0)
+  const maxMonths = Math.max(1, Math.round(Math.max(1, maxYears) * 12))
+
+  if (cap >= goal) return 0
+  if (!cap && !contribution) return Number.POSITIVE_INFINITY
+
+  // Iterate monthly so the result uses the exact same convention as
+  // futureValue: effective annual return and contributions at month-end.
+  const rate = annualToMonthlyRate(annualRatePct)
+  let balance = cap
+  for (let month = 1; month <= maxMonths; month += 1) {
+    balance = balance * (1 + rate) + contribution
+    if (balance >= goal) return month
+  }
+
+  return Number.POSITIVE_INFINITY
+}
+
 export function purchasingPower(amount: number, years: number, inflationPct: number): number {
   const value = Math.max(0, Number(amount) || 0)
   const duration = Math.max(0, Number(years) || 0)

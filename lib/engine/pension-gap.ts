@@ -2,8 +2,8 @@
 // 1:1-Port der Inline-Logik aus vorsorgerechner.html — Mathematik unverändert.
 // AHV/IV-Skala 44 (Werte 2025/2026), BVG-Gutschriftssätze, Koordination/Überentschädigung.
 
-import { ahvScale44 } from "./ahv-retirement"
-export { ahvScale44 } from "./ahv-retirement"
+import { ahvScale44 } from "./ahv-retirement.ts"
+export { ahvScale44 } from "./ahv-retirement.ts"
 
 export type Risk = "iv" | "retirement" | "death"
 export type ValueKey = "ahv" | "ahvChild" | "bvg" | "bvgChild" | "uvg" | "third" | "other"
@@ -122,6 +122,32 @@ export function calculateAhvIv(inp: GapInputs): AhvCalc {
   }
 }
 
+// AHV-Altersrente nach Skala 44. Seit Dezember 2026 wird die Altersrente
+// dreizehnmal pro Jahr ausgerichtet; für die Jahresdeckung werden deshalb
+// 13 Monatsrenten berücksichtigt.
+export function calculateAhvRetirementGap(inp: GapInputs): AhvCalc {
+  const entered = Math.max(0, inp.averageIncome || 0)
+  const fallback = Math.max(0, inp.salary || 0)
+  const income = entered || fallback
+  const gaps = Math.max(0, Math.min(43, inp.contributionGaps || 0))
+  const scale = 44 - gaps
+  if (!income) {
+    return { annual: 0, usedIncome: 0, fullMonthly: 0, scale, share: 1, income: 0, incomeIsFallback: !entered, possible: false }
+  }
+  const base = ahvScale44(income)
+  const partialMonthly = Math.round((base.monthly * scale) / 44)
+  return {
+    annual: Math.round(partialMonthly * 13),
+    usedIncome: base.usedIncome,
+    fullMonthly: base.monthly,
+    scale,
+    share: 1,
+    income,
+    incomeIsFallback: !entered,
+    possible: true,
+  }
+}
+
 // IV-Kinderrenten (40 % der IV-Rente je Kind, plafoniert auf 90 %-Grenze).
 export function syncIvChildPensions(inp: GapInputs, ivAhv: number): { value: number; capped: boolean } {
   const kids = Math.max(0, inp.children || 0)
@@ -191,11 +217,16 @@ export function resolveValues(inp: GapInputs, manual: ValuesByRisk): ResolveResu
   let childCapped = false
   let bvgEstimate: BvgEstimate | null = null
 
-  // AHV/IV automatic (only for iv risk)
+  // AHV/IV and AHV retirement are both deterministically available from
+  // average income and contribution scale. Survivor eligibility cannot be
+  // inferred from salary alone and therefore remains a manual value.
   if (inp.ahvMode === "scale44") {
-    ahvCalc = calculateAhvIv(inp)
-    values.iv.ahv = ahvCalc.annual
-    if (inp.risk === "iv") locked.ahv = true
+    const ivCalc = calculateAhvIv(inp)
+    const retirementCalc = calculateAhvRetirementGap(inp)
+    values.iv.ahv = ivCalc.annual
+    values.retirement.ahv = retirementCalc.annual
+    ahvCalc = inp.risk === "retirement" ? retirementCalc : inp.risk === "iv" ? ivCalc : null
+    if (inp.risk === "iv" || inp.risk === "retirement") locked.ahv = true
   }
 
   // IV child pensions always synced from the current iv.ahv

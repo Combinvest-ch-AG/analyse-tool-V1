@@ -5,7 +5,7 @@ import {
   AREAS,
   scores,
   countAnswered,
-  TOTAL_QUESTIONS,
+  visibleQuestionCount,
   type Contracts,
   type ThemeStatus,
   type WizardAnswers,
@@ -52,7 +52,7 @@ export default async function AbschlussPage({ params }: { params: Promise<{ id: 
         analysisId={analysis.id}
         customerName={fullName(customer.first_name, customer.last_name)}
         answeredCount={countAnswered(answers)}
-        totalQuestions={TOTAL_QUESTIONS}
+        totalQuestions={visibleQuestionCount(answers)}
         contractCount={Object.keys(snapshot.contracts ?? {}).length}
         areas={areas}
         hasReferral={Boolean(snapshot.referral)}

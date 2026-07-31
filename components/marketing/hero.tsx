@@ -59,7 +59,7 @@ export function Hero() {
                 </dt>
               </div>
               <div className="flex items-baseline justify-between gap-4 py-4">
-                <dd className="text-4xl font-bold tracking-tight text-primary sm:text-5xl">20</dd>
+                <dd className="text-4xl font-bold tracking-tight text-primary sm:text-5xl">21</dd>
                 <dt className="text-right text-sm font-medium leading-tight text-muted-foreground">
                   Fragen
                   <span className="block text-xs text-muted-foreground/70">

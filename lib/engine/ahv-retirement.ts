@@ -1,4 +1,5 @@
 export function ahvScale44(income: number): { usedIncome: number; monthly: number } {
+  if (!(Number(income) > 0)) return { usedIncome: 0, monthly: 0 }
   const minimum = 1260
   const step = 1512
   const used = Math.min(90720, Math.max(15120, Math.ceil(Math.max(0, income) / step) * step))

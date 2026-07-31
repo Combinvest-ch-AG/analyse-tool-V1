@@ -5,9 +5,9 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { formatCHF } from "@/lib/format"
 import {
   futureValue,
+  monthsToTarget,
   netReturnAfterCosts,
   purchasingPower,
-  requiredMonthlySavings,
 } from "@/lib/engine/wealth"
 import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
 
@@ -26,8 +26,8 @@ const MODES: Record<WealthMode, { t: string; d: string }> = {
   zins: { t: "Zinsvergleich", d: "Vergleichen Sie zwei Renditeannahmen über denselben Anlagehorizont." },
   start: { t: "Starten oder warten?", d: "Sehen Sie den Preis des Aufschiebens bei gleicher monatlicher Sparrate." },
   inflation: { t: "Inflationsrechner", d: "Wie viel Kaufkraft bleibt von einem heutigen Betrag in Zukunft?" },
-  kosten: { t: "TER-Kostenrechner", d: "Vergleichen Sie Vermögensentwicklung vor und nach laufenden Produktkosten." },
-  ziel: { t: "Sparzielrechner", d: "Welche monatliche Sparrate führt zu Ihrem Zielvermögen?" },
+  kosten: { t: "TER-Vergleich", d: "Vergleichen Sie zwei Anlagen mit unterschiedlicher TER bei gleicher Bruttorendite." },
+  ziel: { t: "Zielvermögensrechner", d: "Sehen Sie, wann Sie Ihr Ziel mit Startkapital und monatlicher Sparrate erreichen." },
   "3a": { t: "Steuereffekt Säule 3a", d: "Schätzen Sie Steuerersparnis und langfristigen Vermögenseffekt Ihrer Einzahlung." },
   steuer: { t: "Einfacher Steuerabzug", d: "Orientierung: Wirkung eines frei wählbaren Grenzsteuersatzes auf Ihr Einkommen." },
 }
@@ -43,6 +43,7 @@ type Data = {
   delay: number
   inflation: number
   ter: number
+  ter2: number
   target: number
   income: number
   contribution: number
@@ -58,6 +59,7 @@ const DEFAULTS: Data = {
   delay: 5,
   inflation: 2,
   ter: 0.8,
+  ter2: 1.5,
   target: 500000,
   income: 100000,
   contribution: 7258,
@@ -72,45 +74,46 @@ const FIELDS: Record<WealthMode, FieldDef[]> = {
   sparen: [
     { kind: "money", key: "capital", label: "Startkapital" },
     { kind: "money", key: "monthly", label: "Monatliche Sparrate" },
-    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 40, step: 1, suffix: " Jahre" },
-    { kind: "range", key: "rate", label: "Erwartete Rendite p.a.", min: 0, max: 10, step: 0.1, suffix: " %" },
+    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 70, step: 1, suffix: " Jahre" },
+    { kind: "range", key: "rate", label: "Erwartete Rendite p.a.", min: 0, max: 25, step: 0.1, suffix: " %" },
   ],
   zins: [
     { kind: "money", key: "capital", label: "Startkapital" },
     { kind: "money", key: "monthly", label: "Monatliche Sparrate" },
-    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 40, step: 1, suffix: " Jahre" },
-    { kind: "range", key: "rate", label: "Rendite 1 p.a.", min: 0, max: 10, step: 0.1, suffix: " %" },
-    { kind: "range", key: "rate2", label: "Rendite 2 p.a.", min: 0, max: 10, step: 0.1, suffix: " %" },
+    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 70, step: 1, suffix: " Jahre" },
+    { kind: "range", key: "rate", label: "Rendite 1 p.a.", min: 0, max: 25, step: 0.1, suffix: " %" },
+    { kind: "range", key: "rate2", label: "Rendite 2 p.a.", min: 0, max: 25, step: 0.1, suffix: " %" },
   ],
   start: [
     { kind: "money", key: "capital", label: "Startkapital" },
     { kind: "money", key: "monthly", label: "Monatliche Sparrate" },
-    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 40, step: 1, suffix: " Jahre" },
-    { kind: "range", key: "rate", label: "Erwartete Rendite p.a.", min: 0, max: 10, step: 0.1, suffix: " %" },
-    { kind: "range", key: "delay", label: "Verzögerter Start", min: 0, max: 20, step: 1, suffix: " Jahre" },
+    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 70, step: 1, suffix: " Jahre" },
+    { kind: "range", key: "rate", label: "Erwartete Rendite p.a.", min: 0, max: 25, step: 0.1, suffix: " %" },
+    { kind: "range", key: "delay", label: "Verzögerter Start", min: 0, max: 50, step: 1, suffix: " Jahre" },
   ],
   inflation: [
     { kind: "money", key: "capital", label: "Heutiger Betrag" },
-    { kind: "range", key: "years", label: "Zeithorizont", min: 1, max: 40, step: 1, suffix: " Jahre" },
+    { kind: "range", key: "years", label: "Zeithorizont", min: 1, max: 70, step: 1, suffix: " Jahre" },
     { kind: "range", key: "inflation", label: "Angenommene Inflation p.a.", min: 0, max: 8, step: 0.1, suffix: " %" },
   ],
   kosten: [
     { kind: "money", key: "capital", label: "Startkapital" },
     { kind: "money", key: "monthly", label: "Monatliche Sparrate" },
-    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 40, step: 1, suffix: " Jahre" },
-    { kind: "range", key: "rate", label: "Bruttorendite p.a.", min: 0, max: 10, step: 0.1, suffix: " %" },
-    { kind: "range", key: "ter", label: "Laufende Kosten (TER) p.a.", min: 0, max: 3, step: 0.1, suffix: " %" },
+    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 70, step: 1, suffix: " Jahre" },
+    { kind: "range", key: "rate", label: "Bruttorendite p.a.", min: 0, max: 25, step: 0.1, suffix: " %" },
+    { kind: "range", key: "ter", label: "TER Anlage 1 p.a.", min: 0, max: 5, step: 0.1, suffix: " %" },
+    { kind: "range", key: "ter2", label: "TER Anlage 2 p.a.", min: 0, max: 5, step: 0.1, suffix: " %" },
   ],
   ziel: [
     { kind: "money", key: "capital", label: "Startkapital" },
+    { kind: "money", key: "monthly", label: "Monatliche Sparrate" },
     { kind: "money", key: "target", label: "Zielvermögen" },
-    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 40, step: 1, suffix: " Jahre" },
-    { kind: "range", key: "rate", label: "Erwartete Rendite p.a.", min: 0, max: 10, step: 0.1, suffix: " %" },
+    { kind: "range", key: "rate", label: "Erwartete Rendite p.a.", min: 0, max: 25, step: 0.1, suffix: " %" },
   ],
   "3a": [
     { kind: "money", key: "contribution", label: "Jährliche Einzahlung (mit PK max. CHF 7’258)" },
-    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 40, step: 1, suffix: " Jahre" },
-    { kind: "range", key: "rate", label: "Erwartete Rendite p.a.", min: 0, max: 10, step: 0.1, suffix: " %" },
+    { kind: "range", key: "years", label: "Anlagehorizont", min: 1, max: 70, step: 1, suffix: " Jahre" },
+    { kind: "range", key: "rate", label: "Erwartete Rendite p.a.", min: 0, max: 25, step: 0.1, suffix: " %" },
     { kind: "range", key: "tax", label: "Grenzsteuersatz", min: 0, max: 45, step: 1, suffix: " %" },
   ],
   steuer: [
@@ -121,12 +124,12 @@ const FIELDS: Record<WealthMode, FieldDef[]> = {
 
 const LABELS: Record<WealthMode, [string, string, string]> = {
   inflation: ["Heute", "Kaufkraft danach", "Kaufkraftverlust"],
-  ziel: ["Zielvermögen", "Nötige Sparrate / Monat", "Einzahlungen"],
+  ziel: ["Ziel erreicht in", "Einzahlungen", "Davon Rendite"],
   "3a": ["Steuerersparnis / Jahr", "Vorsorgevermögen", "Einzahlungen"],
   steuer: ["Geschätzte Abgabenwirkung", "Nach Abzug", "Grenzsteuersatz"],
   zins: ["Endwert Rendite 1", "Einzahlungen", "Endwert Rendite 2"],
   start: ["Sofort starten", "Einzahlungen", "Später starten"],
-  kosten: ["Vor Kosten", "Einzahlungen", "Nach TER"],
+  kosten: ["Nach TER 1", "Nach TER 2", "Vorteil tiefere TER"],
   sparen: ["Endvermögen", "Einzahlungen", "Ertrag"],
 }
 
@@ -139,14 +142,14 @@ function compute(mode: WealthMode, d: Data) {
     b = purchasingPower(d.capital, d.years, d.inflation)
     c = a - b
   } else if (mode === "ziel") {
-    a = d.target
-    b = requiredMonthlySavings({
+    a = monthsToTarget({
       capital: d.capital,
+      monthly: d.monthly,
       target: d.target,
-      years: d.years,
       annualRatePct: d.rate,
     })
-    c = d.capital + b * d.years * 12
+    b = Number.isFinite(a) ? d.capital + d.monthly * a : 0
+    c = Number.isFinite(a) ? Math.max(0, d.target - b) : 0
   } else if (mode === "3a") {
     a = (d.contribution * d.tax) / 100
     b = futureValue({ capital: 0, monthly: d.contribution / 12, years: d.years, annualRatePct: d.rate })
@@ -168,12 +171,19 @@ function compute(mode: WealthMode, d: Data) {
         annualRatePct: d.rate,
       })
     } else if (mode === "kosten") {
-      c = futureValue({
+      a = futureValue({
         capital: d.capital,
         monthly: d.monthly,
         years: d.years,
         annualRatePct: netReturnAfterCosts(d.rate, d.ter),
       })
+      b = futureValue({
+        capital: d.capital,
+        monthly: d.monthly,
+        years: d.years,
+        annualRatePct: netReturnAfterCosts(d.rate, d.ter2),
+      })
+      c = Math.abs(a - b)
     }
     else c = a - b
   }
@@ -181,17 +191,32 @@ function compute(mode: WealthMode, d: Data) {
 }
 
 function buildSeries(mode: WealthMode, d: Data) {
-  const yrs = mode === "steuer" ? 1 : d.years
+  const targetMonths = mode === "ziel" ? compute(mode, d).a : 0
+  const targetYears = Number.isFinite(targetMonths) ? Math.max(0, targetMonths / 12) : 70
+  const yrs = mode === "steuer" ? 1 : mode === "ziel" ? targetYears : d.years
+  const times =
+    mode === "ziel" && Number.isFinite(targetMonths)
+      ? [
+          ...Array.from({ length: Math.floor(targetYears) + 1 }, (_, year) => year),
+          ...(targetYears % 1 > 0 ? [targetYears] : []),
+        ]
+      : Array.from({ length: Math.floor(yrs) + 1 }, (_, year) => year)
   const s1: number[] = []
   const s2: number[] = []
   const hasCompare = mode !== "inflation" && mode !== "steuer"
-  const targetResult = mode === "ziel" ? compute(mode, d).b : 0
-  for (let y = 0; y <= yrs; y++) {
+  for (const y of times) {
     const v =
       mode === "inflation"
         ? purchasingPower(d.capital, y, d.inflation)
         : mode === "ziel"
-          ? futureValue({ capital: d.capital, monthly: targetResult, years: y, annualRatePct: d.rate })
+          ? futureValue({ capital: d.capital, monthly: d.monthly, years: y, annualRatePct: d.rate })
+          : mode === "kosten"
+            ? futureValue({
+                capital: d.capital,
+                monthly: d.monthly,
+                years: y,
+                annualRatePct: netReturnAfterCosts(d.rate, d.ter),
+              })
           : mode === "3a"
             ? futureValue({ capital: 0, monthly: d.contribution / 12, years: y, annualRatePct: d.rate })
             : mode === "steuer"
@@ -212,10 +237,10 @@ function buildSeries(mode: WealthMode, d: Data) {
                 capital: d.capital,
                 monthly: d.monthly,
                 years: y,
-                annualRatePct: netReturnAfterCosts(d.rate, d.ter),
+                annualRatePct: netReturnAfterCosts(d.rate, d.ter2),
               })
             : mode === "ziel"
-              ? d.capital + targetResult * 12 * y
+              ? d.capital + d.monthly * 12 * y
               : mode === "3a"
                 ? d.contribution * y
                 : mode === "sparen"
@@ -226,17 +251,17 @@ function buildSeries(mode: WealthMode, d: Data) {
     s1.push(v)
     s2.push(v2)
   }
-  return { s1, s2, hasCompare }
+  return { s1, s2, hasCompare, times }
 }
 
-function chartLabels(mode: WealthMode) {
+function chartLabels(mode: WealthMode, d: Data) {
   const labels: Record<WealthMode, [string, string?]> = {
     sparen: ["Vermögensentwicklung", "Ihre Einzahlungen"],
     zins: ["Rendite 1", "Rendite 2"],
     start: ["Sofort starten", "Später starten"],
     inflation: ["Kaufkraft"],
-    kosten: ["Vor Kosten", "Nach laufenden Kosten"],
-    ziel: ["Zielentwicklung", "Ihre Einzahlungen"],
+    kosten: [`Anlage 1 · TER ${d.ter.toFixed(1)} %`, `Anlage 2 · TER ${d.ter2.toFixed(1)} %`],
+    ziel: ["Vermögensentwicklung", "Ihre Einzahlungen"],
     "3a": ["Vorsorgevermögen", "Ihre Einzahlungen"],
     steuer: ["Einkommen", "Nach Abzug"],
   }
@@ -253,6 +278,7 @@ function buildReportInputs(mode: WealthMode, d: Data) {
     delay: "verzoegerung",
     inflation: "inflation_pa",
     ter: "ter_pa",
+    ter2: "ter_2_pa",
     target: "zielvermoegen",
     income: "steuerbares_einkommen",
     contribution: "jahresbeitrag",
@@ -272,13 +298,24 @@ export function VermoegenCalc({ mode, ctx }: { mode: WealthMode; ctx?: CalcConte
   const [d, setD] = useState<Data>(DEFAULTS)
 
   const { a, b, c } = useMemo(() => compute(mode, d), [mode, d])
-  const { s1, s2, hasCompare } = useMemo(() => buildSeries(mode, d), [mode, d])
+  const { s1, s2, hasCompare, times } = useMemo(() => buildSeries(mode, d), [mode, d])
   const labels = LABELS[mode]
 
   const set = (key: keyof Data, v: number) => setD((prev) => ({ ...prev, [key]: v }))
 
-  const fmtVal = (mode: WealthMode, idx: number, v: number) =>
-    mode === "steuer" && idx === 2 ? `${Math.round(v)} %` : formatCHF(v)
+  const fmtVal = (mode: WealthMode, idx: number, v: number) => {
+    if (mode === "steuer" && idx === 2) return `${Math.round(v)} %`
+    if (mode === "ziel" && idx === 0) {
+      if (!Number.isFinite(v)) return "Nicht erreichbar"
+      const months = Math.max(0, Math.round(v))
+      const years = Math.floor(months / 12)
+      const rest = months % 12
+      if (!years) return `${rest} ${rest === 1 ? "Monat" : "Monate"}`
+      if (!rest) return `${years} ${years === 1 ? "Jahr" : "Jahre"}`
+      return `${years} J. ${rest} Mt.`
+    }
+    return formatCHF(v)
+  }
 
   return (
     <>
@@ -344,10 +381,21 @@ export function VermoegenCalc({ mode, ctx }: { mode: WealthMode; ctx?: CalcConte
               <div key={field.key} className="mb-5 last:mb-0">
                 <div className="flex items-baseline justify-between">
                   <label className="text-[13px] font-semibold text-foreground">{field.label}</label>
-                  <span className="text-sm font-bold text-primary tabular-nums">
-                    {field.step < 1 ? d[field.key].toFixed(1) : d[field.key]}
-                    {field.suffix}
-                  </span>
+                  <label className="flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-sm font-bold text-primary">
+                    <input
+                      type="number"
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      value={d[field.key]}
+                      onChange={(e) =>
+                        set(field.key, Math.max(field.min, Math.min(field.max, Number(e.target.value) || field.min)))
+                      }
+                      className="w-16 bg-transparent text-right tabular-nums outline-none"
+                      aria-label={`${field.label} direkt eingeben`}
+                    />
+                    <span>{field.suffix}</span>
+                  </label>
                 </div>
                 <input
                   type="range"
@@ -371,7 +419,7 @@ export function VermoegenCalc({ mode, ctx }: { mode: WealthMode; ctx?: CalcConte
             <Metric label={labels[2]} value={fmtVal(mode, 2, c)} />
           </div>
 
-          <LineChart mode={mode} s1={s1} s2={s2} hasCompare={hasCompare} />
+          <LineChart mode={mode} data={d} s1={s1} s2={s2} times={times} hasCompare={hasCompare} />
 
           <p className="mt-4 text-[12.5px] text-muted-foreground">
             Modellrechnung mit konstanter Rendite ohne Gewähr. Tatsächliche Erträge schwanken; Steuern und Gebühren
@@ -396,28 +444,40 @@ function Metric({ label, value, highlight }: { label: string; value: string; hig
 
 function LineChart({
   mode,
+  data,
   s1,
   s2,
+  times,
   hasCompare,
 }: {
   mode: WealthMode
+  data: Data
   s1: number[]
   s2: number[]
+  times: number[]
   hasCompare: boolean
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const gradientId = useId().replace(/:/g, "")
-  const [label1, label2] = chartLabels(mode)
+  const [label1, label2] = chartLabels(mode, data)
   const W = 760
   const H = 330
   const pad = { l: 72, r: 22, t: 26, b: 44 }
   const all = hasCompare ? [...s1, ...s2] : s1
   const max = Math.max(1, ...all)
   const n = s1.length - 1 || 1
+  const maxTime = Math.max(1, times[times.length - 1] ?? n)
   const plotWidth = W - pad.l - pad.r
   const plotHeight = H - pad.t - pad.b
-  const xAt = (i: number) => pad.l + (i / n) * plotWidth
+  const xAt = (i: number) => pad.l + ((times[i] ?? i) / maxTime) * plotWidth
   const yAt = (value: number) => pad.t + (1 - value / max) * plotHeight
+  const formatTime = (value: number) => {
+    const months = Math.max(0, Math.round(value * 12))
+    const years = Math.floor(months / 12)
+    const rest = months % 12
+    if (!rest) return `Jahr ${years}`
+    return `${years} J. ${rest} Mt.`
+  }
   const compact = (value: number) => {
     if (value >= 1_000_000) return `CHF ${(value / 1_000_000).toFixed(1)} Mio.`
     if (value >= 1_000) return `CHF ${Math.round(value / 1_000)}k`
@@ -496,7 +556,7 @@ function LineChart({
         <div className="flex items-center rounded-xl bg-[#e8f0ff] px-3 py-2">
           <div>
             <span className="block text-[10px] font-extrabold uppercase tracking-wide text-[#587096]">Zeitpunkt</span>
-            <strong className="text-base text-[#111d36]">Jahr {active}</strong>
+            <strong className="text-base text-[#111d36]">{formatTime(times[active] ?? active)}</strong>
           </div>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 shadow-sm">
@@ -525,12 +585,17 @@ function LineChart({
         onPointerMove={(event) => {
           const bounds = event.currentTarget.getBoundingClientRect()
           const localX = ((event.clientX - bounds.left) / bounds.width) * W
-          const index = Math.round(((localX - pad.l) / plotWidth) * n)
+          const hoveredTime = Math.max(0, Math.min(maxTime, ((localX - pad.l) / plotWidth) * maxTime))
+          const index = times.reduce(
+            (closest, time, candidate) =>
+              Math.abs(time - hoveredTime) < Math.abs((times[closest] ?? 0) - hoveredTime) ? candidate : closest,
+            0,
+          )
           setHoverIndex(Math.max(0, Math.min(n, index)))
         }}
       >
         <title>
-          {label1}: im Jahr {active} {formatCHF(s1[active])}
+          {label1}: nach {formatTime(times[active] ?? active)} {formatCHF(s1[active])}
           {hasCompare && label2 ? `; ${label2}: ${formatCHF(s2[active])}` : ""}
         </title>
         <defs>
@@ -561,7 +626,7 @@ function LineChart({
             fontSize="11"
             fontWeight="600"
           >
-            Jahr {tick}
+            {formatTime(times[tick] ?? tick)}
           </text>
         ))}
 
@@ -605,7 +670,9 @@ function LineChart({
       <div className="mt-2">
         <label className="flex items-center justify-between gap-3 text-xs font-semibold text-muted-foreground">
           <span>Jahr auswählen</span>
-          <span className="font-extrabold tabular-nums text-foreground">{active} / {n}</span>
+          <span className="font-extrabold tabular-nums text-foreground">
+            {formatTime(times[active] ?? active)} / {formatTime(times[n] ?? n)}
+          </span>
         </label>
         <input
           type="range"
@@ -633,7 +700,7 @@ function LineChart({
             <tbody>
               {s1.map((value, index) => (
                 <tr key={index} className="border-t border-border bg-white">
-                  <td className="px-3 py-2 font-semibold text-foreground">{index}</td>
+                  <td className="px-3 py-2 font-semibold text-foreground">{formatTime(times[index] ?? index)}</td>
                   <td className="px-3 py-2 text-right font-bold tabular-nums text-foreground">{formatCHF(value)}</td>
                   {hasCompare && label2 ? (
                     <td className="px-3 py-2 text-right font-bold tabular-nums text-foreground">{formatCHF(s2[index])}</td>

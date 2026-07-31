@@ -115,7 +115,7 @@ export function AffordabilityCalc({ defaults, saved, ctx }: { defaults?: { incom
 
       <ViewSwitch value={view} onChange={setView} />
 
-      <div className="mt-5 grid grid-cols-1 items-start gap-6 xl:grid-cols-[390px_minmax(0,1fr)]">
+      <div className="mt-5 grid grid-cols-1 items-start gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <section aria-label="Eingaben" className="space-y-4">
           <InputPanel
             number="1"
@@ -189,7 +189,7 @@ export function AffordabilityCalc({ defaults, saved, ctx }: { defaults?: { incom
           ) : null}
         </section>
 
-        <section aria-live="polite" className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_18px_50px_rgba(24,49,92,0.06)]">
+        <section aria-live="polite" className="@container min-w-0 overflow-hidden rounded-3xl border border-border bg-card shadow-[0_18px_50px_rgba(24,49,92,0.06)]">
           <div className="border-b border-border bg-gradient-to-r from-[#f8fbff] to-white px-5 py-4 sm:px-7">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -205,7 +205,7 @@ export function AffordabilityCalc({ defaults, saved, ctx }: { defaults?: { incom
             </div>
           </div>
 
-          <div className="grid gap-5 p-5 sm:p-7 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="grid min-w-0 gap-5 p-5 sm:p-7 @min-[760px]:grid-cols-[minmax(230px,280px)_minmax(0,1fr)]">
             <HouseFill
               title={view === "bank" ? "So ist das Eigenheim finanziert" : "So setzen sich Ihre Zahlungen zusammen"}
               total={view === "bank" ? Math.max(1, wert) : Math.max(1, actual.cashOutflowAnnual)}
@@ -358,7 +358,7 @@ function BankResult({
 
       <AffordabilityMeter quote={result.quote} />
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-5 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr))]">
         <Fact label="Max. Kaufpreis" value={formatCHF(maxPrice)} sub="bei diesen Angaben" />
         <Fact label="Hypothek total" value={formatCHF(result.hypothek)} sub={`${result.belehnung.toFixed(0)} % Belehnung`} />
         <Fact label="Belastung / Jahr" value={formatCHF(result.gesamtlast)} sub="kalkulatorisch" />
@@ -402,7 +402,7 @@ function ActualResult({ result }: { result: ReturnType<typeof effectiveHousingCo
         </p>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+      <div className="mt-4 grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))]">
         <Metric label="Eigentümerkosten" value={formatCHF(result.ownershipCostAnnual / 12)} period="pro Monat" tone="primary" />
         <Metric label="Cashflow" value={formatCHF(result.cashOutflowAnnual / 12)} period="inkl. Amortisation" tone="success" />
         <Metric label="Vergleichsmiete" value={formatCHF(result.rentAnnual / 12)} period="inkl. Nebenkosten" tone="warning" />
@@ -698,9 +698,9 @@ function formatInputNumber(value: number) {
 
 function Fact({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-xl bg-muted/35 p-3">
-      <div className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-lg font-black tabular-nums tracking-tight text-foreground">{value}</div>
+    <div className="min-w-0 rounded-xl border border-border/70 bg-muted/35 p-3.5">
+      <div className="min-h-7 text-[9.5px] font-extrabold uppercase leading-3.5 tracking-[0.08em] text-muted-foreground">{label}</div>
+      <div className="mt-1 whitespace-nowrap text-[clamp(15px,1.35vw,20px)] font-black tabular-nums tracking-[-0.025em] text-foreground">{value}</div>
       <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>
     </div>
   )
@@ -714,8 +714,8 @@ function Metric({ label, value, period, tone }: { label: string; value: string; 
   }
   return (
     <div className={`min-w-0 rounded-xl border p-3.5 ${classes[tone]}`}>
-      <p className="text-[10px] font-bold uppercase tracking-wide opacity-75">{label}</p>
-      <p className="mt-1 whitespace-nowrap text-[clamp(15px,1.55vw,20px)] font-black tabular-nums tracking-tight">{value}</p>
+      <p className="min-h-7 text-[9.5px] font-bold uppercase leading-3.5 tracking-[0.08em] opacity-75">{label}</p>
+      <p className="mt-1 whitespace-nowrap text-[clamp(15px,1.35vw,20px)] font-black tabular-nums tracking-[-0.025em]">{value}</p>
       <p className="mt-0.5 text-[9.5px] font-semibold opacity-70">{period}</p>
     </div>
   )

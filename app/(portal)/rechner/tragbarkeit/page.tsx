@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { AffordabilityCalc } from "@/components/portal/rechner/affordability-calc"
-import { getAnalysis } from "@/lib/data/portal"
+import { getAnalysis, getCalculatorSnapshot } from "@/lib/data/portal"
 import type { WizardAnswers } from "@/lib/wizard/schema"
 
 export const metadata: Metadata = {
@@ -35,7 +35,7 @@ export default async function TragbarkeitPage({
       source="Bankansicht nach Schweizer Finanzierungspraxis; effektive Ansicht auf Basis Ihrer Eingaben."
       wide
     >
-      <AffordabilityCalc defaults={{ income }} ctx={ctx} />
+      <AffordabilityCalc defaults={{ income }} saved={getCalculatorSnapshot(analysis, "real-estate-affordability")} ctx={ctx} />
     </CalcShell>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -80,6 +80,8 @@ export function ClosingFlow({
   const [error, setError] = useState<string | null>(null)
   const [savingAppt, startApptSave] = useTransition()
   const [finishing, startFinish] = useTransition()
+  const initialDraft = useRef(true)
+  const [draftState, setDraftState] = useState<"idle" | "saving" | "saved" | "error">("idle")
 
   const openAreas = areas.filter((a) => a.status !== "done").sort((a, b) => b.score - a.score)
   const doneThemes = areas.filter((a) => a.status === "done")
@@ -94,6 +96,23 @@ export function ClosingFlow({
     Boolean(appt.date),
   ]
   const progressPct = Math.round((progressItems.filter(Boolean).length / progressItems.length) * 100)
+
+  useEffect(() => {
+    if (initialDraft.current) {
+      initialDraft.current = false
+      return
+    }
+    setDraftState("saving")
+    const timer = window.setTimeout(async () => {
+      const result = await saveClosing({
+        analysisId,
+        closing: { appointment: appt, confirmations: confirms },
+        writeRevision: false,
+      })
+      setDraftState(result.ok ? "saved" : "error")
+    }, 900)
+    return () => window.clearTimeout(timer)
+  }, [analysisId, appt, confirms])
 
   function saveAppointment() {
     setError(null)
@@ -148,14 +167,19 @@ export function ClosingFlow({
               Kunde und Innendienst.
             </p>
           </div>
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${
-              done ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
-            {done ? "Abgeschlossen" : "Abschluss offen"}
-          </span>
+          <div className="flex flex-col items-end gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${
+                done ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
+              {done ? "Abgeschlossen" : "Abschluss offen"}
+            </span>
+            <span aria-live="polite" className={`text-xs font-semibold ${draftState === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+              {draftState === "saving" ? "Entwurf wird gespeichert …" : draftState === "saved" ? "Entwurf automatisch gespeichert" : draftState === "error" ? "Entwurf konnte nicht gespeichert werden" : "Automatisches Speichern aktiv"}
+            </span>
+          </div>
         </div>
         <div className="border-t border-border bg-muted/30 px-6 py-4">
           <div className="flex items-center justify-between text-xs">

@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { SealthCheck } from "@/components/portal/sealth/sealth-check"
-import { getAnalysis } from "@/lib/data/portal"
+import { getAnalysis, getCalculatorSnapshot } from "@/lib/data/portal"
 import type { WizardAnswers } from "@/lib/wizard/schema"
 
 export const metadata: Metadata = {
@@ -37,7 +37,7 @@ export default async function SealthPage({
       chip="Sealth Bedarfscheck"
       source="Die Empfehlung basiert auf Ihren Antworten. Preise verstehen sich als Richtwerte; das Finanzszenario vergleicht nur eingetragene, potenziell ersetzbare Aufwände."
     >
-      <SealthCheck ctx={ctx} profileSport={profile} />
+      <SealthCheck ctx={ctx} profileSport={profile} saved={getCalculatorSnapshot(analysis, "sealth-check")} />
     </CalcShell>
   )
 }

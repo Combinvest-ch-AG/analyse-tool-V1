@@ -4,20 +4,24 @@ import { useMemo, useState } from "react"
 import { TrendingUp } from "lucide-react"
 import { formatCHF } from "@/lib/format"
 import { calculateAhvRetirement } from "@/lib/engine/ahv-retirement"
-import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 const LOW = 15120
 
 export function AhvCalc({
   defaults,
+  saved,
   ctx,
 }: {
   defaults?: { income?: number; years?: number; need?: number }
+  saved?: SavedCalculatorPayload
   ctx?: CalcContext
 }) {
-  const [income, setIncome] = useState(defaults?.income ?? 0)
-  const [years, setYears] = useState(defaults?.years ?? 44)
-  const [need, setNeed] = useState(defaults?.need ?? 6000)
+  const savedInputs = saved?.inputs as Record<string, unknown> | undefined
+  const savedYears = Number(String(savedInputs?.beitragsjahre ?? "").split("/")[0])
+  const [income, setIncome] = useState(Number(savedInputs?.jahreseinkommen) || defaults?.income || 0)
+  const [years, setYears] = useState(savedYears || defaults?.years || 44)
+  const [need, setNeed] = useState(Number(savedInputs?.wunscheinkommen) || defaults?.need || 6000)
 
   const result = useMemo(
     () =>

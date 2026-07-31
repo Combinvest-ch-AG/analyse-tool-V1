@@ -1,6 +1,6 @@
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { PensionGapCalc } from "@/components/portal/rechner/pension-gap-calc"
-import { getAnalysis } from "@/lib/data/portal"
+import { getAnalysis, getCalculatorSnapshot } from "@/lib/data/portal"
 import type { WizardAnswers } from "@/lib/wizard/schema"
 
 export const metadata = {
@@ -32,7 +32,7 @@ export default async function VorsorgePage({
       explain="Vorhandene Renten werden dem gewünschten Einkommen gegenübergestellt."
       source="AHV/IV, BVG, UVG sowie Ihre Ausweis- und Policenwerte."
     >
-      <PensionGapCalc defaults={{ salary, age, children }} ctx={ctx} />
+      <PensionGapCalc defaults={{ salary, age, children }} saved={getCalculatorSnapshot(analysis, "pension-gap")} ctx={ctx} />
     </CalcShell>
   )
 }

@@ -9,7 +9,7 @@ import {
   RULES,
 } from "@/lib/engine/affordability"
 import { formatCHF } from "@/lib/format"
-import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 type Field = "wert" | "ek" | "inc"
 type View = "bank" | "actual"
@@ -26,17 +26,18 @@ const SLIDERS: Record<Field, { min: number; max: number; step: number }> = {
   inc: { min: 0, max: 500000, step: 5000 },
 }
 
-export function AffordabilityCalc({ defaults, ctx }: { defaults?: { income?: number }; ctx?: CalcContext }) {
+export function AffordabilityCalc({ defaults, saved, ctx }: { defaults?: { income?: number }; saved?: SavedCalculatorPayload; ctx?: CalcContext }) {
+  const savedInputs = saved?.inputs as Record<string, unknown> | undefined
   const defaultInc = Math.max(0, defaults?.income ?? 0)
-  const [view, setView] = useState<View>("bank")
-  const [wert, setWert] = useState(1000000)
-  const [ek, setEk] = useState(200000)
-  const [inc, setInc] = useState(defaultInc)
-  const [mortgageRate, setMortgageRate] = useState(1.75)
-  const [maintenance, setMaintenance] = useState(6000)
-  const [utilities, setUtilities] = useState(4000)
-  const [actualAmortization, setActualAmortization] = useState(9000)
-  const [rentMonthly, setRentMonthly] = useState(2500)
+  const [view, setView] = useState<View>(savedInputs?.ansicht === "actual" ? "actual" : "bank")
+  const [wert, setWert] = useState(Number(savedInputs?.kaufpreis) || 1000000)
+  const [ek, setEk] = useState(Number(savedInputs?.eigenmittel) || 200000)
+  const [inc, setInc] = useState(Number(savedInputs?.bruttoeinkommen) || defaultInc)
+  const [mortgageRate, setMortgageRate] = useState(Number(savedInputs?.effektiver_hypothekarzins) || 1.75)
+  const [maintenance, setMaintenance] = useState(Number(savedInputs?.unterhalt_jahr) || 6000)
+  const [utilities, setUtilities] = useState(Number(savedInputs?.nebenkosten_jahr) || 4000)
+  const [actualAmortization, setActualAmortization] = useState(Number(savedInputs?.amortisation_jahr) || 9000)
+  const [rentMonthly, setRentMonthly] = useState(Number(savedInputs?.vergleichsmiete_monat) || 2500)
 
   const r = useMemo(() => affordability({ wert, eigenkapital: ek, bruttoeinkommenJahr: inc }), [wert, ek, inc])
   const maxPrice = useMemo(() => maxAffordable(inc, ek), [inc, ek])

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { VermoegenCalc, type WealthMode } from "@/components/portal/rechner/vermoegen-calc"
+import { getAnalysis, getCalculatorSnapshot } from "@/lib/data/portal"
 
 export const metadata: Metadata = {
   title: "Vermögensrechner · Combinvest",
@@ -17,6 +18,7 @@ export default async function VermoegenPage({
   const sp = await searchParams
   const mode: WealthMode = VALID.includes(sp.tool as WealthMode) ? (sp.tool as WealthMode) : "sparen"
   const ctx = { analysisId: sp.aid, customerId: sp.cid }
+  const analysis = sp.aid ? await getAnalysis(sp.aid) : null
   return (
     <CalcShell
       eyebrow="Vermögen & Vorsorge"
@@ -29,7 +31,7 @@ export default async function VermoegenPage({
       explain="Das Diagramm trennt Einzahlungen und Entwicklung. Jeder Jahreswert kann direkt abgelesen werden."
       source="Effektive Jahresrendite, monatliche Verzinsung, Beiträge am Monatsende; Renditen, Inflation und Steuersätze sind Annahmen."
     >
-      <VermoegenCalc mode={mode} ctx={ctx} />
+      <VermoegenCalc mode={mode} ctx={ctx} saved={getCalculatorSnapshot(analysis, `wealth-${mode}`)} />
     </CalcShell>
   )
 }

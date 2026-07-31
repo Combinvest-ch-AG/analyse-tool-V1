@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { FreizuegigkeitForm } from "@/components/portal/rechner/freizuegigkeit-form"
+import { getAnalysis, getCalculatorSnapshot } from "@/lib/data/portal"
 
 export const metadata: Metadata = {
   title: "Freizügigkeitskonto anfragen · Combinvest",
@@ -14,6 +15,7 @@ export default async function FreizuegigkeitPage({
 }) {
   const sp = await searchParams
   const ctx = { analysisId: sp.aid, customerId: sp.cid }
+  const analysis = sp.aid ? await getAnalysis(sp.aid) : null
   return (
     <CalcShell
       eyebrow="Vermögen · Freizügigkeit"
@@ -24,7 +26,7 @@ export default async function FreizuegigkeitPage({
       analysisId={sp.aid}
       chip="Auftragsentwurf"
     >
-      <FreizuegigkeitForm ctx={ctx} />
+      <FreizuegigkeitForm ctx={ctx} saved={getCalculatorSnapshot(analysis, "freizuegigkeit")} />
     </CalcShell>
   )
 }

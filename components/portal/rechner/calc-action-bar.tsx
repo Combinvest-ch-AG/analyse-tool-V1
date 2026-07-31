@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { RotateCcw, Download, ArrowUpRight, ClipboardCheck } from "lucide-react"
+import { ArrowUpRight, Check, Cloud, CloudOff, Download, LoaderCircle, RotateCcw } from "lucide-react"
 import { saveCalculatorResult } from "@/app/actions/portal"
 
 export type CalcContext = {
@@ -10,11 +10,25 @@ export type CalcContext = {
   customerId?: string
 }
 
+export type SavedCalculatorPayload = Record<string, unknown> | undefined
+
+type SaveState = "standalone" | "idle" | "dirty" | "saving" | "saved" | "error"
+
+function saveLabel(state: SaveState, savedAt: Date | null) {
+  if (state === "standalone") return "Nur in einer Kundenanalyse speicherbar"
+  if (state === "dirty") return "Ungespeicherte Änderungen"
+  if (state === "saving") return "Wird gespeichert …"
+  if (state === "error") return "Speichern fehlgeschlagen – erneut versuchen"
+  if (state === "saved" && savedAt) {
+    return `Gespeichert um ${savedAt.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}`
+  }
+  return "Automatisches Speichern aktiv"
+}
+
 /**
- * Shared action bar for all calculators — mirrors the original
- * "Zurücksetzen · In Analyse übernehmen · PDF-Bericht · Zur Risikoanalyse".
- * "In Analyse übernehmen" is only enabled when the calculator was opened from
- * a customer analysis (analysisId present).
+ * Gemeinsame Speicherleiste aller Rechner. Änderungen werden verzögert und
+ * konfliktfest in der geöffneten Analyse gespeichert. Der manuelle Button
+ * erzeugt zusätzlich einen nachvollziehbaren Revisionspunkt.
  */
 export function CalcActionBar({
   ctx,
@@ -27,33 +41,85 @@ export function CalcActionBar({
   buildPayload: () => Record<string, unknown>
   onReset: () => void
 }) {
-  const [pending, startTransition] = useTransition()
-  const [state, setState] = useState<{ kind: "idle" | "ok" | "warn"; msg: string }>({
-    kind: "idle",
-    msg: ctx.analysisId ? "Übernahme optional" : "Rechner aus einer Kundenanalyse öffnen",
-  })
+  const canSave = Boolean(ctx.analysisId)
+  const payload = buildPayload()
+  const fingerprint = useMemo(() => JSON.stringify(payload), [payload])
+  const payloadRef = useRef(payload)
+  const initialFingerprint = useRef<string | null>(null)
+  const lastSavedFingerprint = useRef<string | null>(null)
+  const sequence = useRef(Promise.resolve())
+  const mounted = useRef(true)
+  const [state, setState] = useState<SaveState>(canSave ? "idle" : "standalone")
+  const [savedAt, setSavedAt] = useState<Date | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const canTransfer = !!ctx.analysisId
-  // Aus einer Analyse geöffnet: zurück zur Risikoanalyse. Sonst: zurück zur
-  // Rechnerübersicht (nicht zur Startseite) – der Rechner gehört dorthin.
+  payloadRef.current = payload
+
+  const persist = useCallback((writeRevision: boolean) => {
+    if (!ctx.analysisId) return Promise.resolve(false)
+    const currentPayload = payloadRef.current
+    const currentFingerprint = JSON.stringify(currentPayload)
+    setState("saving")
+    setErrorMessage(null)
+
+    const operation = sequence.current
+      .catch(() => undefined)
+      .then(async () => {
+        const result = await saveCalculatorResult({
+          analysisId: ctx.analysisId!,
+          key: calcKey,
+          payload: currentPayload,
+          writeRevision,
+        })
+        if (!mounted.current) return result.ok
+        if (result.ok) {
+          lastSavedFingerprint.current = currentFingerprint
+          setSavedAt(new Date(result.savedAt))
+          setState("saved")
+          return true
+        }
+        setErrorMessage(result.error)
+        setState("error")
+        return false
+      })
+
+    sequence.current = operation.then(() => undefined)
+    return operation
+  }, [calcKey, ctx.analysisId])
+
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!canSave) return
+    if (initialFingerprint.current === null) {
+      initialFingerprint.current = fingerprint
+      lastSavedFingerprint.current = fingerprint
+      return
+    }
+    if (fingerprint === lastSavedFingerprint.current) return
+
+    setState("dirty")
+    const timer = window.setTimeout(() => void persist(false), 900)
+    return () => window.clearTimeout(timer)
+  }, [canSave, fingerprint, persist])
+
+  useEffect(() => {
+    if (state !== "dirty" && state !== "saving") return
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+    }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [state])
+
   const backHref = ctx.analysisId ? `/analyse/${ctx.analysisId}` : "/rechner"
   const backLabel = ctx.analysisId ? "Zur Risikoanalyse" : "Zu den Rechnern"
-
-  function transfer() {
-    if (!ctx.analysisId) return
-    startTransition(async () => {
-      const res = await saveCalculatorResult({
-        analysisId: ctx.analysisId!,
-        key: calcKey,
-        payload: buildPayload(),
-      })
-      setState(
-        res.ok
-          ? { kind: "ok", msg: "Ergebnis übernommen" }
-          : { kind: "warn", msg: "Übernahme nicht möglich" },
-      )
-    })
-  }
+  const StatusIcon = state === "saving" ? LoaderCircle : state === "error" ? CloudOff : state === "saved" ? Check : Cloud
 
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3">
@@ -68,13 +134,13 @@ export function CalcActionBar({
 
       <button
         type="button"
-        onClick={transfer}
-        disabled={!canTransfer || pending}
-        title={canTransfer ? undefined : "Rechner aus einer Kundenanalyse öffnen"}
+        onClick={() => void persist(true)}
+        disabled={!canSave || state === "saving"}
+        title={canSave ? "Aktuellen Stand jetzt sichern" : "Rechner aus einer Kundenanalyse öffnen"}
         className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-[13px] font-bold text-primary-foreground transition-colors hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-45"
       >
-        <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" />
-        {pending ? "Wird übernommen …" : "In Analyse übernehmen"}
+        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+        {state === "saving" ? "Speichert …" : "Stand sichern"}
       </button>
 
       {ctx.analysisId ? (
@@ -87,17 +153,7 @@ export function CalcActionBar({
           <Download className="h-3.5 w-3.5" aria-hidden="true" />
           PDF-Bericht
         </a>
-      ) : (
-        <button
-          type="button"
-          disabled
-          title="Rechner aus einer Kundenanalyse öffnen"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-[13px] font-bold text-foreground opacity-45"
-        >
-          <Download className="h-3.5 w-3.5" aria-hidden="true" />
-          PDF-Bericht
-        </button>
-      )}
+      ) : null}
 
       <Link
         href={backHref}
@@ -109,15 +165,14 @@ export function CalcActionBar({
 
       <span
         aria-live="polite"
-        className={`ml-auto text-[12px] font-semibold ${
-          state.kind === "ok"
-            ? "text-success"
-            : state.kind === "warn"
-              ? "text-destructive"
-              : "text-muted-foreground"
+        title={errorMessage ?? undefined}
+        data-save-error={errorMessage ?? undefined}
+        className={`ml-auto inline-flex items-center gap-1.5 text-[12px] font-semibold ${
+          state === "error" ? "text-destructive" : state === "saved" ? "text-success" : "text-muted-foreground"
         }`}
       >
-        {state.msg}
+        <StatusIcon className={`h-3.5 w-3.5 ${state === "saving" ? "animate-spin" : ""}`} aria-hidden="true" />
+        {saveLabel(state, savedAt)}
       </span>
     </div>
   )

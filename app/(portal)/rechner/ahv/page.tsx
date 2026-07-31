@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { AhvCalc } from "@/components/portal/rechner/ahv-calc"
-import { getAnalysis } from "@/lib/data/portal"
+import { getAnalysis, getCalculatorSnapshot } from "@/lib/data/portal"
 import type { WizardAnswers } from "@/lib/wizard/schema"
 
 export const metadata: Metadata = {
@@ -31,7 +31,7 @@ export default async function AhvPage({
       explain="Die geschätzte AHV-Rente wird Ihrem Wunscheinkommen gegenübergestellt."
       source="AHV-Rentenskala 44 (Stand 2026); verbindlich sind IK-Auszug und Rentenvorausberechnung."
     >
-      <AhvCalc defaults={income > 0 ? { income } : undefined} ctx={ctx} />
+      <AhvCalc defaults={income > 0 ? { income } : undefined} saved={getCalculatorSnapshot(analysis, "ahv-rente")} ctx={ctx} />
     </CalcShell>
   )
 }

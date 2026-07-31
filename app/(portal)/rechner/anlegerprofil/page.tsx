@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { AnlegerprofilCalc } from "@/components/portal/rechner/anlegerprofil-calc"
+import { getAnalysis, getCalculatorSnapshot } from "@/lib/data/portal"
 
 export const metadata: Metadata = {
   title: "Anlegerprofil · Combinvest",
@@ -14,6 +15,7 @@ export default async function AnlegerprofilPage({
 }) {
   const sp = await searchParams
   const ctx = { analysisId: sp.aid, customerId: sp.cid }
+  const analysis = sp.aid ? await getAnalysis(sp.aid) : null
   return (
     <CalcShell
       eyebrow="Anlageberatung · Combinvest Profilmodell"
@@ -26,7 +28,7 @@ export default async function AnlegerprofilPage({
       explain="Aus den Antworten wird ein gewichteter Score und ein Anlegerprofil abgeleitet."
       source="Combinvest Beratungsmodell: Risiko 50 %, Horizont 30 %, Wissen 20 %. Keine gesetzlich vorgegebene FIDLEG-Punkteformel."
     >
-      <AnlegerprofilCalc ctx={ctx} />
+      <AnlegerprofilCalc ctx={ctx} saved={getCalculatorSnapshot(analysis, "anlegerprofil")} />
     </CalcShell>
   )
 }

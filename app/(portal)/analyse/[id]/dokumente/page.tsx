@@ -10,6 +10,10 @@ export default async function DokumentePage({ params }: { params: Promise<{ id: 
   const customer = await getCustomerById(analysis.customer_id)
   if (!customer) notFound()
   const advisor = await getCurrentAdvisor()
+  const snapshot = analysis.latest_snapshot ?? {}
+  const initialDocuments = snapshot.documents && typeof snapshot.documents === "object" && !Array.isArray(snapshot.documents)
+    ? snapshot.documents as Record<string, unknown>
+    : undefined
 
   const prefill: DocumentPrefill = {
     advisorName: advisor?.display_name ?? "",
@@ -29,7 +33,7 @@ export default async function DokumentePage({ params }: { params: Promise<{ id: 
 
   return (
     <main className="px-5 py-8 sm:px-8 lg:px-10">
-      <DocumentBuilder analysisId={analysis.id} customerId={analysis.customer_id} prefill={prefill} />
+      <DocumentBuilder analysisId={analysis.id} customerId={analysis.customer_id} prefill={prefill} initial={initialDocuments} />
     </main>
   )
 }

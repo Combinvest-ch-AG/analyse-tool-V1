@@ -17,7 +17,7 @@ import {
 } from "@/lib/engine/pension-gap"
 import { formatCHF } from "@/lib/format"
 import { Lock, Upload, ChevronDown } from "lucide-react"
-import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 const RISKS: Risk[] = ["iv", "retirement", "death"]
 
@@ -37,24 +37,28 @@ interface Props {
     age?: number
     children?: number
   }
+  saved?: SavedCalculatorPayload
   ctx?: CalcContext
 }
 
-export function PensionGapCalc({ defaults, ctx }: Props) {
-  const [risk, setRisk] = useState<Risk>("iv")
-  const [salary, setSalary] = useState(defaults?.salary ?? 0)
-  const [targetPct, setTargetPct] = useState(90)
-  const [age, setAge] = useState(defaults?.age ?? 40)
-  const [startAge, setStartAge] = useState(25)
-  const [cause, setCause] = useState<Cause>("illness")
-  const [degree, setDegree] = useState(100)
-  const [children, setChildren] = useState(defaults?.children ?? 0)
-  const [ahvMode, setAhvMode] = useState<AhvMode>("scale44")
-  const [averageIncome, setAverageIncome] = useState(0)
-  const [contributionGaps, setContributionGaps] = useState(0)
-  const [bvgMode, setBvgMode] = useState<BvgMode>("minimum")
-  const [manual, setManual] = useState<ValuesByRisk>(emptyValues())
-  const [period, setPeriod] = useState<"year" | "month">("year")
+export function PensionGapCalc({ defaults, saved, ctx }: Props) {
+  const stored = saved?.inputs as Record<string, unknown> | undefined
+  const [risk, setRisk] = useState<Risk>(RISKS.includes(stored?.risk as Risk) ? stored?.risk as Risk : "iv")
+  const [salary, setSalary] = useState(Number(stored?.salary) || defaults?.salary || 0)
+  const [targetPct, setTargetPct] = useState(Number(stored?.targetPct) || 90)
+  const [age, setAge] = useState(Number(stored?.age) || defaults?.age || 40)
+  const [startAge, setStartAge] = useState(Number(stored?.startAge) || 25)
+  const [cause, setCause] = useState<Cause>(stored?.cause === "accident" ? "accident" : "illness")
+  const [degree, setDegree] = useState(Number(stored?.degree) || 100)
+  const [children, setChildren] = useState(Number(stored?.children) || defaults?.children || 0)
+  const [ahvMode, setAhvMode] = useState<AhvMode>(stored?.ahvMode === "manual" ? "manual" : "scale44")
+  const [averageIncome, setAverageIncome] = useState(Number(stored?.averageIncome) || 0)
+  const [contributionGaps, setContributionGaps] = useState(Number(stored?.contributionGaps) || 0)
+  const [bvgMode, setBvgMode] = useState<BvgMode>(stored?.bvgMode === "statement" ? "statement" : "minimum")
+  const [manual, setManual] = useState<ValuesByRisk>(
+    stored?.manual && typeof stored.manual === "object" ? stored.manual as ValuesByRisk : emptyValues(),
+  )
+  const [period, setPeriod] = useState<"year" | "month">(stored?.period === "month" ? "month" : "year")
   const [expert, setExpert] = useState(false)
   const [pkFileName, setPkFileName] = useState("")
 
@@ -112,6 +116,8 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
           averageIncome,
           contributionGaps,
           bvgMode,
+          manual,
+          period,
         },
         results: [
           `Risiko ${RISK_LABELS[risk]}`,

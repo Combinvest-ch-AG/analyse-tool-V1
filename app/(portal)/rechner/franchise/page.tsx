@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { FranchiseCalc } from "@/components/portal/rechner/franchise-calc"
+import { getAnalysis, getCalculatorSnapshot } from "@/lib/data/portal"
 
 export const metadata: Metadata = {
   title: "Franchise-Vergleich 2026 · Combinvest",
@@ -14,6 +15,7 @@ export default async function FranchisePage({
 }) {
   const sp = await searchParams
   const ctx = { analysisId: sp.aid, customerId: sp.cid }
+  const analysis = sp.aid ? await getAnalysis(sp.aid) : null
   return (
     <CalcShell
       eyebrow="Grundversicherung"
@@ -26,7 +28,7 @@ export default async function FranchisePage({
       explain="Sie sehen Prämie und Kostenbeteiligung je Franchise getrennt."
       source="BAG / opendata.swiss, Prämien 2026; exakte Auswahl über Priminfo."
     >
-      <FranchiseCalc defaults={{ plz: sp.plz, birthYear: sp.birthYear }} ctx={ctx} />
+      <FranchiseCalc defaults={{ plz: sp.plz, birthYear: sp.birthYear }} saved={getCalculatorSnapshot(analysis, "health-franchise")} ctx={ctx} />
     </CalcShell>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Check, Gift, Percent, Ticket } from "lucide-react"
 import { saveReferral } from "@/app/actions/portal"
@@ -50,6 +50,27 @@ export function ReferralForm({
   const [saved, setSaved] = useState(Boolean(initial.updatedAt))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const initialDraft = useRef(true)
+
+  useEffect(() => {
+    if (initialDraft.current) {
+      initialDraft.current = false
+      return
+    }
+    setSaved(false)
+    const timer = window.setTimeout(async () => {
+      const hasContent = [firstName, lastName, email, phone, consent].some(Boolean)
+      const res = await saveReferral({
+        analysisId,
+        payload: hasContent
+          ? { firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), phone: phone.trim(), consent, reward }
+          : {},
+        writeRevision: false,
+      })
+      if (res.ok) setSaved(true)
+    }, 900)
+    return () => window.clearTimeout(timer)
+  }, [analysisId, consent, email, firstName, lastName, phone, reward])
 
   async function handleSave() {
     setError(null)

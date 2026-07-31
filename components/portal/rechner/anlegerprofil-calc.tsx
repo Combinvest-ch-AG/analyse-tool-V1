@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { RotateCcw, ArrowRight } from "lucide-react"
-import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 type Dimension = "risk" | "horizon" | "knowledge"
 
@@ -118,8 +118,11 @@ function profileFor(score: number): Profile {
   return PROFILES.find((p) => score >= p.range[0] && score <= p.range[1]) ?? PROFILES[PROFILES.length - 1]
 }
 
-export function AnlegerprofilCalc({ ctx }: { ctx?: CalcContext }) {
-  const [answers, setAnswers] = useState<Record<string, number>>({})
+export function AnlegerprofilCalc({ ctx, saved }: { ctx?: CalcContext; saved?: SavedCalculatorPayload }) {
+  const storedAnswers = saved?.answers && typeof saved.answers === "object" && !Array.isArray(saved.answers)
+    ? saved.answers as Record<string, number>
+    : {}
+  const [answers, setAnswers] = useState<Record<string, number>>(storedAnswers)
 
   const answeredCount = Object.keys(answers).length
   const allAnswered = answeredCount === QUESTIONS.length

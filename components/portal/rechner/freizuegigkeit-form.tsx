@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { formatCHF } from "@/lib/format"
-import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 type Form = {
   reason: string
@@ -47,8 +47,11 @@ const SUMMARY_LABELS: { key: keyof Form; label: string }[] = [
   { key: "priority", label: "Priorität" },
 ]
 
-export function FreizuegigkeitForm({ ctx }: { ctx: CalcContext }) {
-  const [form, setForm] = useState<Form>(EMPTY)
+export function FreizuegigkeitForm({ ctx, saved }: { ctx: CalcContext; saved?: SavedCalculatorPayload }) {
+  const restored = Object.fromEntries(
+    (Object.keys(EMPTY) as (keyof Form)[]).map((key) => [key, typeof saved?.[key] === "string" ? saved[key] : EMPTY[key]]),
+  ) as Form
+  const [form, setForm] = useState<Form>(restored)
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((s) => ({ ...s, [k]: v }))
 
   const summary = useMemo(

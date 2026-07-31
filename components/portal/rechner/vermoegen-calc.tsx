@@ -9,7 +9,7 @@ import {
   netReturnAfterCosts,
   purchasingPower,
 } from "@/lib/engine/wealth"
-import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 export type WealthMode =
   | "sparen"
@@ -291,11 +291,22 @@ function buildReportInputs(mode: WealthMode, d: Data) {
   ])
 }
 
-export function VermoegenCalc({ mode, ctx }: { mode: WealthMode; ctx?: CalcContext }) {
+export function VermoegenCalc({ mode, ctx, saved }: { mode: WealthMode; ctx?: CalcContext; saved?: SavedCalculatorPayload }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [d, setD] = useState<Data>(DEFAULTS)
+  const storedData = (saved?.inputs as Record<string, unknown> | undefined)?.data
+  const restoredData = storedData && typeof storedData === "object" && !Array.isArray(storedData)
+    ? Object.fromEntries(
+        (Object.keys(DEFAULTS) as (keyof Data)[]).map((key) => [
+          key,
+          Number.isFinite(Number((storedData as Record<string, unknown>)[key]))
+            ? Number((storedData as Record<string, unknown>)[key])
+            : DEFAULTS[key],
+        ]),
+      ) as Data
+    : DEFAULTS
+  const [d, setD] = useState<Data>(restoredData)
 
   const { a, b, c } = useMemo(() => compute(mode, d), [mode, d])
   const { s1, s2, hasCompare, times } = useMemo(() => buildSeries(mode, d), [mode, d])
@@ -324,7 +335,7 @@ export function VermoegenCalc({ mode, ctx }: { mode: WealthMode; ctx?: CalcConte
         calcKey={`wealth-${mode}`}
         buildPayload={() => ({
           calculator: `wealth-${mode}`,
-          inputs: buildReportInputs(mode, d),
+          inputs: { ...buildReportInputs(mode, d), data: d },
           results: [
             `${labels[0]}: ${fmtVal(mode, 0, a)}`,
             `${labels[1]}: ${fmtVal(mode, 1, b)}`,

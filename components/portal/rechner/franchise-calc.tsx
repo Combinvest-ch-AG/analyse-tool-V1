@@ -5,7 +5,7 @@ import useSWR from "swr"
 import { ArrowUpRight } from "lucide-react"
 import { ageGroupFromBirthYear, compareFranchises, type AgeGroup } from "@/lib/engine/franchise"
 import { formatCHF } from "@/lib/format"
-import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 type Location = { b: number; c: string; g: string; r: number; p: number; o: string }
 type Offer = { r: number; a: AgeGroup; i: number; u: string; y: string; t: string; n: string; s: string; p: [number, number][] }
@@ -33,24 +33,29 @@ const offerKey = (o: Offer) => [o.i, o.y, o.t, o.n, o.s].join("|")
 
 export function FranchiseCalc({
   defaults,
+  saved,
   ctx,
 }: {
   defaults?: { plz?: string; birthYear?: string }
+  saved?: SavedCalculatorPayload
   ctx?: CalcContext
 }) {
+  const savedInputs = saved?.inputs as Record<string, unknown> | undefined
   const { data: locations } = useSWR<Location[]>("/data/priminfo-2026/locations.json", fetcher)
   const { data: insurers } = useSWR<Insurers>("/data/priminfo-2026/insurers.json", fetcher)
 
-  const [query, setQuery] = useState(defaults?.plz ?? "")
+  const [query, setQuery] = useState(String(savedInputs?.ort ?? defaults?.plz ?? ""))
   const [location, setLocation] = useState<Location | null>(null)
   const [showResults, setShowResults] = useState(false)
-  const [birthYear, setBirthYear] = useState(defaults?.birthYear ?? "")
-  const [accident, setAccident] = useState<"MIT" | "OHNE">("MIT")
-  const [insurerId, setInsurerId] = useState("")
-  const [tariffKey, setTariffKey] = useState("")
-  const [currentFranchise, setCurrentFranchise] = useState<number | null>(null)
-  const [healthCosts, setHealthCosts] = useState(1200)
-  const [reserve, setReserve] = useState(3000)
+  const [birthYear, setBirthYear] = useState(String(savedInputs?.geburtsjahr ?? defaults?.birthYear ?? ""))
+  const [accident, setAccident] = useState<"MIT" | "OHNE">(savedInputs?.unfalldeckung === "OHNE" ? "OHNE" : "MIT")
+  const [insurerId, setInsurerId] = useState(String(savedInputs?.versicherer_id ?? ""))
+  const [tariffKey, setTariffKey] = useState(String(savedInputs?.tarif_key ?? ""))
+  const [currentFranchise, setCurrentFranchise] = useState<number | null>(
+    Number.isFinite(Number(savedInputs?.aktuelle_franchise)) ? Number(savedInputs?.aktuelle_franchise) : null,
+  )
+  const [healthCosts, setHealthCosts] = useState(Number(savedInputs?.gesundheitskosten) || 1200)
+  const [reserve, setReserve] = useState(Number(savedInputs?.reserve) || 3000)
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const ageGroup = useMemo(() => ageGroupFromBirthYear(Number(birthYear), 2026), [birthYear])
@@ -171,8 +176,12 @@ export function FranchiseCalc({
           geburtsjahr: birthYear,
           unfalldeckung: accident,
           versicherer: insurerId && insurers ? insurers[insurerId] : "",
+          versicherer_id: insurerId,
           tarif: selectedOffer?.n ?? "",
+          tarif_key: tariffKey,
           gesundheitskosten: healthCosts,
+          reserve,
+          aktuelle_franchise: currentFranchise,
         },
         results: ready
           ? [

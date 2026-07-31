@@ -272,6 +272,11 @@ export function AnalysisWizard({
   const progress = progressPercent(answers)
   const answered = countAnswered(answers)
   const visibleQuestions = visibleQuestionCount(answers)
+  const visibleQuestionIndices = QUESTIONS.reduce<number[]>((indices, question, index) => {
+    if (isQuestionVisible(question, answers)) indices.push(index)
+    return indices
+  }, [])
+  const visibleQuestionNumber = Math.max(1, visibleQuestionIndices.indexOf(qi) + 1)
   const hasNextQuestion = adjacentVisibleQuestion(qi, 1, answers) != null
 
   return (
@@ -315,18 +320,18 @@ export function AnalysisWizard({
             <div className="mb-2 flex justify-between text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
               <span>Profiling · {profilingSection(qi)}</span>
               <span>
-                {qi + 1}/{QUESTIONS.length}
+                {visibleQuestionNumber}/{visibleQuestions}
               </span>
             </div>
             <div className="h-[3px] overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${((qi + 1) / QUESTIONS.length) * 100}%` }}
+                style={{ width: `${(visibleQuestionNumber / Math.max(1, visibleQuestions)) * 100}%` }}
               />
             </div>
 
             <h2 className="mt-5 text-xl font-extrabold tracking-tight text-foreground">
-              {qi + 1}. {q.t}
+              {visibleQuestionNumber}. {q.t}
             </h2>
             {q.sub && <p className="mt-1 text-[13px] text-muted-foreground">{q.sub}</p>}
 

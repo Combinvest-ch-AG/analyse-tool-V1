@@ -7,7 +7,7 @@ import type { WizardAnswers } from "@/lib/wizard/schema"
 export const metadata: Metadata = {
   title: "Tragbarkeitsrechner · Combinvest",
   description:
-    "Immobilien-Tragbarkeit nach Schweizer Standard: kalkulatorischer Zins 5 %, Nebenkosten 1 %, Limit 33.33 % des Bruttoeinkommens.",
+    "Bank-Tragbarkeit und effektive Wohnkosten: Finanzierung prüfen und Eigentum direkt mit der Miete vergleichen.",
 }
 
 export default async function TragbarkeitPage({
@@ -25,14 +25,14 @@ export default async function TragbarkeitPage({
   return (
     <CalcShell
       eyebrow="Wohneigentum · Tragbarkeit"
-      title="Können Sie sich Ihr Eigenheim leisten?"
-      lead="Prüfen Sie auf einen Blick, ob Kaufpreis, Eigenkapital und Einkommen zusammenpassen — nach dem Schweizer Tragbarkeitsstandard."
+      title="Was kostet Ihr Eigenheim wirklich?"
+      lead="Wählen Sie zwischen Bank-Tragbarkeit und Ihren effektiven Wohnkosten – inklusive direktem Vergleich zur Miete."
       backHref="/rechner"
       backLabel="Rechner"
       analysisId={sp.aid}
-      chip="Schweizer Standard"
-      explain="Die Quote zeigt die kalkulatorische Belastung Ihres Einkommens."
-      source="Banken-Praxis: 5 % Zins, 1 % Nebenkosten und rund 33 % Tragbarkeit."
+      chip="Zwei Ansichten"
+      explain="Die Bankansicht prüft die Finanzierung; die effektive Ansicht vergleicht Ihre echten Kosten mit der Miete."
+      source="Bankansicht nach Schweizer Finanzierungspraxis; effektive Ansicht auf Basis Ihrer Eingaben."
     >
       <AffordabilityCalc defaults={{ income }} ctx={ctx} />
     </CalcShell>

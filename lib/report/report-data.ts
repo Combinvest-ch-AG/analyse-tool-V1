@@ -63,6 +63,12 @@ export function buildReportData(
   const calculators: Record<string, ReportCalculator> = {}
   Object.entries(snapshot.calculatorResults ?? {}).forEach(([key, value]) => {
     if (!value || typeof value !== "object") return
+    const declaredResults = Array.isArray(value.results) ? value.results.map(String).filter(Boolean) : null
+    const onlyPlaceholders =
+      declaredResults != null &&
+      declaredResults.length > 0 &&
+      declaredResults.every((result) => /noch keine|keine auswahl|nicht erfasst|bitte erfassen/i.test(result))
+    if (onlyPlaceholders) return
     calculators[key] = {
       ...value,
       calculationYear: Number(value.calculationYear) || YEAR,

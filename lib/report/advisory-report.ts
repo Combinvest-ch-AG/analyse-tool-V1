@@ -277,6 +277,27 @@ const INPUT_LABELS: Record<string, string> = {
   priority: "Priorität",
 }
 
+const INPUT_VALUE_LABELS: Record<string, Record<string, string>> = {
+  risk: {
+    iv: "Invalidität",
+    pension: "Pensionierung",
+    death: "Todesfall",
+  },
+  cause: {
+    illness: "Krankheit",
+    accident: "Unfall",
+  },
+  ahvMode: {
+    scale44: "AHV-Skala 44",
+    manual: "Manuelle Angabe",
+  },
+  bvgMode: {
+    minimum: "Gesetzliches Minimum",
+    certificate: "PK-Ausweis",
+    manual: "Manuelle Angabe",
+  },
+}
+
 function safe(value: unknown): string {
   return String(value == null ? "" : value)
     .replace(/[–—−]/g, "-")
@@ -340,6 +361,8 @@ function humanValue(key: string, value: unknown): string {
     return Number(value).toLocaleString("de-CH")
   }
   if (Array.isArray(value)) return value.map(safe).filter(Boolean).join(", ")
+  const translated = INPUT_VALUE_LABELS[key]?.[safe(value)]
+  if (translated) return translated
   return safe(value)
 }
 
@@ -414,10 +437,30 @@ function splitMetric(result: string): { label: string; value: string } {
 
 function numericCHF(value: string): number | null {
   if (!/CHF/i.test(value)) return null
-  const match = value.match(/CHF\s*([0-9'’.,]+)/i)
+  const match = value.match(/CHF\s*(-?[0-9'’.,]+)/i)
   if (!match) return null
   const parsed = Number(match[1].replace(/['’]/g, "").replace(/\./g, "").replace(",", "."))
   return Number.isFinite(parsed) ? parsed : null
+}
+
+function numericPercent(value: string): number | null {
+  const match = value.match(/(-?[0-9]+(?:[.,][0-9]+)?)\s*%/)
+  if (!match) return null
+  const parsed = Number(match[1].replace(",", "."))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function resultWith(results: string[], label: string): string {
+  return results.find((result) => result.toLocaleLowerCase("de-CH").includes(label.toLocaleLowerCase("de-CH"))) ?? ""
+}
+
+function calculatorMeta(key: string): CalculatorMeta {
+  return CALCULATOR_META[key] ?? {
+    title: key.replace(/[-_]/g, " "),
+    eyebrow: "Berechnung aus Ihrer Beratung",
+    meaning: "Die gespeicherten Werte zeigen den Stand aus dem gemeinsamen Beratungsgespräch.",
+    source: "Persönlich erfasste Angaben",
+  }
 }
 
 export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array> {
@@ -680,6 +723,29 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   metricCard(M + (cardWidth + 8) * 2, y, cardWidth, "Verträge erfasst", String(contractKeys.length))
   y -= 103
 
+  if (calculators.length) {
+    sectionTitle("Ihre Beratung", "Diese Rechner wurden gemeinsam verwendet")
+    const calculatorColumnWidth = (CONTENT - 12) / 2
+    calculators.forEach(([key, calculator], calculatorIndex) => {
+      const column = calculatorIndex % 2
+      const row = Math.floor(calculatorIndex / 2)
+      const cardX = M + column * (calculatorColumnWidth + 12)
+      const cardTop = y - row * 48
+      roundRect(cardX, cardTop - 38, calculatorColumnWidth, 38, 8, SOFT)
+      roundRect(cardX, cardTop - 38, 5, 38, 2.5, BLUE)
+      drawText(calculatorMeta(key).title, cardX + 14, cardTop - 16, {
+        size: 8.5,
+        bold: true,
+        maxWidth: calculatorColumnWidth - 25,
+      })
+      drawText(`Stand ${fmtDate(calculator.savedAt || data.createdAt)}`, cardX + 14, cardTop - 29, {
+        size: 6.5,
+        color: MUTED,
+      })
+    })
+    y -= Math.ceil(calculators.length / 2) * 48 + 12
+  }
+
   sectionTitle("Ihre Prioritäten", "Die wichtigsten Beratungsthemen")
   ranked.slice(0, 3).forEach((area, index) => {
     ensure(70)
@@ -703,7 +769,15 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   })
 
   y -= 8
-  sectionTitle("Ihre Angaben", "Persönliche Ausgangslage")
+  if (y < 270) {
+    addPage(
+      "Ihre Übersicht",
+      "Persönliche Ausgangslage",
+      "Die wichtigsten persönlichen Angaben, die im Beratungsgespräch erfasst wurden.",
+    )
+  } else {
+    sectionTitle("Ihre Angaben", "Persönliche Ausgangslage")
+  }
   const profileRows: Array<[string, string]> = [
     ["Kunde", data.customerName],
     ["Geburtsdatum", fmtDate(data.customer?.birthdate)],
@@ -756,14 +830,9 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
     })
   }
 
-  // One clear, phone-friendly page for every calculation intentionally saved in the analysis.
+  // One clear, phone-friendly page for every calculator used inside the analysis.
   calculators.forEach(([key, calculator], index) => {
-    const meta = CALCULATOR_META[key] ?? {
-      title: key.replace(/[-_]/g, " "),
-      eyebrow: "Berechnung aus Ihrer Beratung",
-      meaning: "Die gespeicherten Werte zeigen den Stand aus dem gemeinsamen Beratungsgespräch.",
-      source: "Persönlich erfasste Angaben",
-    }
+    const meta = calculatorMeta(key)
     const results = calculatorResults(key, calculator)
     const facts = calculatorFacts(key, calculator)
     addPage(
@@ -778,7 +847,122 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
 
     const metrics = results.slice(0, 3).map(splitMetric)
     const isSavingsReport = key === "wealth-sparen" && metrics.length >= 3
-    if (isSavingsReport) {
+    const isBudgetReport = key === "budget"
+    const isPensionReport = key === "pension-gap"
+    const isAhvReport = key === "ahv-rente"
+    const isAffordabilityReport = key === "real-estate-affordability"
+    const hasDedicatedVisual = isSavingsReport || isBudgetReport || isPensionReport || isAhvReport || isAffordabilityReport
+
+    if (isBudgetReport) {
+      const income = numericCHF(resultWith(results, "Einkommen")) ?? 0
+      const expenses = numericCHF(resultWith(results, "Ausgaben")) ?? 0
+      const balance = numericCHF(resultWith(results, "Überschuss")) ?? income - expenses
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Einnahmen / Monat", chf(income), BLUE)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "Ausgaben / Monat", chf(expenses), PALE)
+      metricCard(
+        M + (metricWidth + metricGap) * 2,
+        y,
+        metricWidth,
+        balance >= 0 ? "Frei verfügbar" : "Monatliches Defizit",
+        chf(Math.abs(balance)),
+        balance >= 0 ? GREEN : RED,
+      )
+      y -= 103
+
+      sectionTitle("Monatlicher Überblick", "So verteilt sich Ihr Einkommen")
+      const barWidth = 318
+      const maximum = Math.max(income, expenses, 1)
+      ;[
+        ["Einnahmen", income, BLUE],
+        ["Ausgaben", expenses, ORANGE],
+      ].forEach(([label, amount, tone], rowIndex) => {
+        drawText(String(label), M, y - rowIndex * 30, { size: 8.5, bold: true, color: MUTED })
+        pillBar(M + 92, y - 3 - rowIndex * 30, barWidth, 11, LINE)
+        pillBar(M + 92, y - 3 - rowIndex * 30, Math.max(10, (barWidth * Number(amount)) / maximum), 11, tone as Col)
+        drawText(chf(amount), PAGE[0] - M - 78, y - rowIndex * 30, { size: 8.5, heavy: true })
+      })
+      y -= 78
+    } else if (isPensionReport) {
+      const target = numericCHF(resultWith(results, "Ziel")) ?? 0
+      const current = numericCHF(resultWith(results, "Vorhandene Leistungen")) ?? 0
+      const gap = numericCHF(resultWith(results, "Deckungslücke")) ?? Math.max(0, target - current)
+      const coverage = Math.max(0, Math.min(100, numericPercent(resultWith(results, "Deckung")) ?? (target > 0 ? (current / target) * 100 : 0)))
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Zielabsicherung / Jahr", chf(target), PALE)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "Vorhandene Leistungen", chf(current), BLUE)
+      metricCard(M + (metricWidth + metricGap) * 2, y, metricWidth, "Vorsorgelücke / Jahr", chf(gap), gap > 0 ? RED : GREEN)
+      y -= 103
+
+      sectionTitle("Absicherung", `${Math.round(coverage)} % des Ziels sind gedeckt`)
+      pillBar(M, y - 2, CONTENT, 18, [0.97, 0.86, 0.86])
+      if (coverage > 0) pillBar(M, y - 2, Math.max(18, (CONTENT * coverage) / 100), 18, BLUE)
+      drawText(`Vorhanden ${chf(current)}`, M, y - 27, { size: 8, bold: true, color: BLUE_DARK })
+      drawText(`Lücke ${chf(gap)}`, PAGE[0] - M - 104, y - 27, { size: 8, bold: true, color: RED })
+      y -= 52
+    } else if (isAhvReport) {
+      const target = Number(calculator.inputs?.wunscheinkommen) || 0
+      const pension = numericCHF(resultWith(results, "AHV-Rente")) ?? 0
+      const gap = numericCHF(resultWith(results, "Vorsorgelücke")) ?? Math.max(0, target - pension)
+      const coverage = target > 0 ? Math.max(0, Math.min(100, (pension / target) * 100)) : 0
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Wunschbedarf / Monat", chf(target), PALE)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "AHV-Rente / Monat", chf(pension), BLUE)
+      metricCard(M + (metricWidth + metricGap) * 2, y, metricWidth, "Lücke / Monat", chf(gap), gap > 0 ? RED : GREEN)
+      y -= 103
+
+      sectionTitle("Monatliche Deckung", `${Math.round(coverage)} % des Wunschbedarfs`)
+      pillBar(M, y - 2, CONTENT, 18, [0.97, 0.86, 0.86])
+      if (coverage > 0) pillBar(M, y - 2, Math.max(18, (CONTENT * coverage) / 100), 18, BLUE)
+      y -= 42
+    } else if (isAffordabilityReport) {
+      const quote = numericPercent(resultWith(results, "Bank-Tragbarkeit")) ?? 0
+      const equity = numericCHF(resultWith(results, "Eigenmittel")) ?? 0
+      const firstMortgage = numericCHF(resultWith(results, "1. Hypothek")) ?? 0
+      const secondMortgage = numericCHF(resultWith(results, "2. Hypothek")) ?? 0
+      const purchasePrice = Number(calculator.inputs?.kaufpreis) || equity + firstMortgage + secondMortgage
+      const ownership = numericCHF(resultWith(results, "Effektive Eigentümerkosten")) ?? 0
+      const cashflow = numericCHF(resultWith(results, "Liquiditätsabfluss")) ?? 0
+      const rent = numericCHF(resultWith(results, "Vergleichsmiete")) ?? 0
+      const affordable = results.some((result) => result === "Tragbar")
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Bank-Tragbarkeit", `${quote.toFixed(1)} %`, affordable ? GREEN : RED)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "Kaufpreis", chf(purchasePrice), PALE)
+      metricCard(M + (metricWidth + metricGap) * 2, y, metricWidth, "Eigenmittel", chf(equity), BLUE)
+      y -= 103
+
+      sectionTitle("Finanzierung", "So setzt sich der Kaufpreis zusammen")
+      const financingWidth = CONTENT
+      const base = Math.max(purchasePrice, 1)
+      pillBar(M, y - 2, financingWidth, 18, LINE)
+      const equityWidth = (financingWidth * equity) / base
+      const firstWidth = (financingWidth * firstMortgage) / base
+      rect(M, y - 2, equityWidth, 18, GREEN)
+      rect(M + equityWidth, y - 2, firstWidth, 18, BLUE)
+      rect(M + equityWidth + firstWidth, y - 2, Math.max(0, financingWidth - equityWidth - firstWidth), 18, ORANGE)
+      drawText(`Eigenmittel ${chf(equity)}`, M, y - 27, { size: 7.5, bold: true, color: GREEN })
+      drawText(`1. Hypothek ${chf(firstMortgage)}`, M + 157, y - 27, { size: 7.5, bold: true, color: BLUE_DARK })
+      drawText(`2. Hypothek ${chf(secondMortgage)}`, M + 344, y - 27, { size: 7.5, bold: true, color: ORANGE })
+      y -= 56
+
+      sectionTitle("Monatlicher Vergleich", "Eigentum und Vergleichsmiete")
+      const comparisonMax = Math.max(ownership, cashflow, rent, 1)
+      ;[
+        ["Eigentümerkosten", ownership, BLUE],
+        ["Cashflow inkl. Amortisation", cashflow, GREEN],
+        ["Vergleichsmiete", rent, ORANGE],
+      ].forEach(([label, amount, tone], rowIndex) => {
+        drawText(String(label), M, y - rowIndex * 28, { size: 7.8, bold: true, color: MUTED, maxWidth: 145 })
+        pillBar(M + 156, y - 3 - rowIndex * 28, 244, 10, LINE)
+        pillBar(M + 156, y - 3 - rowIndex * 28, Math.max(9, (244 * Number(amount)) / comparisonMax), 10, tone as Col)
+        drawText(chf(amount), PAGE[0] - M - 78, y - rowIndex * 28, { size: 8, heavy: true })
+      })
+      y -= 91
+    } else if (isSavingsReport) {
       const total = numericCHF(metrics[0].value) ?? 0
       const paid = numericCHF(metrics[1].value) ?? 0
       const interest = numericCHF(metrics[2].value) ?? Math.max(0, total - paid)
@@ -842,7 +1026,7 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
       .map((metric) => ({ ...metric, number: numericCHF(metric.value) }))
       .filter((metric): metric is { label: string; value: string; number: number } => metric.number != null && metric.number >= 0)
       .slice(0, 4)
-    if (!isSavingsReport && numericMetrics.length >= 2) {
+    if (!hasDedicatedVisual && numericMetrics.length >= 2) {
       sectionTitle("Visueller Vergleich", "Ihre Zahlen im Verhältnis")
       const max = Math.max(...numericMetrics.map((metric) => metric.number), 1)
       numericMetrics.forEach((metric, metricIndex) => {
@@ -858,12 +1042,13 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
 
     if (facts.length) {
       sectionTitle("Berechnungsgrundlage", "Ihre verwendeten Angaben")
-      const columns = facts.length > 4 ? 2 : 1
-      const columnWidth = columns === 2 ? (CONTENT - 18) / 2 : CONTENT
+      const columns = isAffordabilityReport && facts.length >= 5 ? 3 : facts.length > 4 ? 2 : 1
+      const columnGap = columns === 3 ? 10 : 18
+      const columnWidth = columns > 1 ? (CONTENT - columnGap * (columns - 1)) / columns : CONTENT
       facts.forEach(([label, value], factIndex) => {
-        const column = columns === 2 ? factIndex % 2 : 0
-        const row = columns === 2 ? Math.floor(factIndex / 2) : factIndex
-        const x = M + column * (columnWidth + 18)
+        const column = columns > 1 ? factIndex % columns : 0
+        const row = columns > 1 ? Math.floor(factIndex / columns) : factIndex
+        const x = M + column * (columnWidth + columnGap)
         const rowTop = y - row * 42
         roundRect(x, rowTop - 32, columnWidth, 32, 7, SOFT)
         drawText(label.toUpperCase(), x + 10, rowTop - 12, { size: 6, bold: true, color: MUTED })

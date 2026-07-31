@@ -98,11 +98,12 @@ export function CalcActionBar({
     if (!canSave) return
     if (initialFingerprint.current === null) {
       initialFingerprint.current = fingerprint
-      lastSavedFingerprint.current = fingerprint
-      return
     }
     if (fingerprint === lastSavedFingerprint.current) return
 
+    // Opening a calculator inside an analysis counts as using it. Persist the
+    // initial, already calculated state as well, so the customer report can
+    // include every calculator that was actually consulted during the meeting.
     setState("dirty")
     const timer = window.setTimeout(() => void persist(false), 900)
     return () => window.clearTimeout(timer)

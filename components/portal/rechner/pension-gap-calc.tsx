@@ -84,6 +84,7 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
 
   const coverPct = Math.round(gap.cover)
   const hasGap = gap.gap > 0
+  const gapPct = gap.target > 0 ? Math.min(100, Math.round((gap.gap / gap.target) * 100)) : 0
   const barSegments = gap.items.filter((i) => i.value > 0)
   const scaleMax = Math.max(gap.target, gap.total) || 1
 
@@ -473,10 +474,20 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
                 ))}
                 {hasGap && gap.target >= gap.total ? (
                   <div
-                    className="h-full border-l border-white/70 bg-destructive/70"
-                    style={{ width: `${(gap.gap / scaleMax) * 100}%` }}
+                    className="flex h-full items-center justify-center border-l-2 border-white/80"
+                    style={{
+                      width: `${(gap.gap / scaleMax) * 100}%`,
+                      backgroundColor: "#ef4444",
+                    }}
                     title={`Vorsorgelücke: ${formatCHF(per(gap.gap))} ${perSuffix}`}
-                  />
+                    aria-label={`Vorsorgelücke ${gapPct} Prozent: ${formatCHF(per(gap.gap))} ${perSuffix}`}
+                  >
+                    {gapPct >= 16 ? (
+                      <span className="px-2 text-[11px] font-extrabold text-white">
+                        Lücke {gapPct} %
+                      </span>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
               {/* target marker */}
@@ -494,6 +505,12 @@ export function PensionGapCalc({ defaults, ctx }: Props) {
                 Ziel: <b className="text-foreground">{formatCHF(per(gap.target))}</b>
               </span>
             </div>
+            {hasGap ? (
+              <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-destructive">
+                <span className="h-3 w-3 rounded-full bg-[#ef4444]" aria-hidden="true" />
+                Rot markiert: Vorsorgelücke von {formatCHF(per(gap.gap))} {perSuffix}
+              </div>
+            ) : null}
 
             {/* Item legend */}
             <ul className="mt-5 grid gap-2 sm:grid-cols-2">

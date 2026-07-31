@@ -1,6 +1,7 @@
 "use client"
 
-import { useId, useMemo, useState } from "react"
+import { useId, useMemo, useState, type ReactNode } from "react"
+import { Building2, Home, Landmark, ReceiptText, Scale } from "lucide-react"
 import {
   affordability,
   effectiveHousingCost,
@@ -113,41 +114,97 @@ export function AffordabilityCalc({ defaults, ctx }: { defaults?: { income?: num
 
       <ViewSwitch value={view} onChange={setView} />
 
-      <div className="mt-5 grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <section aria-label="Eingaben" className="rounded-2xl border border-border bg-card p-5">
-          <p className="mb-4 border-b border-border pb-2.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted-foreground">
-            {view === "bank" ? "Finanzierung" : "Ihre effektiven Werte"}
-          </p>
-
-          <SliderField label="Kaufpreis" value={wert} field="wert" onChange={setWert} />
-          <SliderField
-            label="Eigenmittel"
-            value={ek}
-            field="ek"
-            onChange={setEk}
-            sub={`${ekPct} % des Kaufpreises${ekPct < 20 ? " — unter 20 %" : ""}`}
-          />
-          <SliderField label="Bruttoeinkommen / Jahr" value={inc} field="inc" onChange={setInc} last={view === "bank"} />
+      <div className="mt-5 grid grid-cols-1 items-start gap-6 xl:grid-cols-[390px_minmax(0,1fr)]">
+        <section aria-label="Eingaben" className="space-y-4">
+          <InputPanel
+            number="1"
+            title="Objekt & Finanzierung"
+            description={view === "bank" ? "Grundlage für die Bankprüfung" : "Kaufpreis und eingesetzte Eigenmittel"}
+            icon={<Building2 className="h-4 w-4" aria-hidden="true" />}
+          >
+            <SliderField label="Kaufpreis" value={wert} field="wert" onChange={setWert} />
+            <SliderField
+              label="Eigenmittel"
+              value={ek}
+              field="ek"
+              onChange={setEk}
+              sub={`${ekPct} % des Kaufpreises${ekPct < 20 ? " · unter dem Richtwert von 20 %" : " · Richtwert erreicht"}`}
+              last={view === "actual"}
+            />
+            {view === "bank" ? (
+              <SliderField label="Bruttoeinkommen / Jahr" value={inc} field="inc" onChange={setInc} last />
+            ) : (
+              <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-4">
+                <InputSummary label="Hypothek total" value={formatCHF(r.hypothek)} />
+                <InputSummary label="Belehnung" value={`${r.belehnung.toFixed(0)} %`} />
+              </div>
+            )}
+          </InputPanel>
 
           {view === "actual" ? (
-            <div className="mt-5 border-t border-border pt-5">
-              <PercentField label="Effektiver Hypothekarzins" value={mortgageRate} onChange={setMortgageRate} />
-              <MoneyField label="Unterhalt / Rückstellungen pro Jahr" value={maintenance} onChange={setMaintenance} />
-              <MoneyField label="Nebenkosten pro Jahr" value={utilities} onChange={setUtilities} />
+            <InputPanel
+              number="2"
+              title="Effektive Wohnkosten"
+              description="Persönliche Werte statt Bankannahmen"
+              icon={<ReceiptText className="h-4 w-4" aria-hidden="true" />}
+            >
+              <PercentField
+                label="Effektiver Hypothekarzins"
+                value={mortgageRate}
+                onChange={setMortgageRate}
+                hint={`${formatCHF(actual.interestAnnual)} pro Jahr`}
+              />
               <MoneyField
-                label="Amortisation pro Jahr"
+                label="Unterhalt & Rückstellungen"
+                value={maintenance}
+                onChange={setMaintenance}
+                period="pro Jahr"
+                hint={`${formatCHF(maintenance / 12)} pro Monat`}
+              />
+              <MoneyField
+                label="Nebenkosten Eigentum"
+                value={utilities}
+                onChange={setUtilities}
+                period="pro Jahr"
+                hint={`${formatCHF(utilities / 12)} pro Monat`}
+              />
+              <MoneyField
+                label="Amortisation"
                 value={actualAmortization}
                 onChange={setActualAmortization}
+                period="pro Jahr"
+                hint={`${formatCHF(actualAmortization / 12)} pro Monat`}
                 actionLabel="Bankwert übernehmen"
                 onAction={() => setActualAmortization(Math.round(r.amortisation))}
               />
-              <MoneyField label="Vergleichsmiete pro Monat" value={rentMonthly} onChange={setRentMonthly} last />
-            </div>
+              <MoneyField
+                label="Vergleichsmiete inkl. Nebenkosten"
+                value={rentMonthly}
+                onChange={setRentMonthly}
+                period="pro Monat"
+                last
+              />
+            </InputPanel>
           ) : null}
         </section>
 
-        <section aria-live="polite" className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-          <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <section aria-live="polite" className="overflow-hidden rounded-3xl border border-border bg-card shadow-[0_18px_50px_rgba(24,49,92,0.06)]">
+          <div className="border-b border-border bg-gradient-to-r from-[#f8fbff] to-white px-5 py-4 sm:px-7">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-primary">Beratungsansicht</p>
+                <h2 className="mt-1 text-lg font-black tracking-tight text-foreground sm:text-xl">
+                  {view === "bank" ? "Finanzierung auf einen Blick" : "Eigentum und Miete im direkten Vergleich"}
+                </h2>
+              </div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-xs font-bold text-muted-foreground shadow-sm">
+                {view === "bank" ? <Landmark className="h-3.5 w-3.5 text-primary" /> : <Scale className="h-3.5 w-3.5 text-primary" />}
+                {view === "bank" ? "Bank-Richtwerte" : "Ihre effektiven Werte"}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid gap-5 p-5 sm:p-7 lg:grid-cols-[280px_minmax(0,1fr)]">
             <HouseFill
               title={view === "bank" ? "So ist das Eigenheim finanziert" : "So setzen sich Ihre Zahlungen zusammen"}
               total={view === "bank" ? Math.max(1, wert) : Math.max(1, actual.cashOutflowAnnual)}
@@ -167,7 +224,7 @@ export function AffordabilityCalc({ defaults, ctx }: { defaults?: { income?: num
             )}
           </div>
 
-          <p className="mt-6 border-t border-border pt-4 text-[12px] leading-relaxed text-muted-foreground">
+          <p className="border-t border-border bg-muted/20 px-5 py-4 text-[11.5px] leading-relaxed text-muted-foreground sm:px-7">
             {view === "bank"
               ? "Bankansicht: 5 % kalkulatorischer Zins, 1 % Unterhalt/Nebenkosten und lineare Amortisation der zweiten Hypothek über 15 Jahre. Institute können strengere Vorgaben anwenden."
               : "Effektive Ansicht: Reiner Kosten- und Liquiditätsvergleich ohne Steuern, Wertentwicklung und Opportunitätskosten. Amortisation wird separat ausgewiesen, weil sie Vermögen aufbaut."}
@@ -179,12 +236,23 @@ export function AffordabilityCalc({ defaults, ctx }: { defaults?: { income?: num
 }
 
 function ViewSwitch({ value, onChange }: { value: View; onChange: (view: View) => void }) {
-  const options: { id: View; title: string; text: string }[] = [
-    { id: "bank", title: "Bank-Tragbarkeit", text: "Prüft Finanzierung und Einkommen mit konservativen Richtwerten." },
-    { id: "actual", title: "Effektive Wohnkosten", text: "Vergleicht Ihre echten Eigentümerkosten direkt mit einer Miete." },
+  const options: { id: View; title: string; text: string; icon: ReactNode }[] = [
+    {
+      id: "bank",
+      title: "Bank-Tragbarkeit",
+      text: "Finanzierung und Einkommen prüfen",
+      icon: <Landmark className="h-5 w-5" aria-hidden="true" />,
+    },
+    {
+      id: "actual",
+      title: "Effektive Wohnkosten",
+      text: "Eigentum direkt mit Miete vergleichen",
+      icon: <Home className="h-5 w-5" aria-hidden="true" />,
+    },
   ]
   return (
-    <div className="grid gap-3 sm:grid-cols-2" role="tablist" aria-label="Berechnungsansicht wählen">
+    <div className="rounded-2xl border border-border bg-card p-2 shadow-sm" role="tablist" aria-label="Berechnungsansicht wählen">
+      <div className="grid gap-2 sm:grid-cols-2">
       {options.map((option) => {
         const active = value === option.id
         return (
@@ -194,15 +262,64 @@ function ViewSwitch({ value, onChange }: { value: View; onChange: (view: View) =
             role="tab"
             aria-selected={active}
             onClick={() => onChange(option.id)}
-            className={`rounded-2xl border p-4 text-left transition-colors ${
-              active ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/40"
+            className={`group flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+              active
+                ? "border-primary bg-primary text-primary-foreground shadow-[0_8px_24px_rgba(57,120,246,0.22)]"
+                : "border-transparent bg-transparent hover:border-border hover:bg-muted/40"
             }`}
           >
-            <span className={`text-sm font-extrabold ${active ? "text-primary" : "text-foreground"}`}>{option.title}</span>
-            <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{option.text}</span>
+            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${active ? "bg-white/15" : "bg-primary/8 text-primary"}`}>
+              {option.icon}
+            </span>
+            <span className="min-w-0">
+              <span className={`block text-sm font-extrabold ${active ? "text-primary-foreground" : "text-foreground"}`}>{option.title}</span>
+              <span className={`mt-0.5 block text-[11.5px] ${active ? "text-primary-foreground/75" : "text-muted-foreground"}`}>{option.text}</span>
+            </span>
           </button>
         )
       })}
+      </div>
+    </div>
+  )
+}
+
+function InputPanel({
+  number,
+  title,
+  description,
+  icon,
+  children,
+}: {
+  number: string
+  title: string
+  description: string
+  icon: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_10px_32px_rgba(24,49,92,0.04)]">
+      <div className="mb-5 flex items-center gap-3 border-b border-border pb-4">
+        <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/8 text-primary">
+          {icon}
+          <i className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-primary text-[9px] font-black not-italic text-white">
+            {number}
+          </i>
+        </span>
+        <div>
+          <h2 className="text-sm font-black tracking-tight text-foreground">{title}</h2>
+          <p className="mt-0.5 text-[11.5px] text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function InputSummary({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-muted/35 px-3 py-2.5">
+      <span className="block text-[9px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground">{label}</span>
+      <strong className="mt-1 block whitespace-nowrap text-sm font-black tabular-nums text-foreground">{value}</strong>
     </div>
   )
 }
@@ -255,53 +372,81 @@ function BankResult({
 function ActualResult({ result }: { result: ReturnType<typeof effectiveHousingCost> }) {
   const max = Math.max(result.ownershipCostAnnual, result.cashOutflowAnnual, result.rentAnnual, 1)
   const difference = result.costDifferenceAnnual
+  const cashDifference = result.cashDifferenceAnnual
   const items = [
-    { label: "Eigentümerkosten", value: result.ownershipCostAnnual, color: "#3978f6" },
-    { label: "Cashflow inkl. Amortisation", value: result.cashOutflowAnnual, color: "#24a66f" },
-    { label: "Miete", value: result.rentAnnual, color: "#f2a12c" },
+    { label: "Eigentümerkosten", note: "ohne Amortisation", value: result.ownershipCostAnnual, color: "#3978f6" },
+    { label: "Gesamter Cashflow", note: "inkl. Amortisation", value: result.cashOutflowAnnual, color: "#24a66f" },
+    { label: "Vergleichsmiete", note: "inkl. Nebenkosten", value: result.rentAnnual, color: "#f2a12c" },
   ]
   return (
-    <div>
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted-foreground">Eigentum oder Miete</p>
-      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-        <Metric label="Eigentümerkosten" value={`${formatCHF(result.ownershipCostAnnual / 12)} / Mt.`} tone="primary" />
-        <Metric label="Cashflow inkl. Amortisation" value={`${formatCHF(result.cashOutflowAnnual / 12)} / Mt.`} tone="success" />
-        <Metric label="Vergleichsmiete" value={`${formatCHF(result.rentAnnual / 12)} / Mt.`} tone="warning" />
-      </div>
-
-      <div className={`mt-4 rounded-xl border px-4 py-3 ${
-        difference <= 0 ? "border-success/30 bg-success/5 text-success" : "border-warning/40 bg-warning/5 text-foreground"
+    <div className="min-w-0">
+      <div className={`rounded-2xl border p-4 sm:p-5 ${
+        difference <= 0
+          ? "border-success/25 bg-gradient-to-br from-success/8 to-white"
+          : "border-[#f2a12c]/35 bg-gradient-to-br from-[#f2a12c]/10 to-white"
       }`}>
-        <p className="text-sm font-extrabold">
-          Eigentum kostet {formatCHF(Math.abs(difference) / 12)} pro Monat {difference <= 0 ? "weniger" : "mehr"} als die Vergleichsmiete.
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted-foreground">Beratungsergebnis</p>
+          <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${
+            difference <= 0 ? "bg-success/12 text-success" : "bg-[#f2a12c]/15 text-[#9a5b00]"
+          }`}>
+            {difference <= 0 ? "Eigentum kostengünstiger" : "Miete kostengünstiger"}
+          </span>
+        </div>
+        <h3 className="mt-3 text-xl font-black leading-tight tracking-tight text-foreground sm:text-2xl">
+          {formatCHF(Math.abs(difference) / 12)} {difference <= 0 ? "weniger" : "mehr"} pro Monat
+        </h3>
+        <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
+          Effektive Eigentümerkosten im Vergleich zur angegebenen Miete – Amortisation separat betrachtet.
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">Vergleich ohne Amortisation, weil diese Ihr Eigenkapital erhöht.</p>
       </div>
 
-      <div className="mt-5 rounded-2xl border border-border bg-background p-4">
-        <h3 className="text-sm font-extrabold text-foreground">Monatlicher Vergleich</h3>
-        <div className="mt-4 space-y-3">
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <Metric label="Eigentümerkosten" value={formatCHF(result.ownershipCostAnnual / 12)} period="pro Monat" tone="primary" />
+        <Metric label="Cashflow" value={formatCHF(result.cashOutflowAnnual / 12)} period="inkl. Amortisation" tone="success" />
+        <Metric label="Vergleichsmiete" value={formatCHF(result.rentAnnual / 12)} period="inkl. Nebenkosten" tone="warning" />
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-border bg-[#f8faff] p-4 sm:p-5">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-black text-foreground">Monatlicher Vergleich</h3>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Alle Werte auf derselben Basis</p>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">CHF / Monat</span>
+        </div>
+        <div className="mt-4 space-y-4">
           {items.map((item) => (
             <div key={item.label}>
-              <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
-                <span className="font-semibold text-muted-foreground">{item.label}</span>
-                <span className="font-extrabold tabular-nums text-foreground">{formatCHF(item.value / 12)}</span>
+              <div className="mb-1.5 flex items-end justify-between gap-3">
+                <span>
+                  <strong className="block text-[11.5px] text-foreground">{item.label}</strong>
+                  <small className="text-[10px] text-muted-foreground">{item.note}</small>
+                </span>
+                <span className="whitespace-nowrap text-sm font-black tabular-nums text-foreground">{formatCHF(item.value / 12)}</span>
               </div>
-              <div className="h-3 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full" style={{ width: `${(item.value / max) * 100}%`, backgroundColor: item.color }} />
+              <div className="h-2.5 overflow-hidden rounded-full bg-[#e9eef6]">
+                <div
+                  className="h-full rounded-full transition-[width] duration-300"
+                  style={{ width: `${(item.value / max) * 100}%`, backgroundColor: item.color }}
+                />
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <Fact label="Hypothekarzins / Jahr" value={formatCHF(result.interestAnnual)} sub="effektive Eingabe" />
-        <Fact
-          label="Liquiditätsdifferenz / Monat"
-          value={formatCHF(Math.abs(result.cashDifferenceAnnual) / 12)}
-          sub={result.cashDifferenceAnnual <= 0 ? "Eigentum tiefer" : "Eigentum höher"}
-        />
+      <div className="mt-4 grid gap-2 rounded-2xl border border-border bg-white p-4 sm:grid-cols-2">
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Hypothekarzins effektiv</p>
+          <p className="mt-1 whitespace-nowrap text-base font-black tabular-nums text-foreground">{formatCHF(result.interestAnnual)} / Jahr</p>
+        </div>
+        <div className="border-t border-border pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+          <p className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">Liquidität inkl. Amortisation</p>
+          <p className="mt-1 whitespace-nowrap text-base font-black tabular-nums text-foreground">
+            {formatCHF(Math.abs(cashDifference) / 12)} {cashDifference <= 0 ? "tiefer" : "höher"}
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -311,60 +456,72 @@ function HouseFill({ title, total, totalLabel, segments }: { title: string; tota
   const id = useId().replace(/:/g, "")
   const usableHeight = 242
   let cursor = 276
+  const annual = totalLabel.toLowerCase().includes("jahr")
   const rendered = segments.filter((segment) => segment.value > 0).map((segment) => {
     const height = Math.max(0, Math.min(usableHeight, (segment.value / total) * usableHeight))
     cursor -= height
     return { ...segment, height, y: cursor }
   })
   return (
-    <div className="rounded-2xl border border-border bg-background p-4">
-      <h3 className="text-center text-sm font-extrabold text-foreground">{title}</h3>
-      <p className="mt-1 text-center text-xs text-muted-foreground">Die Flächen füllen sich von unten nach oben.</p>
-      <svg viewBox="0 0 320 300" className="mx-auto mt-3 h-auto w-full max-w-[280px]" role="img" aria-label={title}>
+    <div className="overflow-hidden rounded-2xl border border-border bg-[#f8faff]">
+      <div className="border-b border-border bg-white px-4 py-3.5">
+        <p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-primary">Visuelle Aufteilung</p>
+        <h3 className="mt-1 text-sm font-black leading-snug text-foreground">{title}</h3>
+      </div>
+      <div className="px-4 pb-4 pt-3">
+      <p className="text-center text-[10.5px] text-muted-foreground">Füllung von unten nach oben</p>
+      <svg viewBox="0 0 320 300" className="mx-auto mt-1 h-auto w-full max-w-[238px]" role="img" aria-label={title}>
         <defs>
           <clipPath id={id}>
             <path d="M38 140 160 32 282 140 248 140 248 276 72 276 72 140Z" />
           </clipPath>
+          <filter id={`${id}-shadow`} x="-20%" y="-20%" width="140%" height="150%">
+            <feDropShadow dx="0" dy="7" stdDeviation="7" floodColor="#112545" floodOpacity="0.14" />
+          </filter>
         </defs>
-        <path d="M38 140 160 32 282 140 248 140 248 276 72 276 72 140Z" fill="#edf2f8" />
-        <g clipPath={`url(#${id})`}>
-          {rendered.map((segment) => (
-            <rect
-              key={segment.label}
-              x="32"
-              y={segment.y}
-              width="256"
-              height={segment.height}
-              fill={segment.color}
-              stroke="rgba(255,255,255,.75)"
-              strokeWidth="2"
-            >
-              <title>{`${segment.label}: ${formatCHF(segment.value)}`}</title>
-            </rect>
-          ))}
+        <g filter={`url(#${id}-shadow)`}>
+          <path d="M38 140 160 32 282 140 248 140 248 276 72 276 72 140Z" fill="#e9eef6" />
+          <g clipPath={`url(#${id})`}>
+            {rendered.map((segment) => (
+              <rect
+                key={segment.label}
+                x="32"
+                y={segment.y}
+                width="256"
+                height={segment.height}
+                fill={segment.color}
+                stroke="rgba(255,255,255,.78)"
+                strokeWidth="2"
+              >
+                <title>{`${segment.label}: ${formatCHF(segment.value)}`}</title>
+              </rect>
+            ))}
+          </g>
+          <path
+            d="M38 140 160 32 282 140 248 140 248 276 72 276 72 140Z"
+            fill="none"
+            stroke="#14284a"
+            strokeWidth="6"
+            strokeLinejoin="round"
+          />
         </g>
-        <path
-          d="M38 140 160 32 282 140 248 140 248 276 72 276 72 140Z"
-          fill="none"
-          stroke="#0f2444"
-          strokeWidth="7"
-          strokeLinejoin="round"
-        />
       </svg>
-      <div className="mt-2 rounded-xl bg-card px-3 py-2 text-center">
+      <div className="-mt-1 rounded-xl border border-border bg-white px-3 py-2.5 text-center shadow-sm">
         <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{totalLabel}</span>
-        <p className="text-lg font-black tabular-nums text-foreground">{formatCHF(total)}</p>
+        <p className="mt-0.5 whitespace-nowrap text-lg font-black tabular-nums text-foreground">{formatCHF(total)}</p>
+        {annual ? <p className="text-[10px] font-semibold text-muted-foreground">{formatCHF(total / 12)} pro Monat</p> : null}
       </div>
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-white">
         {segments.map((segment) => (
-          <div key={segment.label} className="flex items-center justify-between gap-3 text-xs">
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <i className="h-3 w-3 rounded-[3px]" style={{ backgroundColor: segment.color }} />
+          <div key={segment.label} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-2.5 text-[11px]">
+            <i className="h-3 w-3 rounded-[4px]" style={{ backgroundColor: segment.color }} />
+            <span className="min-w-0 font-semibold text-muted-foreground">
               {segment.label}
             </span>
-            <span className="font-extrabold tabular-nums text-foreground">{formatCHF(segment.value)}</span>
+            <span className="whitespace-nowrap font-extrabold tabular-nums text-foreground">{formatCHF(segment.value)}</span>
           </div>
         ))}
+      </div>
       </div>
     </div>
   )
@@ -425,11 +582,9 @@ function SliderField({ label, value, field, onChange, sub, last }: {
 }) {
   const cfg = SLIDERS[field]
   return (
-    <div className={last ? "" : "mb-6"}>
-      <div className="mb-2 flex items-baseline justify-between gap-3">
-        <span className="text-[13.5px] font-semibold text-foreground">{label}</span>
-        <CurrencyInput label={label} value={value} step={cfg.step} onChange={onChange} compact />
-      </div>
+    <div className={last ? "" : "mb-5"}>
+      <label className="mb-1.5 block text-[12.5px] font-bold text-foreground">{label}</label>
+      <CurrencyInput label={label} value={value} step={cfg.step} onChange={onChange} />
       <input
         type="range"
         min={cfg.min}
@@ -438,19 +593,26 @@ function SliderField({ label, value, field, onChange, sub, last }: {
         value={Math.max(cfg.min, Math.min(cfg.max, value))}
         onChange={(event) => onChange(Number(event.target.value))}
         aria-label={label}
-        className="w-full accent-primary"
+        className="mt-3 w-full accent-primary"
       />
-      {sub ? <div className="mt-1.5 text-[11.5px] text-muted-foreground">{sub}</div> : null}
+      {sub ? (
+        <div className={`mt-1.5 text-[10.5px] font-semibold ${sub.includes("unter") ? "text-[#a86500]" : "text-muted-foreground"}`}>
+          {sub}
+        </div>
+      ) : null}
     </div>
   )
 }
 
-function PercentField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+function PercentField({ label, value, onChange, hint }: { label: string; value: number; onChange: (value: number) => void; hint?: string }) {
   return (
     <div className="mb-5">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="text-[13px] font-semibold text-foreground">{label}</span>
-        <label className="flex items-center gap-1 rounded-lg border border-border bg-secondary px-2 py-1">
+      <div className="mb-1.5 flex items-end justify-between gap-3">
+        <span>
+          <span className="block text-[12.5px] font-bold text-foreground">{label}</span>
+          {hint ? <small className="mt-0.5 block text-[10px] text-muted-foreground">{hint}</small> : null}
+        </span>
+        <label className="flex items-center gap-1 rounded-xl border border-border bg-[#f5f8fc] px-3 py-2">
           <input
             type="number"
             min={0}
@@ -458,7 +620,8 @@ function PercentField({ label, value, onChange }: { label: string; value: number
             step={0.05}
             value={value}
             onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))}
-            className="w-16 bg-transparent text-right text-sm font-extrabold tabular-nums outline-none"
+            aria-label={`${label} direkt eingeben`}
+            className="w-16 bg-transparent text-right text-sm font-black tabular-nums outline-none"
           />
           <span className="text-xs font-bold text-muted-foreground">%</span>
         </label>
@@ -476,20 +639,26 @@ function PercentField({ label, value, onChange }: { label: string; value: number
   )
 }
 
-function MoneyField({ label, value, onChange, actionLabel, onAction, last }: {
+function MoneyField({ label, value, onChange, period, hint, actionLabel, onAction, last }: {
   label: string
   value: number
   onChange: (value: number) => void
+  period?: string
+  hint?: string
   actionLabel?: string
   onAction?: () => void
   last?: boolean
 }) {
   return (
     <div className={last ? "" : "mb-4"}>
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <label className="text-[12.5px] font-semibold text-foreground">{label}</label>
+      <div className="mb-1.5 flex items-end justify-between gap-2">
+        <span>
+          <label className="text-[12px] font-bold text-foreground">{label}</label>
+          {period ? <span className="ml-1 text-[10px] font-medium text-muted-foreground">· {period}</span> : null}
+          {hint ? <small className="mt-0.5 block text-[10px] text-muted-foreground">{hint}</small> : null}
+        </span>
         {actionLabel && onAction ? (
-          <button type="button" onClick={onAction} className="text-[10px] font-bold text-primary hover:underline">{actionLabel}</button>
+          <button type="button" onClick={onAction} className="whitespace-nowrap text-[9.5px] font-extrabold text-primary hover:underline">{actionLabel}</button>
         ) : null}
       </div>
       <CurrencyInput label={label} value={value} step={100} onChange={onChange} />
@@ -497,27 +666,33 @@ function MoneyField({ label, value, onChange, actionLabel, onAction, last }: {
   )
 }
 
-function CurrencyInput({ label, value, step, onChange, compact }: {
+function CurrencyInput({ label, value, step, onChange }: {
   label: string
   value: number
   step: number
   onChange: (value: number) => void
-  compact?: boolean
 }) {
   return (
-    <label className={`flex items-center gap-1 rounded-lg border border-border bg-secondary px-2 ${compact ? "py-1" : "py-2.5"}`}>
-      <span className="text-[11px] font-bold text-muted-foreground">CHF</span>
+    <label className="flex items-center gap-2 rounded-xl border border-border bg-[#f5f8fc] px-3 py-2.5 transition-colors focus-within:border-primary focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/10">
+      <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">CHF</span>
       <input
-        type="number"
-        min={0}
-        step={step}
-        value={value}
-        onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))}
+        type="text"
+        inputMode="numeric"
+        value={formatInputNumber(value)}
+        onChange={(event) => {
+          const parsed = Number(event.target.value.replace(/[^0-9]/g, ""))
+          onChange(Math.max(0, Number.isFinite(parsed) ? parsed : 0))
+        }}
         aria-label={`${label} direkt eingeben`}
-        className={`${compact ? "w-24" : "w-full"} bg-transparent text-right text-sm font-extrabold tabular-nums text-foreground outline-none`}
+        data-step={step}
+        className="w-full min-w-0 bg-transparent text-right text-sm font-black tabular-nums text-foreground outline-none"
       />
     </label>
   )
+}
+
+function formatInputNumber(value: number) {
+  return new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 }).format(Math.max(0, Math.round(value)))
 }
 
 function Fact({ label, value, sub }: { label: string; value: string; sub: string }) {
@@ -530,16 +705,17 @@ function Fact({ label, value, sub }: { label: string; value: string; sub: string
   )
 }
 
-function Metric({ label, value, tone }: { label: string; value: string; tone: "primary" | "success" | "warning" }) {
+function Metric({ label, value, period, tone }: { label: string; value: string; period: string; tone: "primary" | "success" | "warning" }) {
   const classes = {
     primary: "border-primary/25 bg-primary/5 text-primary",
     success: "border-success/25 bg-success/5 text-success",
     warning: "border-[#f2a12c]/35 bg-[#f2a12c]/10 text-foreground",
   }
   return (
-    <div className={`rounded-xl border p-3 ${classes[tone]}`}>
+    <div className={`min-w-0 rounded-xl border p-3.5 ${classes[tone]}`}>
       <p className="text-[10px] font-bold uppercase tracking-wide opacity-75">{label}</p>
-      <p className="mt-1 text-base font-black tabular-nums">{value}</p>
+      <p className="mt-1 whitespace-nowrap text-[clamp(15px,1.55vw,20px)] font-black tabular-nums tracking-tight">{value}</p>
+      <p className="mt-0.5 text-[9.5px] font-semibold opacity-70">{period}</p>
     </div>
   )
 }

@@ -33,6 +33,7 @@ export default async function TragbarkeitPage({
       chip="Zwei Ansichten"
       explain="Die Bankansicht prüft die Finanzierung; die effektive Ansicht vergleicht Ihre echten Kosten mit der Miete."
       source="Bankansicht nach Schweizer Finanzierungspraxis; effektive Ansicht auf Basis Ihrer Eingaben."
+      wide
     >
       <AffordabilityCalc defaults={{ income }} ctx={ctx} />
     </CalcShell>

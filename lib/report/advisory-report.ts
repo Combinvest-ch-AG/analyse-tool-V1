@@ -221,6 +221,25 @@ const CALCULATOR_META: Record<string, CalculatorMeta> = {
     meaning: "Bestehende und gewünschte Deckungen werden übersichtlich gegenübergestellt.",
     source: "Persönlich erfasste Versicherungsbedürfnisse",
   },
+  "sealth-check": {
+    title: "Ihre Sealth-Empfehlung",
+    eyebrow: "Service und persönlicher Mehrwert",
+    meaning: "Die Empfehlung verbindet die im Check erfassten Bedürfnisse mit dem passenden Sealth-Servicepaket.",
+    source: "Persönliche Antworten aus dem Sealth-Check",
+  },
+}
+
+const SUPPLEMENTARY_LABELS: Record<string, string> = {
+  alternative: "Alternativmedizin",
+  dental: "Zahnbehandlungen",
+  abroad: "Notfälle im Ausland",
+  orthodontics: "Zahnstellungskorrektur",
+  medication: "Nichtpflichtmedikamente",
+  vision: "Brille und Kontaktlinsen",
+  psychotherapy: "Psychotherapie",
+  rescue: "Suche, Rettung und Transport",
+  prevention: "Prävention und Check-ups",
+  fitness: "Fitness und Gesundheitsförderung",
 }
 
 const INPUT_LABELS: Record<string, string> = {
@@ -366,6 +385,38 @@ function humanValue(key: string, value: unknown): string {
   return safe(value)
 }
 
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(safe).filter(Boolean) : []
+}
+
+function supplementaryExisting(calculator: ReportCalculator): string[] {
+  const existing: string[] = []
+  if (calculator.existingHospital) existing.push("Spitalzusatz")
+  const ambulatory =
+    calculator.existingAmbulatory && typeof calculator.existingAmbulatory === "object"
+      ? (calculator.existingAmbulatory as Record<string, unknown>)
+      : {}
+  Object.entries(ambulatory).forEach(([key, enabled]) => {
+    if (enabled && SUPPLEMENTARY_LABELS[key]) existing.push(SUPPLEMENTARY_LABELS[key])
+  })
+  return existing
+}
+
+function insuranceExisting(calculator: ReportCalculator): string[] {
+  return [calculator.household, calculator.liability, calculator.motor].flatMap((group) => {
+    if (!group || typeof group !== "object") return []
+    const record = group as Record<string, unknown>
+    if (!record.existing || !Array.isArray(record.existingCovers)) return []
+    return record.existingCovers
+      .map((cover) => (cover && typeof cover === "object" ? safe((cover as Record<string, unknown>).label) : ""))
+      .filter(Boolean)
+  })
+}
+
+function normalizedCoverage(value: string): string {
+  return value.split(" · ")[0].trim()
+}
+
 function calculatorFacts(key: string, calculator: ReportCalculator): Array<[string, string]> {
   const facts: Array<[string, string]> = []
   const source =
@@ -387,6 +438,31 @@ function calculatorFacts(key: string, calculator: ReportCalculator): Array<[stri
     if (meaningful(calculator.profile)) facts.push(["Anlegerprofil", safe(calculator.profile)])
     if (meaningful(calculator.score)) facts.push(["Profilwert", `${safe(calculator.score)} / 100`])
     if (meaningful(calculator.equity)) facts.push(["Orientierende Aktienquote", `${safe(calculator.equity)} %`])
+  }
+
+  if (key === "supplementaryInsurance" && meaningful(calculator.notes)) {
+    facts.push(["Notiz", safe(calculator.notes)])
+  }
+
+  if (key === "insuranceNeeds") {
+    const household =
+      calculator.household && typeof calculator.household === "object"
+        ? (calculator.household as Record<string, unknown>)
+        : {}
+    const motor =
+      calculator.motor && typeof calculator.motor === "object"
+        ? (calculator.motor as Record<string, unknown>)
+        : {}
+    if (Number(household.householdValue) > 0) facts.push(["Hausratwert", chf(household.householdValue)])
+    if (Number(household.householdSize) > 0) facts.push(["Haushaltsgrösse", safe(household.householdSize)])
+    if (Number(motor.vehicleValue) > 0) facts.push(["Fahrzeugwert", chf(motor.vehicleValue)])
+    if (Number(motor.vehicleYear) > 0) facts.push(["Fahrzeugjahr", safe(motor.vehicleYear)])
+    if (meaningful(calculator.notes)) facts.push(["Notiz", safe(calculator.notes)])
+  }
+
+  if (key === "sealth-check") {
+    if (meaningful(calculator.selectedPackage)) facts.push(["Gewähltes Paket", safe(calculator.selectedPackage)])
+    if (Number(calculator.annualPrice) > 0) facts.push(["Preis pro Jahr", chf(calculator.annualPrice)])
   }
 
   return facts.slice(0, 8)
@@ -419,8 +495,38 @@ function calculatorResults(key: string, calculator: ReportCalculator): string[] 
     ].filter(Boolean)
   }
 
-  if (key === "supplementaryInsurance") return ["Gewünschte Zusatzdeckungen wurden für den Vergleich gespeichert."]
-  if (key === "insuranceNeeds") return ["Hausrat, Privathaftpflicht und Motorfahrzeug wurden gemeinsam geprüft."]
+  if (key === "supplementaryInsurance") {
+    const selected = stringList(calculator.selected)
+    const existing = supplementaryExisting(calculator)
+    const existingNames = existing.map(normalizedCoverage)
+    const gaps = selected.filter((item) => !existingNames.includes(normalizedCoverage(item)))
+    return [
+      `Gewünschte Ergänzungen: ${selected.length}`,
+      `Bereits vorhanden: ${existing.length}`,
+      `Noch zu prüfen: ${gaps.length}`,
+    ]
+  }
+  if (key === "insuranceNeeds") {
+    const selected = stringList(calculator.selected)
+    const existing = insuranceExisting(calculator)
+    const gaps = selected.filter((item) => !existing.includes(item))
+    return [
+      `Gewünschte Deckungen: ${selected.length}`,
+      `Bereits vorhanden: ${existing.length}`,
+      `Noch zu prüfen: ${gaps.length}`,
+    ]
+  }
+  if (key === "sealth-check") {
+    const scenario =
+      calculator.scenario && typeof calculator.scenario === "object"
+        ? (calculator.scenario as Record<string, unknown>)
+        : {}
+    return [
+      meaningful(calculator.recommendation) ? `Empfehlung: ${safe(calculator.recommendation)}` : "",
+      Number(calculator.annualPrice) > 0 ? `Preis pro Jahr: ${chf(calculator.annualPrice)}` : "",
+      Number(scenario.potentialNet) > 0 ? `Finanzieller Vorteil: ${chf(scenario.potentialNet)}` : "",
+    ].filter(Boolean)
+  }
 
   return []
 }
@@ -860,7 +966,18 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
     const isPensionReport = key === "pension-gap"
     const isAhvReport = key === "ahv-rente"
     const isAffordabilityReport = key === "real-estate-affordability"
-    const hasDedicatedVisual = isSavingsReport || isBudgetReport || isPensionReport || isAhvReport || isAffordabilityReport
+    const isFranchiseReport = key === "health-franchise"
+    const isSupplementaryReport = key === "supplementaryInsurance"
+    const isInsuranceNeedsReport = key === "insuranceNeeds"
+    const hasDedicatedVisual =
+      isSavingsReport ||
+      isBudgetReport ||
+      isPensionReport ||
+      isAhvReport ||
+      isAffordabilityReport ||
+      isFranchiseReport ||
+      isSupplementaryReport ||
+      isInsuranceNeedsReport
 
     if (isBudgetReport) {
       const income = numericCHF(resultWith(results, "Einkommen")) ?? 0
@@ -971,6 +1088,91 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
         drawText(chf(amount), PAGE[0] - M - 78, y - rowIndex * 28, { size: 8, heavy: true })
       })
       y -= 91
+    } else if (isFranchiseReport) {
+      const franchise = numericCHF(resultWith(results, "Beste Franchise")) ?? 0
+      const annualCosts = numericCHF(resultWith(results, "Jahreskosten")) ?? 0
+      const savings = numericCHF(resultWith(results, "Ersparnis")) ?? 0
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Empfohlene Franchise", chf(franchise), BLUE)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "Erwartete Jahreskosten", chf(annualCosts), PALE)
+      metricCard(
+        M + (metricWidth + metricGap) * 2,
+        y,
+        metricWidth,
+        savings > 0 ? "Mögliche Ersparnis" : "Aktuelle Wahl",
+        savings > 0 ? `${chf(savings)} / Jahr` : "Bereits passend",
+        savings > 0 ? GREEN : PALE,
+      )
+      y -= 103
+
+      sectionTitle("Ihre Auswahl", "Grundversicherung im Überblick")
+      const franchiseFacts = [
+        ["Wohnort", calculator.inputs?.ort],
+        ["Geburtsjahr", calculator.inputs?.geburtsjahr],
+        ["Versicherer", calculator.inputs?.versicherer],
+        ["Modell", calculator.inputs?.tarif],
+        ["Unfalldeckung", calculator.inputs?.unfalldeckung],
+        [
+          "Gesundheitskosten / Jahr",
+          Number(calculator.inputs?.gesundheitskosten) > 0 ? chf(calculator.inputs?.gesundheitskosten) : "",
+        ],
+      ].filter(([, value]) => meaningful(value)) as Array<[string, unknown]>
+      franchiseFacts.forEach(([label, value], factIndex) => {
+        const column = factIndex % 2
+        const row = Math.floor(factIndex / 2)
+        const width = (CONTENT - 12) / 2
+        const x = M + column * (width + 12)
+        const top = y - row * 46
+        roundRect(x, top - 36, width, 36, 8, SOFT)
+        drawText(label.toUpperCase(), x + 12, top - 13, { size: 6.2, bold: true, color: MUTED })
+        drawText(safe(value), x + 12, top - 27, { size: 8.5, bold: true, maxWidth: width - 24 })
+      })
+      y -= Math.ceil(franchiseFacts.length / 2) * 46 + 8
+    } else if (isSupplementaryReport || isInsuranceNeedsReport) {
+      const selected = stringList(calculator.selected)
+      const existing = isSupplementaryReport ? supplementaryExisting(calculator) : insuranceExisting(calculator)
+      const existingNames = existing.map(normalizedCoverage)
+      const gaps = selected.filter((item) => !existingNames.includes(normalizedCoverage(item)))
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Gewünscht", String(selected.length), BLUE)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "Bereits vorhanden", String(existing.length), PALE)
+      metricCard(M + (metricWidth + metricGap) * 2, y, metricWidth, "Noch zu prüfen", String(gaps.length), gaps.length ? ORANGE : GREEN)
+      y -= 103
+
+      sectionTitle(
+        "Deckungsübersicht",
+        isSupplementaryReport ? "Gewünschte Zusatzleistungen" : "Gewünschte Versicherungsdeckungen",
+      )
+      const items = selected.length ? selected : existing
+      if (!items.length) {
+        roundRect(M, y - 48, CONTENT, 48, 9, SOFT)
+        drawText("Es wurden noch keine einzelnen Leistungen ausgewählt.", M + 15, y - 29, {
+          size: 9,
+          bold: true,
+          color: MUTED,
+        })
+        y -= 62
+      } else {
+        const itemWidth = (CONTENT - 12) / 2
+        items.slice(0, 12).forEach((item, itemIndex) => {
+          const column = itemIndex % 2
+          const row = Math.floor(itemIndex / 2)
+          const x = M + column * (itemWidth + 12)
+          const top = y - row * 38
+          const isExisting = existingNames.includes(normalizedCoverage(item))
+          roundRect(x, top - 30, itemWidth, 30, 7, isExisting ? [0.92, 0.98, 0.95] : PALE)
+          page.drawCircle({ x: x + 14, y: top - 15, size: 3.2, color: color(isExisting ? GREEN : BLUE) })
+          drawText(item, x + 25, top - 19, { size: 7.8, bold: true, maxWidth: itemWidth - 78 })
+          drawText(isExisting ? "Bestehend" : "Prüfen", x + itemWidth - 52, top - 19, {
+            size: 6.2,
+            bold: true,
+            color: isExisting ? GREEN : BLUE_DARK,
+          })
+        })
+        y -= Math.ceil(Math.min(items.length, 12) / 2) * 38 + 8
+      }
     } else if (isSavingsReport) {
       const total = numericCHF(metrics[0].value) ?? 0
       const paid = numericCHF(metrics[1].value) ?? 0
@@ -1049,12 +1251,13 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
       y -= 8
     }
 
-    if (facts.length) {
+    const factsToRender = isFranchiseReport ? [] : facts
+    if (factsToRender.length) {
       sectionTitle("Berechnungsgrundlage", "Ihre verwendeten Angaben")
-      const columns = isAffordabilityReport && facts.length >= 5 ? 3 : facts.length > 4 ? 2 : 1
+      const columns = isAffordabilityReport && factsToRender.length >= 5 ? 3 : factsToRender.length > 4 ? 2 : 1
       const columnGap = columns === 3 ? 10 : 18
       const columnWidth = columns > 1 ? (CONTENT - columnGap * (columns - 1)) / columns : CONTENT
-      facts.forEach(([label, value], factIndex) => {
+      factsToRender.forEach(([label, value], factIndex) => {
         const column = columns > 1 ? factIndex % columns : 0
         const row = columns > 1 ? Math.floor(factIndex / columns) : factIndex
         const x = M + column * (columnWidth + columnGap)
@@ -1063,7 +1266,7 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
         drawText(label.toUpperCase(), x + 10, rowTop - 12, { size: 6, bold: true, color: MUTED })
         drawText(value, x + 10, rowTop - 25, { size: 8.5, bold: true, maxWidth: columnWidth - 20 })
       })
-      y -= Math.ceil(facts.length / columns) * 42 + 10
+      y -= Math.ceil(factsToRender.length / columns) * 42 + 10
     }
 
     if (!isSavingsReport) {

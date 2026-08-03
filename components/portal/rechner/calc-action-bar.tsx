@@ -52,6 +52,7 @@ export function CalcActionBar({
   const [state, setState] = useState<SaveState>(canSave ? "idle" : "standalone")
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [openingReport, setOpeningReport] = useState(false)
 
   payloadRef.current = payload
 
@@ -122,6 +123,28 @@ export function CalcActionBar({
   const backLabel = ctx.analysisId ? "Zur Risikoanalyse" : "Zu den Rechnern"
   const StatusIcon = state === "saving" ? LoaderCircle : state === "error" ? CloudOff : state === "saved" ? Check : Cloud
 
+  async function openCompleteReport() {
+    if (!ctx.analysisId || openingReport) return
+    setOpeningReport(true)
+    const reportWindow = window.open("", "_blank")
+    if (reportWindow) {
+      reportWindow.opener = null
+      reportWindow.document.title = "Beratungsbericht wird erstellt"
+      reportWindow.document.body.innerHTML =
+        '<p style="font:16px system-ui;padding:32px;color:#12213d">Beratungsbericht wird erstellt ...</p>'
+    }
+    const saved = await persist(false)
+    if (!saved) {
+      reportWindow?.close()
+      setOpeningReport(false)
+      return
+    }
+    const reportUrl = `/analyse/${ctx.analysisId}/report.pdf`
+    if (reportWindow) reportWindow.location.replace(reportUrl)
+    else window.location.assign(reportUrl)
+    setOpeningReport(false)
+  }
+
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3">
       <button
@@ -145,15 +168,16 @@ export function CalcActionBar({
       </button>
 
       {ctx.analysisId ? (
-        <a
-          href={`/analyse/${ctx.analysisId}/report.pdf`}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={() => void openCompleteReport()}
+          disabled={openingReport || state === "saving"}
+          title="Aktuellen Rechner speichern und den gesamten Beratungsbericht erstellen"
           className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-[13px] font-bold text-foreground transition-colors hover:bg-muted"
         >
-          <Download className="h-3.5 w-3.5" aria-hidden="true" />
-          PDF-Bericht
-        </a>
+          {openingReport ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Download className="h-3.5 w-3.5" aria-hidden="true" />}
+          {openingReport ? "Bericht wird erstellt ..." : "Gesamtbericht als PDF"}
+        </button>
       ) : null}
 
       <Link

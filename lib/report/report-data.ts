@@ -69,6 +69,29 @@ export function buildReportData(
       declaredResults.length > 0 &&
       declaredResults.every((result) => /noch keine|keine auswahl|nicht erfasst|bitte erfassen/i.test(result))
     if (onlyPlaceholders) return
+    if (
+      key === "supplementaryInsurance" &&
+      (!Array.isArray(value.selected) || value.selected.length === 0) &&
+      !value.hospital &&
+      !value.existingHospital
+    ) return
+    if (
+      key === "insuranceNeeds" &&
+      (!Array.isArray(value.selected) || value.selected.length === 0) &&
+      ![value.household, value.liability, value.motor].some(
+        (group) => {
+          if (!group || typeof group !== "object") return false
+          const record = group as Record<string, unknown>
+          return Boolean(record.enabled || record.existing)
+        },
+      )
+    ) return
+    if (
+      key === "sealth-check" &&
+      (!Array.isArray(value.answers) || !value.answers.some(Boolean)) &&
+      !value.recommendation &&
+      !value.selectedPackage
+    ) return
     calculators[key] = {
       ...value,
       calculationYear: Number(value.calculationYear) || YEAR,

@@ -262,7 +262,7 @@ export function ClosingFlow({
             <SectionHead
               n={3}
               title="Kundenbericht und Dokumente"
-              desc="Die Finanzanalyse für den Kunden sowie erforderliche Dokumente versandbereit erstellen."
+              desc="Profiling, Themen, Verträge und gespeicherte Rechner in einem Kundenbericht zusammenfassen."
               badge={
                 hasDocuments
                   ? { label: "Erstellt", cls: "bg-success/10 text-success" }
@@ -282,7 +282,7 @@ export function ClosingFlow({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3.5 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
               >
-                <FileText className="h-3.5 w-3.5" /> Kundenbericht als PDF
+                <FileText className="h-3.5 w-3.5" /> Gesamtbericht als PDF
               </a>
             </div>
           </section>

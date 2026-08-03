@@ -101,7 +101,7 @@ export function RiskCockpit({
         <div>
           <h2 className="text-lg font-extrabold text-foreground">Risikoanalyse & Handlungsfelder</h2>
           <p className="text-[13px] text-muted-foreground">
-            Nach Relevanz sortiert. Öffnen Sie die passenden Rechner oder erstellen Sie den Beratungsbericht.
+            Themen bearbeiten, Rechner verwenden und alles in einem gemeinsamen Kundenbericht zusammenfassen.
           </p>
         </div>
         {analysisId ? (
@@ -112,7 +112,7 @@ export function RiskCockpit({
             className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2.5 text-[13px] font-extrabold text-primary-foreground transition-colors hover:bg-primary-deep"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
-            Kundenbericht als PDF
+            Gesamtbericht als PDF
           </a>
         ) : null}
       </div>

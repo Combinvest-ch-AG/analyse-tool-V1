@@ -352,12 +352,12 @@ function humanValue(key: string, value: unknown): string {
   if (typeof value === "boolean") return value ? "Ja" : "Nein"
   if (typeof value === "number") {
     const moneyKey =
-      /income|einkommen|ausgaben|kaufpreis|eigenkapital|salary|capital|startkapital|sparrate|betrag|beitrag|zielvermoegen|amount|guthaben|kosten|iv|partner|orphan/i.test(
+      /income|einkommen|ausgaben|kaufpreis|eigenkapital|salary|capital|startkapital|sparrate|betrag|beitrag|zielvermoegen|amount|guthaben|kosten|miete/i.test(
         key,
-      )
+      ) || ["iv", "ivChild", "partner", "orphan"].includes(key)
     if (moneyKey) return chf(value)
     if (/anlagehorizont|verzoegerung|years|delay/i.test(key)) return `${value} Jahre`
-    if (/pct|degree|quote|rendite|inflation_pa|ter_pa|grenzsteuersatz|tax/i.test(key)) return `${value} %`
+    if (/pct|degree|quote|rendite|inflation_pa|ter_pa|grenzsteuersatz|tax|zins/i.test(key)) return `${value} %`
     return Number(value).toLocaleString("de-CH")
   }
   if (Array.isArray(value)) return value.map(safe).filter(Boolean).join(", ")
@@ -470,6 +470,7 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   let bold: PDFFont
   let heavy: PDFFont
   let brandIcon: PDFImage | null = null
+  let brandLogo: PDFImage | null = null
   try {
     const [regularBytes, semiboldBytes, heavyBytes] = await Promise.all([
       readFile(join(process.cwd(), "public", "fonts", "Manrope-Regular.ttf")),
@@ -488,6 +489,11 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
     brandIcon = await doc.embedPng(await readFile(join(process.cwd(), "public", "combinvest-icon.png")))
   } catch {
     brandIcon = null
+  }
+  try {
+    brandLogo = await doc.embedPng(await readFile(join(process.cwd(), "public", "combinvest-logo.png")))
+  } catch {
+    brandLogo = null
   }
   doc.setTitle(`Combinvest Finanzanalyse - ${safe(data.customerName)}`)
   doc.setAuthor("Combinvest AG")
@@ -603,10 +609,14 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   }
 
   function drawBrand(dark = false) {
+    if (brandLogo && !dark) {
+      page.drawImage(brandLogo, { x: M, y: 790, width: 87, height: 31 })
+      return
+    }
     if (brandIcon) page.drawImage(brandIcon, { x: M, y: 793, width: 27, height: 27 })
     const wordmarkX = M + (brandIcon ? 34 : 0)
-    drawText("comb", wordmarkX, 808, { size: 15, heavy: true, color: dark ? WHITE : NAVY })
-    drawText("invest", wordmarkX, 794, { size: 15, heavy: true, color: dark ? SKY : BLUE })
+    drawText("comb", wordmarkX, 808, { size: 15, bold: true, color: dark ? WHITE : NAVY })
+    drawText("invest", wordmarkX, 794, { size: 15, bold: true, color: dark ? SKY : BLUE })
   }
 
   function addPage(kicker: string, title: string, intro?: string) {
@@ -617,7 +627,7 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
     drawText(kicker.toUpperCase(), PAGE[0] - M - 168, 802, { size: 7, bold: true, color: BLUE })
     line(M, 778, PAGE[0] - M, 778, LINE, 0.8)
     y = 739
-    y = paragraph(title, M, y, CONTENT, { size: 25, heavy: true, color: NAVY, leading: 31 }) - 4
+    y = paragraph(title, M, y, CONTENT, { size: 23.5, bold: true, color: NAVY, leading: 29 }) - 4
     if (intro) y = paragraph(intro, M, y, CONTENT - 12, { size: 9.5, color: MUTED, leading: 14 }) - 16
   }
 
@@ -629,7 +639,7 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
     ensure(74, title)
     drawText(kicker.toUpperCase(), M, y, { size: 7, bold: true, color: BLUE })
     y -= 18
-    drawText(title, M, y, { size: 17, heavy: true, color: NAVY })
+    drawText(title, M, y, { size: 15.5, bold: true, color: NAVY })
     y -= 20
     if (description) y = paragraph(description, M, y, CONTENT, { size: 9, color: MUTED, leading: 13 }) - 10
   }
@@ -649,10 +659,13 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
     )
   }
 
-  function infoRow(label: string, value: string, rowY: number, labelWidth = 150) {
+  function infoRow(label: string, value: string, rowY: number, labelWidth = 150): number {
     drawText(label, M, rowY, { size: 8, bold: true, color: MUTED })
-    paragraph(value, M + labelWidth, rowY, CONTENT - labelWidth, { size: 9.5, bold: true, leading: 12 })
-    line(M, rowY - 12, PAGE[0] - M, rowY - 12, LINE, 0.7)
+    const lines = wrap(value, bold, 9.5, CONTENT - labelWidth)
+    lines.forEach((entry, index) => drawText(entry, M + labelWidth, rowY - index * 12, { size: 9.5, bold: true }))
+    const rowHeight = Math.max(30, lines.length * 12 + 12)
+    line(M, rowY - rowHeight + 10, PAGE[0] - M, rowY - rowHeight + 10, LINE, 0.7)
+    return rowHeight
   }
 
   // Cover - deliberately minimal, editorial and readable on a phone.
@@ -663,22 +676,25 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   rect(PAGE[0] - 117, 30, 90, PAGE[1] - 60, BLUE)
 
   roundRect(58, 730, 145, 57, 12, WHITE)
-  if (brandIcon) page.drawImage(brandIcon, { x: 72, y: 744, width: 30, height: 30 })
-  const coverWordmarkX = brandIcon ? 111 : 72
-  drawText("comb", coverWordmarkX, 761, { size: 18, heavy: true, color: NAVY })
-  drawText("invest", coverWordmarkX, 743, { size: 18, heavy: true, color: BLUE })
+  if (brandLogo) page.drawImage(brandLogo, { x: 72, y: 743, width: 105, height: 37 })
+  else {
+    if (brandIcon) page.drawImage(brandIcon, { x: 72, y: 744, width: 30, height: 30 })
+    const coverWordmarkX = brandIcon ? 111 : 72
+    drawText("comb", coverWordmarkX, 761, { size: 18, bold: true, color: NAVY })
+    drawText("invest", coverWordmarkX, 743, { size: 18, bold: true, color: BLUE })
+  }
 
   roundRect(58, 643, 194, 26, 13, [0.095, 0.18, 0.34])
   drawText("PERSÖNLICHE FINANZANALYSE", 72, 652, { size: 7, bold: true, color: SKY })
 
-  paragraph("Ihre Finanzen.\nKlar auf den Punkt.", 58, 584, 362, {
-    size: 34,
-    heavy: true,
+  paragraph("Ihr persönlicher\nBeratungsbericht.", 58, 584, 362, {
+    size: 31,
+    bold: true,
     color: WHITE,
-    leading: 43,
+    leading: 39,
   })
-  paragraph("Was Sie heute wissen. Was Sie als Nächstes tun.", 58, 466, 335, {
-    size: 13,
+  paragraph("Ausgangslage, Berechnungen und nächste Schritte - klar dokumentiert.", 58, 474, 335, {
+    size: 12,
     color: [0.82, 0.87, 0.96],
     leading: 19,
   })
@@ -719,78 +735,71 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   )
   const cardWidth = (CONTENT - 16) / 3
   metricCard(M, y, cardWidth, "Themen bearbeitet", `${completed.length} von ${ranked.length}`)
-  metricCard(M + cardWidth + 8, y, cardWidth, "Berechnungen", String(calculators.length), BLUE)
+  metricCard(
+    M + cardWidth + 8,
+    y,
+    cardWidth,
+    "Gespeicherte Rechner",
+    calculators.length ? String(calculators.length) : "Keine",
+    calculators.length ? BLUE : PALE,
+  )
   metricCard(M + (cardWidth + 8) * 2, y, cardWidth, "Verträge erfasst", String(contractKeys.length))
   y -= 103
 
-  if (calculators.length) {
-    sectionTitle("Ihre Beratung", "Diese Rechner wurden gemeinsam verwendet")
-    const calculatorColumnWidth = (CONTENT - 12) / 2
-    calculators.forEach(([key, calculator], calculatorIndex) => {
-      const column = calculatorIndex % 2
-      const row = Math.floor(calculatorIndex / 2)
-      const cardX = M + column * (calculatorColumnWidth + 12)
-      const cardTop = y - row * 48
-      roundRect(cardX, cardTop - 38, calculatorColumnWidth, 38, 8, SOFT)
-      roundRect(cardX, cardTop - 38, 5, 38, 2.5, BLUE)
-      drawText(calculatorMeta(key).title, cardX + 14, cardTop - 16, {
-        size: 8.5,
-        bold: true,
-        maxWidth: calculatorColumnWidth - 25,
-      })
-      drawText(`Stand ${fmtDate(calculator.savedAt || data.createdAt)}`, cardX + 14, cardTop - 29, {
-        size: 6.5,
-        color: MUTED,
-      })
-    })
-    y -= Math.ceil(calculators.length / 2) * 48 + 12
-  }
-
-  sectionTitle("Ihre Prioritäten", "Die wichtigsten Beratungsthemen")
-  ranked.slice(0, 3).forEach((area, index) => {
-    ensure(70)
-    const top = y
-    roundRect(M, top - 58, CONTENT, 58, 10, index === 0 ? PALE : SOFT)
-    roundRect(M, top - 58, 7, 58, 3.5, index === 0 ? BLUE : statusColor(area.status))
-    drawText(String(index + 1), M + 19, top - 34, { size: 17, heavy: true, color: index === 0 ? BLUE : MUTED })
-    drawText(area.name, M + 52, top - 20, { size: 11.5, heavy: true })
-    drawText(AREA_COPY[area.key] ?? "Persönlichen Handlungsbedarf gemeinsam prüfen.", M + 52, top - 39, {
-      size: 7.5,
+  sectionTitle("Dokumentierter Beratungsstand", "Diese Themen wurden gemeinsam bearbeitet")
+  const documentedAreas = completed.length ? completed : ranked.filter((area) => area.status === "progress")
+  const areaColumnWidth = (CONTENT - 12) / 2
+  documentedAreas.forEach((area, index) => {
+    const column = index % 2
+    const row = Math.floor(index / 2)
+    const x = M + column * (areaColumnWidth + 12)
+    const top = y - row * 72
+    roundRect(x, top - 62, areaColumnWidth, 62, 10, SOFT)
+    roundRect(x, top - 62, 5, 62, 2.5, area.status === "done" ? GREEN : ORANGE)
+    drawText(area.name, x + 15, top - 19, { size: 10.5, bold: true, maxWidth: areaColumnWidth - 30 })
+    paragraph(AREA_COPY[area.key] ?? "Persönlichen Handlungsbedarf gemeinsam prüfen.", x + 15, top - 37, areaColumnWidth - 30, {
+      size: 7.2,
       color: MUTED,
-      maxWidth: 325,
+      leading: 10,
     })
-    roundRect(PAGE[0] - M - 100, top - 40, 82, 22, 11, area.status === "done" ? [0.9, 0.97, 0.93] : PALE)
-    drawText(statusLabel(area.status), PAGE[0] - M - 90, top - 32, {
-      size: 6.5,
-      bold: true,
-      color: statusColor(area.status),
-    })
-    y -= 68
   })
-
-  y -= 8
-  if (y < 270) {
-    addPage(
-      "Ihre Übersicht",
-      "Persönliche Ausgangslage",
-      "Die wichtigsten persönlichen Angaben, die im Beratungsgespräch erfasst wurden.",
-    )
+  if (!documentedAreas.length) {
+    roundRect(M, y - 54, CONTENT, 54, 10, SOFT)
+    drawText("Die Beratungsthemen sind noch nicht als bearbeitet markiert.", M + 16, y - 31, {
+      size: 9.5,
+      bold: true,
+      color: MUTED,
+    })
+    y -= 64
   } else {
-    sectionTitle("Ihre Angaben", "Persönliche Ausgangslage")
+    y -= Math.ceil(documentedAreas.length / 2) * 72 + 8
   }
+
+  addPage(
+    "Ihr Kundenprofil",
+    "Persönliche Ausgangslage",
+    "Diese Angaben bildeten die Grundlage für die besprochenen Themen und Berechnungen.",
+  )
   const profileRows: Array<[string, string]> = [
     ["Kunde", data.customerName],
     ["Geburtsdatum", fmtDate(data.customer?.birthdate)],
     ["Wohnort", [data.customer?.postcode, data.customer?.city].filter(Boolean).join(" ") || "Nicht erfasst"],
+    ["Zivilstand", answerValue(data, "zivilstand")],
+    ["Kinder", answerValue(data, "kinder")],
     ["Erwerbssituation", answerValue(data, "erwerb")],
+    ["Beruf", answerValue(data, "beruf")],
     ["Jahresbruttoeinkommen", answerValue(data, "brutto")],
     ["Wohnsituation", answerValue(data, "wohnen")],
+    ["Liquidität", answerValue(data, "liquiditaet")],
+    ["Ziel bei Invalidität", answerValue(data, "invaliditaet_ziel")],
+    ["Ziel bei Pensionierung", answerValue(data, "pension_ziel")],
+    ["Absicherung im Todesfall", answerValue(data, "tod_ziel")],
     ["Finanzielle Ziele", answerValue(data, "ziele")],
   ].filter(([, value]) => meaningful(value)) as Array<[string, string]>
-  profileRows.slice(0, 7).forEach(([label, value]) => {
-    ensure(30, "Persönliche Ausgangslage")
-    infoRow(label, value, y)
-    y -= 30
+  profileRows.slice(0, 14).forEach(([label, value]) => {
+    const estimatedHeight = Math.max(30, wrap(value, bold, 9.5, CONTENT - 150).length * 12 + 12)
+    ensure(estimatedHeight, "Persönliche Ausgangslage")
+    y -= infoRow(label, value, y)
   })
 
   // Contracts only when actually captured.
@@ -1118,9 +1127,9 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
       ["Ziel des Termins", appointment.purpose ?? ""],
     ].filter(([, value]) => meaningful(value)) as Array<[string, string]>
     appointmentRows.forEach(([label, value]) => {
-      ensure(34, "Folgetermin")
-      infoRow(label, value, y, 130)
-      y -= 34
+      const estimatedHeight = Math.max(30, wrap(value, bold, 9.5, CONTENT - 130).length * 12 + 12)
+      ensure(estimatedHeight, "Folgetermin")
+      y -= infoRow(label, value, y, 130)
     })
   }
 

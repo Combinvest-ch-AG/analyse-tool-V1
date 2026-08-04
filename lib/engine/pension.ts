@@ -1,6 +1,5 @@
 // Zwei-Phasen-Vorsorge-Engine (deterministisch, reine Funktionen)
-// 1:1-Port aus engine/pension-engine.mjs — Mathematik unverändert.
-// Die originale .mjs + .test.mjs bleiben als Regressionsnetz erhalten.
+// Single source of truth — Regressionstests: lib/engine/pension.test.mts
 
 export type Freq = "m" | "q" | "y"
 

@@ -1,5 +1,5 @@
 // Franchise-Vergleichs-Engine (KVG, deterministisch, reine Funktionen)
-// 1:1-Port aus engine/franchise-engine.mjs — Mathematik unverändert.
+// Single source of truth — Regressionstests: lib/engine/franchise.test.mts
 
 export type AgeGroup = "ERW" | "JUG" | "KIN"
 

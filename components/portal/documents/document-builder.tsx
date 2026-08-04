@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, ArrowRight, CheckCircle2, Download, FileText, Loader2 } from "lucide-react"
 import { saveDocuments } from "@/app/actions/portal"
@@ -109,44 +109,50 @@ export function DocumentBuilder({
   analysisId,
   customerId,
   prefill,
+  initial,
 }: {
   analysisId: string
   customerId: string
   prefill: DocumentPrefill
+  initial?: Record<string, unknown>
 }) {
+  const draft = initial?.draft && typeof initial.draft === "object" ? initial.draft as Record<string, unknown> : {}
+  const draftForm = draft.form && typeof draft.form === "object" ? draft.form as Record<string, unknown> : {}
   const [panel, setPanel] = useState(0)
-  const [type, setType] = useState<"private" | "company">("private")
+  const [type, setType] = useState<"private" | "company">(draft.type === "company" ? "company" : "private")
   const [f, setF] = useState({
-    advisorName: prefill.advisorName,
-    advisorEmail: prefill.advisorEmail,
-    finma: prefill.finma,
-    advisorStreet: prefill.advisorStreet || "Hausimollstrasse 3",
-    advisorZipCity: prefill.advisorZipCity || "4622 Egerkingen",
-    date: new Date().toISOString().slice(0, 10),
-    salutation: "Herr",
-    birthdate: prefill.birthdate,
-    firstName: prefill.firstName,
-    lastName: prefill.lastName,
-    company: "",
-    email: prefill.email,
-    phone: prefill.phone,
-    street: prefill.street,
-    zip: prefill.zip,
-    city: prefill.city,
-    meetingType: "Datenerhebung",
-    place: "",
-    decision: "",
+    advisorName: String(draftForm.advisorName ?? prefill.advisorName),
+    advisorEmail: String(draftForm.advisorEmail ?? prefill.advisorEmail),
+    finma: String(draftForm.finma ?? prefill.finma),
+    advisorStreet: String(draftForm.advisorStreet ?? (prefill.advisorStreet || "Hausimollstrasse 3")),
+    advisorZipCity: String(draftForm.advisorZipCity ?? (prefill.advisorZipCity || "4622 Egerkingen")),
+    date: String(draftForm.date ?? new Date().toISOString().slice(0, 10)),
+    salutation: String(draftForm.salutation ?? "Herr"),
+    birthdate: String(draftForm.birthdate ?? prefill.birthdate),
+    firstName: String(draftForm.firstName ?? prefill.firstName),
+    lastName: String(draftForm.lastName ?? prefill.lastName),
+    company: String(draftForm.company ?? ""),
+    email: String(draftForm.email ?? prefill.email),
+    phone: String(draftForm.phone ?? prefill.phone),
+    street: String(draftForm.street ?? prefill.street),
+    zip: String(draftForm.zip ?? prefill.zip),
+    city: String(draftForm.city ?? prefill.city),
+    meetingType: String(draftForm.meetingType ?? "Datenerhebung"),
+    place: String(draftForm.place ?? ""),
+    decision: String(draftForm.decision ?? ""),
   })
-  const [selected, setSelected] = useState<string[]>(["protocol"])
-  const [protocol, setProtocol] = useState<Protocol>({
-    topics: [],
-    contractCompany: "",
-    contractBranch: "",
-    cancellation: "forward",
-    answers: Object.fromEntries(PROTOCOL_GROUPS.map((g) => [g.id, g.questions.map(() => "")])),
-    motives: {},
-  })
-  const [pk, setPk] = useState<Pk>({
+  const [selected, setSelected] = useState<string[]>(Array.isArray(draft.selected) ? draft.selected.filter((value): value is string => typeof value === "string") : ["protocol"])
+  const [protocol, setProtocol] = useState<Protocol>(
+    draft.protocol && typeof draft.protocol === "object" ? draft.protocol as Protocol : {
+      topics: [],
+      contractCompany: "",
+      contractBranch: "",
+      cancellation: "forward",
+      answers: Object.fromEntries(PROTOCOL_GROUPS.map((g) => [g.id, g.questions.map(() => "")])),
+      motives: {},
+    },
+  )
+  const [pk, setPk] = useState<Pk>(draft.pk && typeof draft.pk === "object" ? draft.pk as Pk : {
     ahvNumber: "",
     previousPension: "",
     previousPensionAddress: "",
@@ -155,7 +161,7 @@ export function DocumentBuilder({
     attachments: [],
     death: { enabled: false, deathDate: "", survivorLast: "", survivorFirst: "", survivorBirth: "", relationship: "", survivorAddress: "" },
   })
-  const [cancel, setCancel] = useState<Cancellation>({
+  const [cancel, setCancel] = useState<Cancellation>(draft.cancel && typeof draft.cancel === "object" ? draft.cancel as Cancellation : {
     kkCompany: "",
     kkPolicy: "",
     kkScope: ["KVG"],
@@ -164,13 +170,34 @@ export function DocumentBuilder({
     sachPolicy: "",
     sachDate: "",
   })
-  const [power, setPower] = useState<GeneralPower>({ scope: "Versicherungs- und Vorsorgeangelegenheiten", note: "" })
-  const [advisorLater, setAdvisorLater] = useState(false)
-  const [consent, setConsent] = useState(false)
+  const [power, setPower] = useState<GeneralPower>(draft.power && typeof draft.power === "object" ? draft.power as GeneralPower : { scope: "Versicherungs- und Vorsorgeangelegenheiten", note: "" })
+  const [advisorLater, setAdvisorLater] = useState(Boolean(draft.advisorLater))
+  const [consent, setConsent] = useState(Boolean(draft.consent))
   const [status, setStatus] = useState<string | null>(null)
   const [downloads, setDownloads] = useState<{ name: string; url: string; file: string }[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const initialAutosave = useRef(true)
+
+  useEffect(() => {
+    if (initialAutosave.current) {
+      initialAutosave.current = false
+      return
+    }
+    setStatus("Änderungen werden gespeichert …")
+    const timer = window.setTimeout(async () => {
+      const result = await saveDocuments({
+        analysisId,
+        documents: {
+          customerId,
+          draft: { type, form: f, selected, protocol, pk, cancel, power, advisorLater, consent },
+        },
+        writeRevision: false,
+      })
+      setStatus(result.ok ? "Entwurf automatisch gespeichert." : "Entwurf konnte nicht gespeichert werden.")
+    }, 1000)
+    return () => window.clearTimeout(timer)
+  }, [advisorLater, analysisId, cancel, consent, customerId, f, pk, power, protocol, selected, type])
 
   const customerRef = useRef<SignaturePadHandle>(null)
   const advisorRef = useRef<SignaturePadHandle>(null)

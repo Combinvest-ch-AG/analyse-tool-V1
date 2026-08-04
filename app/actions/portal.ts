@@ -91,7 +91,87 @@ export async function getAnalysisLockVersion(analysisId: string): Promise<number
   }
 }
 
-export type SaveCalculatorResult = { ok: true } | { ok: false; error: string }
+type AnalysisSnapshotRow = {
+  lock_version: number | string
+  current_step: number | string | null
+  current_question: number | string | null
+  progress_percent: number | string | null
+  latest_snapshot: Record<string, unknown> | null
+}
+
+type SnapshotMutationResult =
+  | { ok: true; lockVersion: number; savedAt: string; completed: boolean }
+  | { ok: false; error: string; conflict?: boolean }
+
+/**
+ * Single persistence gateway for every analysis section outside the wizard.
+ *
+ * It always reads the latest snapshot, applies the requested merge and writes
+ * it through the same optimistic-locking RPC as the wizard. A concurrent write
+ * gets one bounded retry with a fresh snapshot, so two advisor actions cannot
+ * silently overwrite each other and no retry loop can hammer Supabase.
+ */
+async function mutateAnalysisSnapshot(input: {
+  analysisId: string
+  mutate: (current: Record<string, unknown>, savedAt: string) => Record<string, unknown>
+  complete?: boolean
+  writeRevision?: boolean
+  revalidate?: string[]
+}): Promise<SnapshotMutationResult> {
+  try {
+    const advisor = await getCurrentAdvisor()
+    if (!advisor) return { ok: false, error: "Nicht angemeldet." }
+
+    const supabase = await createClient()
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { data, error: readError } = await supabase
+        .from("analyses")
+        .select("lock_version,current_step,current_question,progress_percent,latest_snapshot")
+        .eq("id", input.analysisId)
+        .maybeSingle()
+
+      const row = data as AnalysisSnapshotRow | null
+      if (readError || !row) {
+        return { ok: false, error: readError?.message ?? "Analyse nicht gefunden oder nicht freigegeben." }
+      }
+
+      const savedAt = new Date().toISOString()
+      const current = row.latest_snapshot ?? {}
+      const snapshot = input.mutate(current, savedAt)
+      const { data: saved, error } = await supabase.rpc("save_analysis_snapshot", {
+        p_analysis_id: input.analysisId,
+        p_expected_lock_version: Number(row.lock_version),
+        p_step: Number(row.current_step ?? 3),
+        p_question: Number(row.current_question ?? 0),
+        p_progress: input.complete ? 100 : Number(row.progress_percent ?? 0),
+        p_snapshot: snapshot,
+        p_complete: input.complete ?? false,
+        p_write_revision: input.writeRevision ?? false,
+      })
+
+      if (error) return { ok: false, error: error.message }
+      const savedRow = (Array.isArray(saved) ? saved[0] : saved) as { lock_version?: number | string } | null
+      if (savedRow) {
+        for (const path of input.revalidate ?? []) revalidatePath(path)
+        return {
+          ok: true,
+          lockVersion: Number(savedRow.lock_version ?? Number(row.lock_version) + 1),
+          savedAt,
+          completed: input.complete ?? false,
+        }
+      }
+      // Empty result means a concurrent save won the optimistic lock. The next
+      // iteration rereads and reapplies this mutation to the newest snapshot.
+    }
+    return { ok: false, error: "Konflikt: Analyse wurde gleichzeitig geändert.", conflict: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Speichern fehlgeschlagen." }
+  }
+}
+
+export type SaveCalculatorResult =
+  | { ok: true; lockVersion: number; savedAt: string }
+  | { ok: false; error: string; conflict?: boolean }
 
 /**
  * Merges a calculator result into an existing analysis snapshot under
@@ -102,45 +182,21 @@ export async function saveCalculatorResult(input: {
   analysisId: string
   key: string
   payload: Record<string, unknown>
+  writeRevision?: boolean
 }): Promise<SaveCalculatorResult> {
-  try {
-    const advisor = await getCurrentAdvisor()
-    if (!advisor) return { ok: false, error: "Nicht angemeldet." }
-
-    const supabase = await createClient()
-    const { data: row, error: readErr } = await supabase
-      .from("analyses")
-      .select("lock_version,current_step,current_question,progress_percent,latest_snapshot")
-      .eq("id", input.analysisId)
-      .maybeSingle()
-    if (readErr || !row) return { ok: false, error: readErr?.message ?? "Analyse nicht gefunden." }
-
-    const current = (row.latest_snapshot as Record<string, unknown> | null) ?? {}
-    const calcResults = { ...((current.calculatorResults as Record<string, unknown>) ?? {}) }
-    calcResults[input.key] = { ...input.payload, savedAt: new Date().toISOString() }
-    const snapshot = { ...current, calculatorResults: calcResults }
-
-    const { data: saved, error } = await supabase.rpc("save_analysis_snapshot", {
-      p_analysis_id: input.analysisId,
-      p_expected_lock_version: Number(row.lock_version),
-      p_step: Number(row.current_step ?? 3),
-      p_question: Number(row.current_question ?? 0),
-      p_progress: Number(row.progress_percent ?? 0),
-      p_snapshot: snapshot,
-      p_complete: false,
-    })
-    if (error) return { ok: false, error: error.message }
-    // Empty result = lock conflict (RPC no longer raises); report it instead of
-    // silently claiming success.
-    if (!(Array.isArray(saved) ? saved.length : saved)) {
-      return { ok: false, error: "Konflikt: Analyse wurde zwischenzeitlich geändert. Bitte neu laden." }
-    }
-
-    revalidatePath(`/analyse/${input.analysisId}`)
-    return { ok: true }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Übernahme fehlgeschlagen." }
-  }
+  const result = await mutateAnalysisSnapshot({
+    analysisId: input.analysisId,
+    writeRevision: input.writeRevision ?? false,
+    revalidate: [`/analyse/${input.analysisId}`],
+    mutate: (current, savedAt) => {
+      const calculatorResults = { ...((current.calculatorResults as Record<string, unknown>) ?? {}) }
+      calculatorResults[input.key] = { ...input.payload, savedAt }
+      return { ...current, calculatorResults }
+    },
+  })
+  return result.ok
+    ? { ok: true, lockVersion: result.lockVersion, savedAt: result.savedAt }
+    : result
 }
 
 export type SaveReferralResult = { ok: true } | { ok: false; error: string }
@@ -152,45 +208,19 @@ export type SaveReferralResult = { ok: true } | { ok: false; error: string }
 export async function saveReferral(input: {
   analysisId: string
   payload: Record<string, unknown>
+  writeRevision?: boolean
 }): Promise<SaveReferralResult> {
-  try {
-    const advisor = await getCurrentAdvisor()
-    if (!advisor) return { ok: false, error: "Nicht angemeldet." }
-
-    const supabase = await createClient()
-    const { data: row, error: readErr } = await supabase
-      .from("analyses")
-      .select("lock_version,current_step,current_question,progress_percent,latest_snapshot")
-      .eq("id", input.analysisId)
-      .maybeSingle()
-    if (readErr || !row) return { ok: false, error: readErr?.message ?? "Analyse nicht gefunden." }
-
-    const current = (row.latest_snapshot as Record<string, unknown> | null) ?? {}
-    const hasData = Object.keys(input.payload).length > 0
-    const snapshot = {
+  const hasData = Object.keys(input.payload).length > 0
+  const result = await mutateAnalysisSnapshot({
+    analysisId: input.analysisId,
+    writeRevision: input.writeRevision ?? true,
+    revalidate: [`/analyse/${input.analysisId}/empfehlung`],
+    mutate: (current, savedAt) => ({
       ...current,
-      referral: hasData ? { ...input.payload, updatedAt: new Date().toISOString() } : null,
-    }
-
-    const { data: saved, error } = await supabase.rpc("save_analysis_snapshot", {
-      p_analysis_id: input.analysisId,
-      p_expected_lock_version: Number(row.lock_version),
-      p_step: Number(row.current_step ?? 3),
-      p_question: Number(row.current_question ?? 0),
-      p_progress: Number(row.progress_percent ?? 0),
-      p_snapshot: snapshot,
-      p_complete: false,
-    })
-    if (error) return { ok: false, error: error.message }
-    if (!(Array.isArray(saved) ? saved.length : saved)) {
-      return { ok: false, error: "Konflikt: Analyse wurde zwischenzeitlich geändert. Bitte neu laden." }
-    }
-
-    revalidatePath(`/analyse/${input.analysisId}/empfehlung`)
-    return { ok: true }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Speichern fehlgeschlagen." }
-  }
+      referral: hasData ? { ...input.payload, updatedAt: savedAt } : null,
+    }),
+  })
+  return result.ok ? { ok: true } : result
 }
 
 export type SaveDocumentsResult = { ok: true } | { ok: false; error: string }
@@ -202,44 +232,22 @@ export type SaveDocumentsResult = { ok: true } | { ok: false; error: string }
 export async function saveDocuments(input: {
   analysisId: string
   documents: Record<string, unknown>
+  writeRevision?: boolean
 }): Promise<SaveDocumentsResult> {
-  try {
-    const advisor = await getCurrentAdvisor()
-    if (!advisor) return { ok: false, error: "Nicht angemeldet." }
-
-    const supabase = await createClient()
-    const { data: row, error: readErr } = await supabase
-      .from("analyses")
-      .select("lock_version,current_step,current_question,progress_percent,latest_snapshot")
-      .eq("id", input.analysisId)
-      .maybeSingle()
-    if (readErr || !row) return { ok: false, error: readErr?.message ?? "Analyse nicht gefunden." }
-
-    const current = (row.latest_snapshot as Record<string, unknown> | null) ?? {}
-    const snapshot = {
+  const result = await mutateAnalysisSnapshot({
+    analysisId: input.analysisId,
+    writeRevision: input.writeRevision ?? true,
+    revalidate: [`/analyse/${input.analysisId}/abschluss`],
+    mutate: (current, savedAt) => ({
       ...current,
-      documents: { ...input.documents, savedAt: new Date().toISOString() },
-    }
-
-    const { data: saved, error } = await supabase.rpc("save_analysis_snapshot", {
-      p_analysis_id: input.analysisId,
-      p_expected_lock_version: Number(row.lock_version),
-      p_step: Number(row.current_step ?? 3),
-      p_question: Number(row.current_question ?? 0),
-      p_progress: Number(row.progress_percent ?? 0),
-      p_snapshot: snapshot,
-      p_complete: false,
-    })
-    if (error) return { ok: false, error: error.message }
-    if (!(Array.isArray(saved) ? saved.length : saved)) {
-      return { ok: false, error: "Konflikt: Analyse wurde zwischenzeitlich geändert. Bitte neu laden." }
-    }
-
-    revalidatePath(`/analyse/${input.analysisId}/abschluss`)
-    return { ok: true }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Speichern fehlgeschlagen." }
-  }
+      documents: {
+        ...(current.documents as Record<string, unknown> | undefined),
+        ...input.documents,
+        savedAt,
+      },
+    }),
+  })
+  return result.ok ? { ok: true } : result
 }
 
 export type SaveClosingResult = { ok: true; completed: boolean } | { ok: false; error: string }
@@ -253,50 +261,26 @@ export async function saveClosing(input: {
   analysisId: string
   closing: Record<string, unknown>
   complete?: boolean
+  writeRevision?: boolean
 }): Promise<SaveClosingResult> {
-  try {
-    const advisor = await getCurrentAdvisor()
-    if (!advisor) return { ok: false, error: "Nicht angemeldet." }
-
-    const supabase = await createClient()
-    const { data: row, error: readErr } = await supabase
-      .from("analyses")
-      .select("lock_version,current_step,current_question,progress_percent,latest_snapshot")
-      .eq("id", input.analysisId)
-      .maybeSingle()
-    if (readErr || !row) return { ok: false, error: readErr?.message ?? "Analyse nicht gefunden." }
-
-    const current = (row.latest_snapshot as Record<string, unknown> | null) ?? {}
-    const snapshot = {
+  const result = await mutateAnalysisSnapshot({
+    analysisId: input.analysisId,
+    complete: input.complete,
+    writeRevision: input.complete ? true : (input.writeRevision ?? true),
+    revalidate: [`/analyse/${input.analysisId}/abschluss`, `/analyse/${input.analysisId}`],
+    mutate: (current, savedAt) => ({
       ...current,
       closing: {
         ...(current.closing as Record<string, unknown> | undefined),
         ...input.closing,
-        completedAt: input.complete ? new Date().toISOString() : ((current.closing as Record<string, unknown>)?.completedAt ?? null),
-        updatedAt: new Date().toISOString(),
+        completedAt: input.complete
+          ? savedAt
+          : ((current.closing as Record<string, unknown> | undefined)?.completedAt ?? null),
+        updatedAt: savedAt,
       },
-    }
-
-    const { data: saved, error } = await supabase.rpc("save_analysis_snapshot", {
-      p_analysis_id: input.analysisId,
-      p_expected_lock_version: Number(row.lock_version),
-      p_step: Number(row.current_step ?? 3),
-      p_question: Number(row.current_question ?? 0),
-      p_progress: input.complete ? 100 : Number(row.progress_percent ?? 0),
-      p_snapshot: snapshot,
-      p_complete: input.complete ?? false,
-    })
-    if (error) return { ok: false, error: error.message }
-    if (!(Array.isArray(saved) ? saved.length : saved)) {
-      return { ok: false, error: "Konflikt: Analyse wurde zwischenzeitlich geändert. Bitte neu laden." }
-    }
-
-    revalidatePath(`/analyse/${input.analysisId}/abschluss`)
-    revalidatePath(`/analyse/${input.analysisId}`)
-    return { ok: true, completed: input.complete ?? false }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Speichern fehlgeschlagen." }
-  }
+    }),
+  })
+  return result.ok ? { ok: true, completed: result.completed } : result
 }
 
 /**

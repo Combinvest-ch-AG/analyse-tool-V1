@@ -3,36 +3,35 @@
 import { useMemo, useState } from "react"
 import { TrendingUp } from "lucide-react"
 import { formatCHF } from "@/lib/format"
-import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { calculateAhvRetirement } from "@/lib/engine/ahv-retirement"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
-const MIN_RENT = 1260
-const MAX_RENT = 2520
 const LOW = 15120
-const HIGH = 90720
-
-function fullRent(income: number) {
-  if (income <= LOW) return MIN_RENT
-  if (income >= HIGH) return MAX_RENT
-  return MIN_RENT + (MAX_RENT - MIN_RENT) * ((income - LOW) / (HIGH - LOW))
-}
 
 export function AhvCalc({
   defaults,
+  saved,
   ctx,
 }: {
   defaults?: { income?: number; years?: number; need?: number }
+  saved?: SavedCalculatorPayload
   ctx?: CalcContext
 }) {
-  const [income, setIncome] = useState(defaults?.income ?? 72000)
-  const [years, setYears] = useState(defaults?.years ?? 44)
-  const [need, setNeed] = useState(defaults?.need ?? 6000)
+  const savedInputs = saved?.inputs as Record<string, unknown> | undefined
+  const savedYears = Number(String(savedInputs?.beitragsjahre ?? "").split("/")[0])
+  const [income, setIncome] = useState(Number(savedInputs?.jahreseinkommen) || defaults?.income || 0)
+  const [years, setYears] = useState(savedYears || defaults?.years || 44)
+  const [need, setNeed] = useState(Number(savedInputs?.wunscheinkommen) || defaults?.need || 6000)
 
-  const result = useMemo(() => {
-    const rent = (fullRent(income) * years) / 44
-    const gap = Math.max(0, need - rent)
-    const cover = need > 0 ? Math.min(100, (rent / need) * 100) : 0
-    return { rent, gap, cover, annual: rent * 12 }
-  }, [income, years, need])
+  const result = useMemo(
+    () =>
+      calculateAhvRetirement({
+        averageIncome: income,
+        contributionYears: years,
+        desiredMonthlyIncome: need,
+      }),
+    [income, years, need],
+  )
 
   return (
     <>
@@ -47,13 +46,14 @@ export function AhvCalc({
             wunscheinkommen: need,
           },
           results: [
-            `AHV-Rente ${formatCHF(result.rent)}/Monat`,
+            `AHV-Rente ${formatCHF(result.ordinaryMonthly)}/Monat`,
+            `Jahresrente inkl. 13. AHV ${formatCHF(result.annualIncluding13th)}`,
             `Deckung ${Math.round(result.cover)} %`,
-            `Vorsorgelücke ${formatCHF(result.gap)}/Monat`,
+            `Vorsorgelücke ${formatCHF(result.gapMonthly)}/Monat`,
           ],
         })}
         onReset={() => {
-          setIncome(72000)
+          setIncome(defaults?.income ?? 0)
           setYears(44)
           setNeed(6000)
         }}
@@ -100,7 +100,7 @@ export function AhvCalc({
               Geschätzte AHV-Altersrente
             </div>
             <strong className="mt-1 block text-4xl font-black tabular-nums">
-              {formatCHF(result.rent)} <span className="text-lg font-semibold opacity-80">/ Monat</span>
+              {formatCHF(result.ordinaryMonthly)} <span className="text-lg font-semibold opacity-80">/ Monat</span>
             </strong>
             <span className="mt-1 block text-sm opacity-80">
               Rentenskala {years} · {years === 44 ? "Vollrente" : "Teilrente"}
@@ -108,32 +108,64 @@ export function AhvCalc({
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Metric label="AHV pro Jahr" value={formatCHF(result.annual)} />
-            <Metric label="Deckung Wunschbedarf" value={`${Math.round(result.cover)} %`} />
+            <Metric label="Pro Jahr inkl. 13. AHV" value={formatCHF(result.annualIncluding13th)} />
+            <Metric label="Monatswert für Jahresplanung" value={formatCHF(result.monthlyEquivalent)} />
             <Metric
               label="Vorsorgelücke / Monat"
-              value={formatCHF(result.gap)}
-              tone={result.gap > 0 ? "crit" : "good"}
+              value={formatCHF(result.gapMonthly)}
+              tone={result.gapMonthly > 0 ? "crit" : "good"}
             />
           </div>
 
-          <div className="mt-5">
-            <div className="h-4 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-success transition-all"
-                style={{ width: `${result.cover}%` }}
-              />
+          <div className="mt-5 rounded-2xl border border-border bg-background p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-extrabold text-foreground">AHV und gewünschtes Einkommen</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Monatliche Gegenüberstellung – Pensionskasse und Säule 3a sind noch nicht enthalten.
+                </p>
+              </div>
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-extrabold text-primary">
+                {Math.round(result.cover)} % gedeckt
+              </span>
             </div>
-            <p className="mt-2 text-[12.5px] text-muted-foreground">
-              Die AHV deckt den dargestellten Anteil Ihres gewünschten Monatseinkommens. Säule 2 und 3a kommen
-              zusätzlich hinzu.
-            </p>
+
+            <div className="mt-5">
+              <div className="relative flex h-7 overflow-hidden rounded-full bg-destructive/10">
+                <div
+                  className="h-full bg-primary transition-[width] duration-500"
+                  style={{ width: `${result.cover}%` }}
+                  title={`AHV-Jahreswert auf den Monat umgerechnet: ${formatCHF(result.monthlyEquivalent)}`}
+                />
+                {result.gapMonthly > 0 ? (
+                  <div
+                    className="h-full bg-destructive/70"
+                    style={{ width: `${100 - result.cover}%` }}
+                    title={`Noch nicht gedeckt: ${formatCHF(result.gapMonthly)} pro Monat`}
+                  />
+                ) : null}
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <div className="flex items-center justify-between rounded-xl bg-primary/5 px-3 py-2.5">
+                  <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                    <i className="h-3 w-3 rounded-full bg-primary" /> AHV-Rente
+                  </span>
+                  <strong className="text-sm tabular-nums text-foreground">{formatCHF(result.monthlyEquivalent)}</strong>
+                </div>
+                <div className="flex items-center justify-between rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-2.5">
+                  <span className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                    <i className="h-3 w-3 rounded-full bg-destructive" /> Vorsorgelücke
+                  </span>
+                  <strong className="text-base font-black tabular-nums text-destructive">{formatCHF(result.gapMonthly)}</strong>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="mt-5 rounded-xl border border-border bg-secondary/40 p-4 text-[12.5px] text-muted-foreground">
-            <b className="text-foreground">Wichtig:</b> Planungsschätzung auf Basis Skala 44. Verbindlich sind
-            IK-Auszug und Rentenvorausberechnung Ihrer Ausgleichskasse. Ehepaarplafonierung, Splitting,
-            Gutschriften, Vorbezug und Aufschub sind hier nicht abschliessend berücksichtigt.
+            <b className="text-foreground">Berechnung 2026:</b> Skala 44 und die 13. Altersrente sind berücksichtigt.
+            Verbindlich bleiben IK-Auszug und Rentenvorausberechnung Ihrer Ausgleichskasse. Ehepaarplafonierung,
+            Splitting, Gutschriften, Vorbezug und Aufschub benötigen eine individuelle Prüfung.
           </div>
         </section>
       </div>
@@ -162,10 +194,20 @@ function Slider({
 }) {
   return (
     <div className="mb-5 last:mb-0">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-center justify-between gap-3">
         <label className="text-[13px] font-semibold text-foreground">{label}</label>
-        <span className="text-sm font-bold text-primary tabular-nums">{value}</span>
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={current}
+          onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
+          className="w-28 rounded-lg border border-border bg-background px-2 py-1 text-right text-sm font-bold tabular-nums text-primary outline-none focus:border-primary"
+          aria-label={`${label} direkt eingeben`}
+        />
       </div>
+      <p className="mt-1 text-right text-[11px] font-semibold text-muted-foreground">{value}</p>
       <input
         type="range"
         min={min}

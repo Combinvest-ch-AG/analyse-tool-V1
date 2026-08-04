@@ -1,11 +1,35 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Pencil, Plus, X } from "lucide-react"
-import { COMPANIES, INTERVALS, PRODUCTS, type Contract, type Contracts } from "@/lib/wizard/schema"
+import { Pencil, Plus, Search, X } from "lucide-react"
+import {
+  COMPANIES,
+  INTERVALS,
+  PRODUCT_CATEGORIES,
+  PRODUCT_DEFINITIONS,
+  PROVIDERS_BY_PRODUCT,
+  contractAnnualAmount,
+  type Contract,
+  type Contracts,
+  type ProductCategory,
+} from "@/lib/wizard/schema"
 
 const chf = (n: number) =>
   "CHF " + Number(n || 0).toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const definitionById = new Map(PRODUCT_DEFINITIONS.map((product) => [product.id, product]))
+
+function contractProduct(key: string, contract: Contract): string {
+  return contract.product || key.split("::")[0]
+}
+
+function newContractKey(product: string, contracts: Contracts): string {
+  if (!contracts[product]) return product
+  return `${product}::${Date.now().toString(36)}`
+}
+
+type CategoryFilter = "all" | ProductCategory
+type EditState = { key: string; product: string; existing: boolean }
 
 export function ContractCheck({
   contracts,
@@ -14,98 +38,214 @@ export function ContractCheck({
   contracts: Contracts
   onChange: (next: Contracts) => void
 }) {
-  const [editing, setEditing] = useState<string | null>(null)
-  const keys = Object.keys(contracts)
+  const [editing, setEditing] = useState<EditState | null>(null)
+  const [category, setCategory] = useState<CategoryFilter>("insurance")
+  const [search, setSearch] = useState("")
 
-  function save(product: string, next: Contract, originalProduct: string | null) {
-    const copy: Contracts = { ...contracts }
-    if (originalProduct && originalProduct !== product) delete copy[originalProduct]
-    copy[product] = next
-    onChange(copy)
+  const entries = useMemo(
+    () =>
+      Object.entries(contracts)
+        .map(([key, contract]) => ({ key, contract, product: contractProduct(key, contract) }))
+        .sort((a, b) => {
+          const aLabel = definitionById.get(a.product)?.label ?? a.product
+          const bLabel = definitionById.get(b.product)?.label ?? b.product
+          return aLabel.localeCompare(bLabel, "de-CH")
+        }),
+    [contracts],
+  )
+
+  const counts = useMemo(() => {
+    const next: Record<string, number> = {}
+    entries.forEach(({ product }) => {
+      next[product] = (next[product] || 0) + 1
+    })
+    return next
+  }, [entries])
+
+  const visibleProducts = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase("de-CH")
+    return PRODUCT_DEFINITIONS.filter((product) => {
+      const categoryMatches = category === "all" || product.category === category
+      const searchMatches =
+        !needle ||
+        product.label.toLocaleLowerCase("de-CH").includes(needle) ||
+        product.description.toLocaleLowerCase("de-CH").includes(needle)
+      return categoryMatches && searchMatches
+    })
+  }, [category, search])
+
+  const annual = entries.reduce((sum, { contract }) => sum + contractAnnualAmount(contract), 0)
+  const monthly = annual / 12
+
+  function openNew(product: string) {
+    setEditing({ key: newContractKey(product, contracts), product, existing: false })
+  }
+
+  function save(key: string, next: Contract) {
+    onChange({ ...contracts, [key]: next })
     setEditing(null)
   }
-  function remove(product: string) {
+
+  function remove(key: string) {
     const copy = { ...contracts }
-    delete copy[product]
+    delete copy[key]
     onChange(copy)
     setEditing(null)
   }
 
   return (
-    <div>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-        {PRODUCTS.map((p) => {
-          const pressed = !!contracts[p]
-          return (
-            <button
-              key={p}
-              type="button"
-              aria-pressed={pressed}
-              onClick={() => setEditing(p)}
-              className={`flex min-h-16 items-center justify-center rounded-xl border px-2.5 py-3.5 text-center text-xs font-bold transition-colors ${
-                pressed
-                  ? "border-primary bg-primary text-primary-foreground shadow-[0_4px_12px_rgba(58,87,245,0.3)]"
-                  : "border-border bg-card text-foreground hover:border-primary"
-              }`}
-            >
-              {p}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="mt-5 flex flex-col gap-2.5">
-        {keys.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-secondary/50 px-4 py-4 text-sm text-muted-foreground">
-            Noch keine Produkte gewählt — tippen Sie oben auf ein Produkt, um einen bestehenden Vertrag zu erfassen.
-          </div>
-        ) : (
-          keys.map((p) => {
-            const c = contracts[p]
-            return (
-              <div
-                key={p}
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-border bg-secondary px-4 py-3.5"
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-secondary/35 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0" aria-label="Vertragskategorien">
+            <CategoryButton active={category === "all"} onClick={() => setCategory("all")}>
+              Alle
+            </CategoryButton>
+            {PRODUCT_CATEGORIES.map((item) => (
+              <CategoryButton
+                key={item.id}
+                active={category === item.id}
+                onClick={() => setCategory(item.id)}
               >
-                <span className="text-sm font-extrabold text-primary">{p}</span>
-                <span className="text-[13px] font-semibold text-foreground">{c.company || "Gesellschaft offen"}</span>
-                <span className="text-sm">
-                  <b className="font-bold text-foreground">{chf(c.premium ?? 0)}</b>
-                  <span className="text-xs text-muted-foreground"> · {INTERVALS[c.interval || "monthly"]}</span>
+                {item.label}
+              </CategoryButton>
+            ))}
+          </div>
+
+          <label className="relative block w-full lg:max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <span className="sr-only">Vertrag suchen</span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Vertrag oder Abo suchen"
+              className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring"
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {visibleProducts.map((product) => {
+            const count = counts[product.id] || 0
+            return (
+              <button
+                key={product.id}
+                type="button"
+                onClick={() => openNew(product.id)}
+                className="group flex min-h-20 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-[0_8px_22px_rgba(19,42,82,0.08)]"
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <Plus className="h-4 w-4" />
                 </span>
-                <span className="text-xs text-muted-foreground">{c.abl ? "Ablauf " + c.abl : "Ohne Ablauf"}</span>
-                <span className="ml-auto flex items-center gap-1">
-                  <button
-                    type="button"
-                    aria-label={`${p} bearbeiten`}
-                    onClick={() => setEditing(p)}
-                    className="rounded-md p-1.5 text-primary hover:bg-primary/10"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`${p} entfernen`}
-                    onClick={() => remove(p)}
-                    className="rounded-md p-1.5 text-muted-foreground hover:bg-muted"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-foreground">{product.label}</span>
+                    {count > 0 && (
+                      <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
+                        {count}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{product.description}</span>
                 </span>
-              </div>
+              </button>
             )
-          })
+          })}
+        </div>
+
+        {visibleProducts.length === 0 && (
+          <div className="mt-4 rounded-xl border border-dashed border-border bg-card px-4 py-5 text-center text-sm text-muted-foreground">
+            Kein passender Vertrag gefunden. Wählen Sie «Weiteres Abo» oder erfassen Sie die Gesellschaft später frei.
+          </div>
         )}
       </div>
 
+      <section aria-labelledby="captured-contracts">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-primary">Erfasster Bestand</p>
+            <h3 id="captured-contracts" className="mt-1 text-lg font-bold text-foreground">
+              Verträge und Abonnemente
+            </h3>
+          </div>
+          {entries.length > 0 && (
+            <div className="flex gap-2 text-xs">
+              <SummaryPill label="Verträge" value={String(entries.length)} />
+              <SummaryPill label="Monatlich" value={chf(monthly)} />
+              <SummaryPill label="Jährlich" value={chf(annual)} />
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 space-y-2.5">
+          {entries.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-secondary/50 px-4 py-5 text-sm text-muted-foreground">
+              Noch nichts erfasst. Wählen Sie oben eine Vertragsart oder ein Abo aus.
+            </div>
+          ) : (
+            entries.map(({ key, contract, product }) => {
+              const meta = definitionById.get(product)
+              return (
+                <article
+                  key={key}
+                  className="grid gap-3 rounded-xl border border-border bg-card px-4 py-3.5 sm:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_auto] sm:items-center"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-extrabold text-foreground">{meta?.label ?? product}</span>
+                      {meta && (
+                        <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+                          {PRODUCT_CATEGORIES.find((item) => item.id === meta.category)?.shortLabel}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 truncate text-[13px] font-semibold text-primary">
+                      {contract.company || "Anbieter noch offen"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{chf(contract.premium ?? 0)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {INTERVALS[contract.interval || "monthly"]}
+                      {contract.abl ? ` · Ablauf ${contract.abl}` : ""}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      aria-label={`${meta?.label ?? product} bearbeiten`}
+                      onClick={() => setEditing({ key, product, existing: true })}
+                      className="rounded-lg p-2 text-primary hover:bg-primary/10"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`${meta?.label ?? product} entfernen`}
+                      onClick={() => remove(key)}
+                      className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </article>
+              )
+            })
+          )}
+        </div>
+      </section>
+
       {editing && (
         <ContractModal
-          product={editing}
-          current={contracts[editing] ?? {}}
-          existing={!!contracts[editing]}
+          contractKey={editing.key}
+          product={editing.product}
+          current={contracts[editing.key] ?? {}}
+          existing={editing.existing}
           onClose={() => setEditing(null)}
-          onSave={(product, next) => save(product, next, editing)}
-          onRemove={() => remove(editing)}
+          onSave={save}
+          onRemove={() => remove(editing.key)}
         />
       )}
     </div>
@@ -113,6 +253,7 @@ export function ContractCheck({
 }
 
 function ContractModal({
+  contractKey,
   product,
   current,
   existing,
@@ -120,14 +261,15 @@ function ContractModal({
   onSave,
   onRemove,
 }: {
+  contractKey: string
   product: string
   current: Contract
   existing: boolean
   onClose: () => void
-  onSave: (product: string, next: Contract) => void
+  onSave: (key: string, next: Contract) => void
   onRemove: () => void
 }) {
-  const [productValue, setProductValue] = useState(product)
+  const [productValue, setProductValue] = useState(current.product ?? product)
   const [company, setCompany] = useState(current.company ?? "")
   const [companyOpen, setCompanyOpen] = useState(false)
   const [pol, setPol] = useState(current.pol ?? "")
@@ -136,17 +278,29 @@ function ContractModal({
   const [premium, setPremium] = useState(current.premium == null ? "" : String(current.premium))
   const [interval, setInterval] = useState(current.interval ?? "monthly")
   const [notes, setNotes] = useState(current.notes ?? "")
+  const [error, setError] = useState("")
 
   const matches = useMemo(() => {
+    const preferred = PROVIDERS_BY_PRODUCT[productValue] ?? []
+    const options = [...new Set([...preferred, ...COMPANIES])]
     const needle = company.trim().toLocaleLowerCase("de-CH")
-    return COMPANIES.filter((n) => !needle || n.toLocaleLowerCase("de-CH").includes(needle)).slice(0, 12)
-  }, [company])
+    return options.filter((name) => !needle || name.toLocaleLowerCase("de-CH").includes(needle)).slice(0, 14)
+  }, [company, productValue])
+
+  const productMeta = definitionById.get(productValue)
 
   function submit() {
-    if (!company.trim()) return
+    if (!company.trim()) {
+      setError("Bitte einen Anbieter auswählen oder frei eintragen.")
+      return
+    }
     const num = Number(premium)
-    if (!Number.isFinite(num) || num < 0) return
-    onSave(productValue, {
+    if (premium === "" || !Number.isFinite(num) || num < 0) {
+      setError("Bitte die Prämie oder Gebühr als gültigen Betrag erfassen.")
+      return
+    }
+    onSave(contractKey, {
+      product: productValue,
       company: company.trim(),
       pol: pol.trim(),
       start,
@@ -159,54 +313,72 @@ function ContractModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-[rgba(15,27,54,0.45)] p-5 backdrop-blur-sm"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
+      className="fixed inset-0 z-50 grid place-items-center bg-[rgba(15,27,54,0.45)] p-4 backdrop-blur-sm"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div className="max-h-[calc(100vh-44px)] w-full max-w-2xl overflow-auto rounded-3xl bg-card p-7 shadow-[0_28px_80px_rgba(15,27,54,0.25)]">
+      <div className="max-h-[calc(100vh-32px)] w-full max-w-2xl overflow-auto rounded-3xl bg-card p-5 shadow-[0_28px_80px_rgba(15,27,54,0.25)] sm:p-7">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">
-              {existing ? "Vertrag bearbeiten" : "Vertrag erfassen"}
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-primary">
+              {productMeta?.category === "subscriptions" ? "Abonnement" : "Vertrag"}
+            </p>
+            <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
+              {existing ? "Eintrag bearbeiten" : "Eintrag erfassen"}
             </h2>
-            <p className="mt-1 text-[13px] text-muted-foreground">Bestehenden Vertrag des Kunden dokumentieren.</p>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              Anbieter und regelmässige Kosten festhalten. Nicht gefundene Anbieter können direkt eingetippt werden.
+            </p>
           </div>
           <button
             type="button"
-            aria-label="Schließen"
+            aria-label="Schliessen"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground hover:bg-muted"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary text-muted-foreground hover:bg-muted"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Produkt">
-            <select value={productValue} onChange={(e) => setProductValue(e.target.value)} className={inputClass}>
-              {PRODUCTS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
+          <Field label="Vertragsart">
+            <select
+              value={productValue}
+              onChange={(event) => {
+                setProductValue(event.target.value)
+                setCompany("")
+                setError("")
+              }}
+              className={inputClass}
+            >
+              {PRODUCT_CATEGORIES.map((group) => (
+                <optgroup key={group.id} label={group.label}>
+                  {PRODUCT_DEFINITIONS.filter((item) => item.category === group.id).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </Field>
 
-          <Field label="Gesellschaft">
+          <Field label="Anbieter / Gesellschaft">
             <div className="relative">
               <input
                 value={company}
-                onChange={(e) => {
-                  setCompany(e.target.value)
+                onChange={(event) => {
+                  setCompany(event.target.value)
                   setCompanyOpen(true)
+                  setError("")
                 }}
                 onFocus={() => setCompanyOpen(true)}
-                placeholder="z. B. Swiss Life"
+                placeholder={productMeta?.category === "subscriptions" ? "z. B. Netflix oder Swisscom" : "z. B. Everon oder AXA"}
                 className={inputClass}
               />
               {companyOpen && (
-                <div className="absolute left-0 right-0 top-full z-10 mt-1.5 max-h-48 overflow-auto rounded-xl border border-border bg-card shadow-[0_12px_28px_rgba(15,27,54,0.13)]">
+                <div className="absolute left-0 right-0 top-full z-10 mt-1.5 max-h-52 overflow-auto rounded-xl border border-border bg-card shadow-[0_12px_28px_rgba(15,27,54,0.13)]">
                   {matches.length > 0 ? (
                     matches.map((name) => (
                       <button
@@ -215,6 +387,7 @@ function ContractModal({
                         onClick={() => {
                           setCompany(name)
                           setCompanyOpen(false)
+                          setError("")
                         }}
                         className="block w-full px-3 py-2.5 text-left text-[13px] hover:bg-accent hover:text-accent-foreground"
                       >
@@ -223,7 +396,7 @@ function ContractModal({
                     ))
                   ) : (
                     <span className="block px-3 py-2.5 text-[13px] text-muted-foreground">
-                      Keine Treffer – Gesellschaft direkt eintippen
+                      Kein Treffer – Namen fertig eintippen und speichern
                     </span>
                   )}
                 </div>
@@ -231,42 +404,54 @@ function ContractModal({
             </div>
           </Field>
 
-          <Field label="Policennummer">
-            <input value={pol} onChange={(e) => setPol(e.target.value)} placeholder="Pol-Nr." className={inputClass} />
+          <Field label="Police / Vertragsnummer">
+            <input value={pol} onChange={(event) => setPol(event.target.value)} placeholder="Optional" className={inputClass} />
           </Field>
-          <Field label="Prämie (CHF)">
+          <Field label="Prämie / Gebühr (CHF)">
             <input
               type="number"
               inputMode="decimal"
+              min="0"
+              step="0.05"
               value={premium}
-              onChange={(e) => setPremium(e.target.value)}
+              onChange={(event) => {
+                setPremium(event.target.value)
+                setError("")
+              }}
               placeholder="0.00"
               className={inputClass}
             />
           </Field>
           <Field label="Zahlungsintervall">
-            <select value={interval} onChange={(e) => setInterval(e.target.value)} className={inputClass}>
-              {Object.entries(INTERVALS).map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
+            <select value={interval} onChange={(event) => setInterval(event.target.value)} className={inputClass}>
+              {Object.entries(INTERVALS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
                 </option>
               ))}
             </select>
           </Field>
           <Field label="Beginn">
-            <input type="month" value={start} onChange={(e) => setStart(e.target.value)} className={inputClass} />
+            <input type="month" value={start} onChange={(event) => setStart(event.target.value)} className={inputClass} />
           </Field>
-          <Field label="Ablauf (MM.JJJJ)">
-            <input value={abl} onChange={(e) => setAbl(e.target.value)} placeholder="z. B. 12.2030" className={inputClass} />
+          <Field label="Ablauf / Kündigung">
+            <input value={abl} onChange={(event) => setAbl(event.target.value)} placeholder="z. B. 12.2027 oder monatlich" className={inputClass} />
           </Field>
           <Field label="Notizen" full>
             <textarea
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Optional: Deckung, Paket, Kündigungsfrist oder Besonderheiten"
               className={`${inputClass} min-h-[88px] resize-y`}
             />
           </Field>
         </div>
+
+        {error && (
+          <p role="alert" className="mt-4 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2.5 text-sm font-semibold text-destructive">
+            {error}
+          </p>
+        )}
 
         <div className="mt-6 flex flex-col justify-between gap-3 sm:flex-row">
           {existing ? (
@@ -275,7 +460,7 @@ function ContractModal({
               onClick={onRemove}
               className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/5"
             >
-              Vertrag entfernen
+              Eintrag entfernen
             </button>
           ) : (
             <span />
@@ -300,6 +485,37 @@ function ContractModal({
         </div>
       </div>
     </div>
+  )
+}
+
+function CategoryButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`shrink-0 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-colors ${
+        active ? "bg-primary text-primary-foreground" : "border border-border bg-card text-foreground hover:border-primary"
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function SummaryPill({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="rounded-xl border border-border bg-card px-3 py-2 text-muted-foreground">
+      {label} <b className="ml-1 text-foreground">{value}</b>
+    </span>
   )
 }
 

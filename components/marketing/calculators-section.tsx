@@ -4,7 +4,7 @@ import { PiggyBank, Home, HeartPulse, ArrowRight } from "lucide-react"
 const calculators = [
   {
     icon: PiggyBank,
-    title: "Vorsorgerechner",
+    title: "Vorsorgelückenanalyse",
     body: "Zwei-Phasen-Modell (Sparphase → Entnahmephase). Ermittelt die nötige Sparrate für die Altersrente und deckt Vorsorgelücken auf.",
   },
   {

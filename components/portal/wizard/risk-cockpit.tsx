@@ -17,7 +17,7 @@ type Filter = "all" | ThemeStatus
 // Which risk areas map to an available calculator (Phase 4).
 const AREA_CALCULATORS: Partial<Record<AreaKey, { base: string; label: string }>> = {
   health: { base: "/rechner/franchise", label: "Franchise vergleichen" },
-  pensiongap: { base: "/rechner/vorsorge", label: "Vorsorgelücke berechnen" },
+  pensiongap: { base: "/rechner/vorsorge", label: "Vorsorgelückenanalyse öffnen" },
   "real-estate": { base: "/rechner/tragbarkeit", label: "Tragbarkeit prüfen" },
 }
 
@@ -32,13 +32,13 @@ function calculatorHref(
   const params = new URLSearchParams()
   const salary = Number(answers.brutto) || 0
   const age = Number(answers.alter) || 0
-  const hasChildren = answers.kinder === "ja"
+  const childCount = answers.kinder === "ja" ? Math.max(0, Number(answers.kinder_anzahl) || 0) : 0
   const plz = typeof answers.plz === "string" ? answers.plz : ""
 
   if (key === "pensiongap") {
     if (salary) params.set("salary", String(salary))
     if (age) params.set("age", String(age))
-    params.set("children", hasChildren ? "2" : "0")
+    params.set("children", String(childCount))
   } else if (key === "real-estate") {
     if (salary) params.set("income", String(salary))
   } else if (key === "health") {
@@ -101,7 +101,7 @@ export function RiskCockpit({
         <div>
           <h2 className="text-lg font-extrabold text-foreground">Risikoanalyse & Handlungsfelder</h2>
           <p className="text-[13px] text-muted-foreground">
-            Nach Relevanz sortiert. Öffnen Sie die passenden Rechner oder erstellen Sie den Beratungsbericht.
+            Themen bearbeiten, Rechner verwenden und alles in einem gemeinsamen Kundenbericht zusammenfassen.
           </p>
         </div>
         {analysisId ? (
@@ -112,7 +112,7 @@ export function RiskCockpit({
             className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2.5 text-[13px] font-extrabold text-primary-foreground transition-colors hover:bg-primary-deep"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
-            PDF-Beratungsbericht
+            Gesamtbericht als PDF
           </a>
         ) : null}
       </div>

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { Check, ArrowRight, ArrowLeft } from "lucide-react"
 import { formatCHF } from "@/lib/format"
-import { CalcActionBar } from "@/components/portal/rechner/calc-action-bar"
+import { CalcActionBar, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 type Dim = "wealth" | "health" | "self" | "legal" | "app"
 type Question = { c: string; d: Dim | "priority"; q: string; o: [number, string][] }
@@ -42,18 +42,31 @@ function healthEligible(k: PlanKey) {
   return k === "protect" || k === "sealth" || k === "premium"
 }
 
-export function SealthCheck({ ctx }: { ctx: { analysisId?: string; customerId?: string } }) {
-  const [step, setStep] = useState(0)
-  const [answers, setAnswers] = useState<(number | null)[]>(Array(QUESTIONS.length).fill(null))
-  const [done, setDone] = useState(false)
-  const [selected, setSelected] = useState<PlanKey | null>(null)
+export function SealthCheck({
+  ctx,
+  profileSport,
+  saved,
+}: {
+  ctx: { analysisId?: string; customerId?: string }
+  profileSport?: { frequency?: string; activity?: string; location?: string }
+  saved?: SavedCalculatorPayload
+}) {
+  const restoredAnswers = Array.isArray(saved?.answers) && saved.answers.length === QUESTIONS.length
+    ? saved.answers.map((value) => typeof value === "number" ? value : null)
+    : Array(QUESTIONS.length).fill(null)
+  const restoredPlan = PLAN_ORDER.includes(saved?.selectedPackage as PlanKey) ? saved?.selectedPackage as PlanKey : null
+  const restoredScenario = saved?.scenario as Record<string, unknown> | undefined
+  const [step, setStep] = useState(Math.max(0, restoredAnswers.findIndex((value) => value == null)))
+  const [answers, setAnswers] = useState<(number | null)[]>(restoredAnswers)
+  const [done, setDone] = useState(restoredAnswers.every((value) => value != null))
+  const [selected, setSelected] = useState<PlanKey | null>(restoredPlan)
 
   // scenario inputs
-  const [taxCost, setTaxCost] = useState(250)
-  const [fitnessCost, setFitnessCost] = useState(90)
-  const [legalCost, setLegalCost] = useState(300)
-  const [timeValue, setTimeValue] = useState(300)
-  const [healthRefund, setHealthRefund] = useState(200)
+  const [taxCost, setTaxCost] = useState(Number(restoredScenario?.tax) || 250)
+  const [fitnessCost, setFitnessCost] = useState(Number(restoredScenario?.fitnessMonthly) || 90)
+  const [legalCost, setLegalCost] = useState(Number(restoredScenario?.legal) || 300)
+  const [timeValue, setTimeValue] = useState(Number(restoredScenario?.time) || 300)
+  const [healthRefund, setHealthRefund] = useState(Number(restoredScenario?.healthRefund) || 200)
 
   const scores = useMemo(() => {
     const s: Record<Dim, number> = { wealth: 0, health: 0, self: 0, legal: 0, app: 0 }
@@ -107,6 +120,7 @@ export function SealthCheck({ ctx }: { ctx: { analysisId?: string; customerId?: 
   const payload = {
     answers,
     scores,
+    profileSport,
     recommendation: recommended,
     selectedPackage: activePlan,
     annualPrice: PLANS[activePlan].annual,
@@ -151,6 +165,14 @@ export function SealthCheck({ ctx }: { ctx: { analysisId?: string; customerId?: 
           </span>
         </div>
         <h2 className="mt-3 text-pretty text-xl font-bold text-foreground">{q.q}</h2>
+        {q.d === "health" && (profileSport?.activity || profileSport?.location) ? (
+          <div className="mt-3 rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-primary">Aus dem Profiling übernommen</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {[profileSport.activity, profileSport.location].filter(Boolean).join(" · ")}
+            </p>
+          </div>
+        ) : null}
         <div className="mt-4 grid gap-2">
           {q.o.map(([val, label]) => {
             const on = answers[step] === val

@@ -1,45 +1,48 @@
-import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont, type RGB } from "pdf-lib"
-
-// ---------------------------------------------------------------------------
-// Combinvest 8-page advisory report — ported 1:1 from the legacy
-// advisory-report.js (browser IIFE) to a server-side pdf-lib module.
-// Coordinates and layout math are preserved exactly; only the language changed
-// from ES5 globals to typed TypeScript.
-// ---------------------------------------------------------------------------
+import { readFile } from "node:fs/promises"
+import { join } from "node:path"
+import fontkit from "@pdf-lib/fontkit"
+import {
+  PDFDocument,
+  StandardFonts,
+  rgb,
+  type PDFImage,
+  type PDFPage,
+  type PDFFont,
+  type RGB,
+} from "pdf-lib"
 
 type Col = [number, number, number]
 
-const BLUE: Col = [0.247, 0.486, 0.953]
-const NAVY: Col = [0.067, 0.125, 0.239]
-const MUTED: Col = [0.39, 0.46, 0.57]
-const LINE: Col = [0.86, 0.9, 0.95]
-const SOFT: Col = [0.957, 0.972, 0.992]
-const PALE: Col = [0.925, 0.953, 1]
-const GREEN: Col = [0.09, 0.52, 0.35]
-const ORANGE: Col = [0.96, 0.56, 0.25]
+const BLUE: Col = [0.224, 0.471, 0.965]
+const BLUE_DARK: Col = [0.09, 0.247, 0.65]
+const NAVY: Col = [0.043, 0.098, 0.2]
+const INK: Col = [0.067, 0.114, 0.212]
+const MUTED: Col = [0.39, 0.45, 0.55]
+const LINE: Col = [0.88, 0.91, 0.95]
+const SOFT: Col = [0.956, 0.969, 0.988]
+const PALE: Col = [0.918, 0.945, 1]
+const GREEN: Col = [0.055, 0.56, 0.34]
+const ORANGE: Col = [0.94, 0.45, 0.14]
+const RED: Col = [0.79, 0.17, 0.17]
 const WHITE: Col = [1, 1, 1]
+const PAPER: Col = [0.982, 0.987, 0.997]
+const SKY: Col = [0.72, 0.82, 1]
+const MINT: Col = [0.16, 0.68, 0.53]
 
 const PAGE: [number, number] = [595.28, 841.89]
-const M = 48
+const M = 44
 const CONTENT = PAGE[0] - M * 2
 
 const AREA_COPY: Record<string, string> = {
-  health: "Prämien, Franchise und gewünschte Zusatzdeckungen aufeinander abstimmen.",
-  pensiongap: "Leistungen bei Invalidität, Pensionierung und Tod mit dem Zielbedarf vergleichen.",
-  investment: "Liquiditätsreserve, Anlagehorizont und passendes Risikoprofil strukturieren.",
-  "real-estate": "Eigenkapital, Tragbarkeit und langfristige Finanzierung nachvollziehbar prüfen.",
-  "values-protection": "Bestehende Policen auf Lücken, Doppelversicherungen und Abläufe kontrollieren.",
-  children: "Versorgung und langfristigen Vermögensaufbau für Kinder absichern.",
-  "property-creation": "Einkommensausfall und notwendigen Lebensstandard gegenüberstellen.",
-  "tax-advantage": "Steuerpotenzial bei Vorsorge, Vermögen und Wohneigentum gezielt nutzen.",
+  health: "Franchise, Versicherungsmodell und gewünschte Gesundheitsleistungen abstimmen.",
+  pensiongap: "Leistungen bei Invalidität, Pensionierung und Tod mit dem persönlichen Bedarf vergleichen.",
+  investment: "Reserve, Anlagehorizont und Risikoprofil für den Vermögensaufbau festlegen.",
+  "real-estate": "Eigenkapital, Tragbarkeit und langfristige Finanzierung prüfen.",
+  "values-protection": "Bestehende Versicherungen auf Lücken und Doppelversicherungen kontrollieren.",
+  children: "Versorgung und Vermögensaufbau für die Kinder absichern.",
+  "property-creation": "Einkommensausfall und gewünschten Lebensstandard gegenüberstellen.",
+  "tax-advantage": "Steuerpotenzial bei Vorsorge, Vermögen und Wohneigentum nutzen.",
 }
-
-const ANSWER_GROUPS: Array<[string, string[]]> = [
-  ["Person und Haushalt", ["geschlecht", "alter", "zivilstand", "kinder", "abhaengige", "wohnen", "plz"]],
-  ["Beruf und Finanzen", ["ausbildung", "erwerb", "brutto", "fixkosten"]],
-  ["Gesundheit und Alltag", ["sport", "rauchen", "motorfahrzeug", "haustiere", "kk_prio"]],
-  ["Ziele und Prioritäten", ["zukunft", "ziele", "konfession"]],
-]
 
 const INTERVAL_LABEL: Record<string, string> = {
   monthly: "Monat",
@@ -56,12 +59,11 @@ const INTERVAL_FACTOR: Record<string, number> = {
   oneoff: 0,
 }
 
-// --- Report input contract -------------------------------------------------
-
 export type ReportStatus = "open" | "progress" | "done"
 export type ReportArea = { key: string; name: string; score: number; status: ReportStatus }
 export type ReportAnswer = { id: string; question: string; answer: string }
 export type ReportContract = {
+  product?: string
   company?: string
   pol?: string
   premium?: number | null
@@ -70,7 +72,14 @@ export type ReportContract = {
   notes?: string
   start?: string
 }
-export type ReportCalculator = { results?: string[]; calculationYear?: number; source?: string }
+export type ReportCalculator = {
+  results?: string[]
+  inputs?: Record<string, unknown>
+  calculationYear?: number
+  source?: string
+  savedAt?: string
+  [key: string]: unknown
+}
 
 export type ReportData = {
   customerName: string
@@ -91,13 +100,222 @@ export type ReportData = {
   answers: ReportAnswer[]
   modules?: {
     calculators?: Record<string, ReportCalculator>
-    documents?: { status?: string }
-    appointment?: { date?: string; time?: string }
+    appointment?: { date?: string; time?: string; place?: string; purpose?: string }
   }
   notes?: Array<string | { text?: string; note?: string }>
 }
 
-// --- Text/number helpers ---------------------------------------------------
+type CalculatorMeta = {
+  title: string
+  eyebrow: string
+  meaning: string
+  source: string
+}
+
+const CALCULATOR_META: Record<string, CalculatorMeta> = {
+  budget: {
+    title: "Ihr Haushaltsbudget",
+    eyebrow: "Budget und Sparpotenzial",
+    meaning: "Die Gegenüberstellung zeigt, welcher Betrag nach den erfassten Ausgaben monatlich frei bleibt.",
+    source: "Persönlich erfasste Einnahmen und Ausgaben",
+  },
+  "wealth-sparen": {
+    title: "Ihre Vermögensentwicklung",
+    eyebrow: "Spar- und Zinseszinsrechnung",
+    meaning: "Die Berechnung zeigt den Unterschied zwischen Ihren Einzahlungen und dem möglichen Endvermögen.",
+    source: "Zinseszinsrechnung mit monatlicher Einzahlung",
+  },
+  "wealth-zins": {
+    title: "Vergleich zweier Renditen",
+    eyebrow: "Renditevergleich",
+    meaning: "Kleine Renditeunterschiede können über einen langen Zeitraum eine grosse Wirkung entfalten.",
+    source: "Zwei Zinseszins-Szenarien",
+  },
+  "wealth-start": {
+    title: "Sofort starten oder warten",
+    eyebrow: "Zeitwirkung beim Sparen",
+    meaning: "Die Berechnung macht sichtbar, welchen Einfluss ein späterer Sparbeginn auf das Endvermögen hat.",
+    source: "Zinseszinsrechnung mit verzögertem Sparbeginn",
+  },
+  "wealth-inflation": {
+    title: "Kaufkraft Ihres Vermögens",
+    eyebrow: "Inflationsrechnung",
+    meaning: "Die Kaufkraft zeigt, wie viel ein heutiger Betrag nach dem gewählten Zeitraum real noch wert ist.",
+    source: "Kaufkraftberechnung mit konstanter Inflationsannahme",
+  },
+  "wealth-kosten": {
+    title: "Vergleich der laufenden Anlagekosten",
+    eyebrow: "TER-Vergleich",
+    meaning: "Der Vergleich zeigt den langfristigen Vermögensunterschied zwischen zwei Anlagen mit unterschiedlicher TER.",
+    source: "Zwei Vermögensentwicklungen nach laufenden Kosten",
+  },
+  "wealth-ziel": {
+    title: "Wann Sie Ihr Zielvermögen erreichen",
+    eyebrow: "Zielvermögensrechnung",
+    meaning: "Startkapital, monatliche Sparrate und Rendite bestimmen den voraussichtlichen Zeitpunkt Ihres Ziels.",
+    source: "Monatliche Zielwertrechnung mit Renditeannahme",
+  },
+  "wealth-3a": {
+    title: "Säule 3a und Steuereffekt",
+    eyebrow: "Gebundene Vorsorge",
+    meaning: "Die Berechnung verbindet die jährliche Steuerwirkung mit dem möglichen langfristigen Vorsorgevermögen.",
+    source: "Säule-3a-Szenario mit persönlichem Grenzsteuersatz",
+  },
+  "wealth-steuer": {
+    title: "Steuerwirkung",
+    eyebrow: "Einfacher Steuerabzug",
+    meaning: "Die Darstellung zeigt die Wirkung des erfassten Grenzsteuersatzes auf das steuerbare Einkommen.",
+    source: "Orientierungsrechnung mit persönlichem Grenzsteuersatz",
+  },
+  "pension-gap": {
+    title: "Ihre Vorsorgelücke",
+    eyebrow: "Vorsorge und Einkommensschutz",
+    meaning: "Die vorhandenen Leistungen werden dem gewünschten Einkommen gegenübergestellt. Eine Lücke zeigt zusätzlichen Prüfbedarf.",
+    source: "AHV-, BVG- und erfasste Zusatzleistungen",
+  },
+  "ahv-rente": {
+    title: "Ihre voraussichtliche AHV-Rente",
+    eyebrow: "Erste Säule",
+    meaning: "Die Berechnung zeigt die monatliche AHV-Rente und die Differenz zum erfassten Wunschbedarf.",
+    source: "AHV-Skala 44 und erfasste Beitragsjahre",
+  },
+  "real-estate-affordability": {
+    title: "Tragbarkeit Ihres Wohneigentums",
+    eyebrow: "Immobilienfinanzierung",
+    meaning: "Die Tragbarkeit setzt die kalkulatorischen Wohnkosten ins Verhältnis zum Bruttoeinkommen.",
+    source: "Schweizer Bankenstandard mit kalkulatorischen Kosten",
+  },
+  "health-franchise": {
+    title: "Ihre passende Franchise",
+    eyebrow: "Grundversicherung",
+    meaning: "Der Vergleich kombiniert Prämie und erwartete Kostenbeteiligung für die ausgewählten Franchisevarianten.",
+    source: "Priminfo/BAG-Prämien und erfasste Gesundheitskosten",
+  },
+  anlegerprofil: {
+    title: "Ihr Anlegerprofil",
+    eyebrow: "Risikofähigkeit und Anlagehorizont",
+    meaning: "Das Profil fasst Risikobereitschaft, Wissen und Anlagehorizont zu einer verständlichen Orientierung zusammen.",
+    source: "Antworten aus dem interaktiven Anlegerprofil",
+  },
+  "pk-ausweis": {
+    title: "Angaben aus Ihrem PK-Ausweis",
+    eyebrow: "Berufliche Vorsorge",
+    meaning: "Die erfassten Leistungen bilden die Grundlage für eine genauere Vorsorge- und Leistungsanalyse.",
+    source: "Persönlicher Vorsorgeausweis",
+  },
+  freizuegigkeit: {
+    title: "Ihre Freizügigkeitslösung",
+    eyebrow: "Berufliche Vorsorge",
+    meaning: "Die Übersicht hält Ausgangslage, Guthaben und gewünschte Lösung für die weitere Bearbeitung fest.",
+    source: "Persönlich erfasste Angaben",
+  },
+  supplementaryInsurance: {
+    title: "Gewünschte Zusatzversicherungen",
+    eyebrow: "Gesundheitsleistungen",
+    meaning: "Die Übersicht zeigt bestehende und gewünschte Zusatzdeckungen als Grundlage für einen passenden Vergleich.",
+    source: "Persönlich ausgewählte Leistungswünsche",
+  },
+  insuranceNeeds: {
+    title: "Ihr Versicherungsbedarf",
+    eyebrow: "Hausrat, Haftpflicht und Motorfahrzeug",
+    meaning: "Bestehende und gewünschte Deckungen werden übersichtlich gegenübergestellt.",
+    source: "Persönlich erfasste Versicherungsbedürfnisse",
+  },
+  "sealth-check": {
+    title: "Ihre Sealth-Empfehlung",
+    eyebrow: "Service und persönlicher Mehrwert",
+    meaning: "Die Empfehlung verbindet die im Check erfassten Bedürfnisse mit dem passenden Sealth-Servicepaket.",
+    source: "Persönliche Antworten aus dem Sealth-Check",
+  },
+}
+
+const SUPPLEMENTARY_LABELS: Record<string, string> = {
+  alternative: "Alternativmedizin",
+  dental: "Zahnbehandlungen",
+  abroad: "Notfälle im Ausland",
+  orthodontics: "Zahnstellungskorrektur",
+  medication: "Nichtpflichtmedikamente",
+  vision: "Brille und Kontaktlinsen",
+  psychotherapy: "Psychotherapie",
+  rescue: "Suche, Rettung und Transport",
+  prevention: "Prävention und Check-ups",
+  fitness: "Fitness und Gesundheitsförderung",
+}
+
+const INPUT_LABELS: Record<string, string> = {
+  modus: "Berechnung",
+  horizont: "Zeitraum",
+  startkapital: "Startkapital",
+  sparrate_monat: "Monatliche Sparrate",
+  anlagehorizont: "Anlagehorizont",
+  rendite_pa: "Rendite pro Jahr",
+  rendite_2_pa: "Zweite Rendite pro Jahr",
+  verzoegerung: "Späterer Start",
+  inflation_pa: "Inflation pro Jahr",
+  ter_pa: "Laufende Kosten pro Jahr",
+  ter_2_pa: "Laufende Kosten Anlage 2 pro Jahr",
+  zielvermoegen: "Zielvermögen",
+  steuerbares_einkommen: "Steuerbares Einkommen",
+  jahresbeitrag: "Jährliche Einzahlung",
+  grenzsteuersatz: "Grenzsteuersatz",
+  heutiger_betrag: "Heutiger Betrag",
+  einkommen_monat: "Einkommen pro Monat",
+  ausgaben_monat: "Ausgaben pro Monat",
+  kaufpreis: "Kaufpreis",
+  eigenkapital: "Eigenkapital",
+  bruttoeinkommen: "Bruttoeinkommen pro Jahr",
+  jahreseinkommen: "Durchschnittliches Jahreseinkommen",
+  beitragsjahre: "Beitragsjahre",
+  wunscheinkommen: "Gewünschtes Einkommen",
+  ort: "Wohnort",
+  geburtsjahr: "Geburtsjahr",
+  unfalldeckung: "Unfalldeckung",
+  versicherer: "Versicherer",
+  tarif: "Modell/Tarif",
+  gesundheitskosten: "Gesundheitskosten pro Jahr",
+  risk: "Analysiertes Risiko",
+  salary: "Jahreseinkommen",
+  targetPct: "Zielabsicherung",
+  age: "Alter",
+  cause: "Ursache",
+  degree: "IV-Grad",
+  children: "Kinder",
+  ahvMode: "AHV-Grundlage",
+  bvgMode: "BVG-Grundlage",
+  insuredSalary: "Versicherter Lohn",
+  capital: "Altersguthaben",
+  iv: "IV-Rente pro Jahr",
+  ivChild: "IV-Kinderrente",
+  partner: "Partnerrente",
+  orphan: "Waisenrente",
+  reason: "Grund",
+  solution: "Gewünschte Lösung",
+  pensionFund: "Bisherige Pensionskasse",
+  amount: "Guthaben",
+  exitDate: "Austrittsdatum",
+  priority: "Priorität",
+}
+
+const INPUT_VALUE_LABELS: Record<string, Record<string, string>> = {
+  risk: {
+    iv: "Invalidität",
+    pension: "Pensionierung",
+    death: "Todesfall",
+  },
+  cause: {
+    illness: "Krankheit",
+    accident: "Unfall",
+  },
+  ahvMode: {
+    scale44: "AHV-Skala 44",
+    manual: "Manuelle Angabe",
+  },
+  bvgMode: {
+    minimum: "Gesetzliches Minimum",
+    certificate: "PK-Ausweis",
+    manual: "Manuelle Angabe",
+  },
+}
 
 function safe(value: unknown): string {
   return String(value == null ? "" : value)
@@ -107,477 +325,1057 @@ function safe(value: unknown): string {
     .replace(/→/g, ">")
     .replace(/✓/g, "OK")
     .replace(/•/g, "-")
-    // eslint-disable-next-line no-control-regex
+    // StandardFonts.Helvetica uses WinAnsi. Remove unsupported glyphs.
     .replace(/[^\x20-\x7E\u00A0-\u00FF]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
 }
+
 function chf(value: unknown): string {
   return "CHF " + Math.round(Number(value) || 0).toLocaleString("de-CH")
 }
+
 function fmtDate(value?: string | null): string {
   const d = value ? new Date(value) : new Date()
   return Number.isNaN(d.valueOf())
     ? safe(value)
     : d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })
 }
+
 function annualPremium(contract: ReportContract): number {
-  const n = Number(contract.premium) || 0
-  return n * (INTERVAL_FACTOR[contract.interval ?? "monthly"] ?? 12)
+  return (Number(contract.premium) || 0) * (INTERVAL_FACTOR[contract.interval ?? "monthly"] ?? 12)
 }
 
-/**
- * Builds the 8-page advisory report and returns the PDF bytes.
- */
+function statusLabel(status: ReportStatus): string {
+  if (status === "done") return "Abgeschlossen"
+  if (status === "progress") return "In Bearbeitung"
+  return "Offen"
+}
+
+function statusColor(status: ReportStatus): Col {
+  if (status === "done") return GREEN
+  if (status === "progress") return ORANGE
+  return MUTED
+}
+
+function answerValue(data: ReportData, id: string): string {
+  return data.answers.find((answer) => answer.id === id)?.answer ?? ""
+}
+
+function meaningful(value: unknown): boolean {
+  const text = safe(value)
+  return Boolean(text && text !== "-" && text !== "Nicht erfasst" && text !== "0")
+}
+
+function humanValue(key: string, value: unknown): string {
+  if (typeof value === "boolean") return value ? "Ja" : "Nein"
+  if (typeof value === "number") {
+    const moneyKey =
+      /income|einkommen|ausgaben|kaufpreis|eigenkapital|salary|capital|startkapital|sparrate|betrag|beitrag|zielvermoegen|amount|guthaben|kosten|miete/i.test(
+        key,
+      ) || ["iv", "ivChild", "partner", "orphan"].includes(key)
+    if (moneyKey) return chf(value)
+    if (/anlagehorizont|verzoegerung|years|delay/i.test(key)) return `${value} Jahre`
+    if (/pct|degree|quote|rendite|inflation_pa|ter_pa|grenzsteuersatz|tax|zins/i.test(key)) return `${value} %`
+    return Number(value).toLocaleString("de-CH")
+  }
+  if (Array.isArray(value)) return value.map(safe).filter(Boolean).join(", ")
+  const translated = INPUT_VALUE_LABELS[key]?.[safe(value)]
+  if (translated) return translated
+  return safe(value)
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(safe).filter(Boolean) : []
+}
+
+function supplementaryExisting(calculator: ReportCalculator): string[] {
+  const existing: string[] = []
+  if (calculator.existingHospital) existing.push("Spitalzusatz")
+  const ambulatory =
+    calculator.existingAmbulatory && typeof calculator.existingAmbulatory === "object"
+      ? (calculator.existingAmbulatory as Record<string, unknown>)
+      : {}
+  Object.entries(ambulatory).forEach(([key, enabled]) => {
+    if (enabled && SUPPLEMENTARY_LABELS[key]) existing.push(SUPPLEMENTARY_LABELS[key])
+  })
+  return existing
+}
+
+function insuranceExisting(calculator: ReportCalculator): string[] {
+  return [calculator.household, calculator.liability, calculator.motor].flatMap((group) => {
+    if (!group || typeof group !== "object") return []
+    const record = group as Record<string, unknown>
+    if (!record.existing || !Array.isArray(record.existingCovers)) return []
+    return record.existingCovers
+      .map((cover) => (cover && typeof cover === "object" ? safe((cover as Record<string, unknown>).label) : ""))
+      .filter(Boolean)
+  })
+}
+
+function normalizedCoverage(value: string): string {
+  return value.split(" · ")[0].trim()
+}
+
+function calculatorFacts(key: string, calculator: ReportCalculator): Array<[string, string]> {
+  const facts: Array<[string, string]> = []
+  const source =
+    calculator.inputs && typeof calculator.inputs === "object"
+      ? calculator.inputs
+      : key === "pk-ausweis" || key === "freizuegigkeit"
+        ? calculator
+        : {}
+
+  Object.entries(source)
+    .filter(([field, value]) => !["results", "savedAt", "calculator", "calculationYear", "source", "filledFields"].includes(field) && meaningful(value))
+    .slice(0, 8)
+    .forEach(([field, value]) => {
+      if (typeof value === "object" && !Array.isArray(value)) return
+      facts.push([INPUT_LABELS[field] || field.replace(/_/g, " "), humanValue(field, value)])
+    })
+
+  if (key === "anlegerprofil") {
+    if (meaningful(calculator.profile)) facts.push(["Anlegerprofil", safe(calculator.profile)])
+    if (meaningful(calculator.score)) facts.push(["Profilwert", `${safe(calculator.score)} / 100`])
+    if (meaningful(calculator.equity)) facts.push(["Orientierende Aktienquote", `${safe(calculator.equity)} %`])
+  }
+
+  if (key === "supplementaryInsurance" && meaningful(calculator.notes)) {
+    facts.push(["Notiz", safe(calculator.notes)])
+  }
+
+  if (key === "insuranceNeeds") {
+    const household =
+      calculator.household && typeof calculator.household === "object"
+        ? (calculator.household as Record<string, unknown>)
+        : {}
+    const motor =
+      calculator.motor && typeof calculator.motor === "object"
+        ? (calculator.motor as Record<string, unknown>)
+        : {}
+    if (Number(household.householdValue) > 0) facts.push(["Hausratwert", chf(household.householdValue)])
+    if (Number(household.householdSize) > 0) facts.push(["Haushaltsgrösse", safe(household.householdSize)])
+    if (Number(motor.vehicleValue) > 0) facts.push(["Fahrzeugwert", chf(motor.vehicleValue)])
+    if (Number(motor.vehicleYear) > 0) facts.push(["Fahrzeugjahr", safe(motor.vehicleYear)])
+    if (meaningful(calculator.notes)) facts.push(["Notiz", safe(calculator.notes)])
+  }
+
+  if (key === "sealth-check") {
+    if (meaningful(calculator.selectedPackage)) facts.push(["Gewähltes Paket", safe(calculator.selectedPackage)])
+    if (Number(calculator.annualPrice) > 0) facts.push(["Preis pro Jahr", chf(calculator.annualPrice)])
+  }
+
+  return facts.slice(0, 8)
+}
+
+function calculatorResults(key: string, calculator: ReportCalculator): string[] {
+  if (Array.isArray(calculator.results) && calculator.results.length) return calculator.results.map(safe).filter(Boolean)
+
+  if (key === "anlegerprofil") {
+    return [
+      meaningful(calculator.profile) ? `Profil: ${safe(calculator.profile)}` : "",
+      meaningful(calculator.score) ? `Profilwert: ${safe(calculator.score)} / 100` : "",
+      meaningful(calculator.equity) ? `Aktienquote: ${safe(calculator.equity)} %` : "",
+    ].filter(Boolean)
+  }
+
+  if (key === "pk-ausweis") {
+    return [
+      Number(calculator.capital) > 0 ? `Altersguthaben: ${chf(calculator.capital)}` : "",
+      Number(calculator.iv) > 0 ? `IV-Rente: ${chf(calculator.iv)} / Jahr` : "",
+      Number(calculator.partner) > 0 ? `Partnerrente: ${chf(calculator.partner)} / Jahr` : "",
+    ].filter(Boolean)
+  }
+
+  if (key === "freizuegigkeit") {
+    return [
+      meaningful(calculator.solution) ? `Lösung: ${safe(calculator.solution)}` : "",
+      Number(calculator.amount) > 0 ? `Guthaben: ${chf(calculator.amount)}` : "",
+      meaningful(calculator.priority) ? `Priorität: ${safe(calculator.priority)}` : "",
+    ].filter(Boolean)
+  }
+
+  if (key === "supplementaryInsurance") {
+    const selected = stringList(calculator.selected)
+    const existing = supplementaryExisting(calculator)
+    const existingNames = existing.map(normalizedCoverage)
+    const gaps = selected.filter((item) => !existingNames.includes(normalizedCoverage(item)))
+    return [
+      `Gewünschte Ergänzungen: ${selected.length}`,
+      `Bereits vorhanden: ${existing.length}`,
+      `Noch zu prüfen: ${gaps.length}`,
+    ]
+  }
+  if (key === "insuranceNeeds") {
+    const selected = stringList(calculator.selected)
+    const existing = insuranceExisting(calculator)
+    const gaps = selected.filter((item) => !existing.includes(item))
+    return [
+      `Gewünschte Deckungen: ${selected.length}`,
+      `Bereits vorhanden: ${existing.length}`,
+      `Noch zu prüfen: ${gaps.length}`,
+    ]
+  }
+  if (key === "sealth-check") {
+    const scenario =
+      calculator.scenario && typeof calculator.scenario === "object"
+        ? (calculator.scenario as Record<string, unknown>)
+        : {}
+    return [
+      meaningful(calculator.recommendation) ? `Empfehlung: ${safe(calculator.recommendation)}` : "",
+      Number(calculator.annualPrice) > 0 ? `Preis pro Jahr: ${chf(calculator.annualPrice)}` : "",
+      Number(scenario.potentialNet) > 0 ? `Finanzieller Vorteil: ${chf(scenario.potentialNet)}` : "",
+    ].filter(Boolean)
+  }
+
+  return []
+}
+
+function splitMetric(result: string): { label: string; value: string } {
+  const colon = result.indexOf(":")
+  if (colon > 0 && colon < 40) {
+    return { label: safe(result.slice(0, colon)), value: safe(result.slice(colon + 1)) }
+  }
+  const match = result.match(/^(.*?)(CHF\s+.*|\d+(?:[.,]\d+)?\s*%.*)$/i)
+  if (match && match[1].trim()) return { label: safe(match[1]), value: safe(match[2]) }
+  return { label: "Ergebnis", value: safe(result) }
+}
+
+function numericCHF(value: string): number | null {
+  if (!/CHF/i.test(value)) return null
+  const match = value.match(/CHF\s*(-?[0-9'’.,]+)/i)
+  if (!match) return null
+  const parsed = Number(match[1].replace(/['’]/g, "").replace(/\./g, "").replace(",", "."))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function numericPercent(value: string): number | null {
+  const match = value.match(/(-?[0-9]+(?:[.,][0-9]+)?)\s*%/)
+  if (!match) return null
+  const parsed = Number(match[1].replace(",", "."))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function resultWith(results: string[], label: string): string {
+  return results.find((result) => result.toLocaleLowerCase("de-CH").includes(label.toLocaleLowerCase("de-CH"))) ?? ""
+}
+
+function calculatorMeta(key: string): CalculatorMeta {
+  return CALCULATOR_META[key] ?? {
+    title: key.replace(/[-_]/g, " "),
+    eyebrow: "Berechnung aus Ihrer Beratung",
+    meaning: "Die gespeicherten Werte zeigen den Stand aus dem gemeinsamen Beratungsgespräch.",
+    source: "Persönlich erfasste Angaben",
+  }
+}
+
 export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array> {
   const doc = await PDFDocument.create()
-  const regular = await doc.embedFont(StandardFonts.Helvetica)
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold)
-
-  doc.setTitle("Combinvest Beratungsbericht - " + safe(data.customerName))
+  doc.registerFontkit(fontkit)
+  let regular: PDFFont
+  let bold: PDFFont
+  let heavy: PDFFont
+  let brandIcon: PDFImage | null = null
+  let brandLogo: PDFImage | null = null
+  try {
+    const [regularBytes, semiboldBytes, heavyBytes] = await Promise.all([
+      readFile(join(process.cwd(), "public", "fonts", "Manrope-Regular.ttf")),
+      readFile(join(process.cwd(), "public", "fonts", "Manrope-SemiBold.ttf")),
+      readFile(join(process.cwd(), "public", "fonts", "Manrope-ExtraBold.ttf")),
+    ])
+    regular = await doc.embedFont(regularBytes, { subset: true })
+    bold = await doc.embedFont(semiboldBytes, { subset: true })
+    heavy = await doc.embedFont(heavyBytes, { subset: true })
+  } catch {
+    regular = await doc.embedFont(StandardFonts.Helvetica)
+    bold = await doc.embedFont(StandardFonts.HelveticaBold)
+    heavy = bold
+  }
+  try {
+    brandIcon = await doc.embedPng(await readFile(join(process.cwd(), "public", "combinvest-icon.png")))
+  } catch {
+    brandIcon = null
+  }
+  try {
+    brandLogo = await doc.embedPng(await readFile(join(process.cwd(), "public", "combinvest-logo.png")))
+  } catch {
+    brandLogo = null
+  }
+  doc.setTitle(`Combinvest Finanzanalyse - ${safe(data.customerName)}`)
   doc.setAuthor("Combinvest AG")
-  doc.setSubject("Zusammenfassung der Finanz- und Risikoanalyse")
+  doc.setSubject("Persönliche Zusammenfassung der Finanzberatung")
   doc.setCreator("Combinvest Beratungsplattform")
   doc.setCreationDate(new Date())
 
   const pages: PDFPage[] = []
-  const ctx: { page: PDFPage; y: number; section: string } = {
-    page: null as unknown as PDFPage,
-    y: 0,
-    section: "",
-  }
-
   const color = (c: Col): RGB => rgb(c[0], c[1], c[2])
-  function rect(x: number, y: number, w: number, h: number, fill?: Col, border?: Col, width?: number) {
-    ctx.page.drawRectangle({
+  let page = null as unknown as PDFPage
+  let y = 0
+  let section = ""
+
+  function rect(x: number, bottom: number, width: number, height: number, fill?: Col, border?: Col, borderWidth = 0) {
+    page.drawRectangle({
       x,
-      y,
-      width: w,
-      height: h,
+      y: bottom,
+      width,
+      height,
       color: fill ? color(fill) : undefined,
       borderColor: border ? color(border) : undefined,
-      borderWidth: width || 0,
+      borderWidth,
     })
   }
-  function line(x1: number, y1: number, x2: number, y2: number, c?: Col, w?: number) {
-    ctx.page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, color: color(c || LINE), thickness: w || 1 })
+
+  function roundRect(
+    x: number,
+    bottom: number,
+    width: number,
+    height: number,
+    radius: number,
+    fill: Col,
+    border?: Col,
+    borderWidth = 0,
+  ) {
+    const r = Math.min(radius, height / 2, width / 2)
+    rect(x + r, bottom, width - r * 2, height, fill)
+    rect(x, bottom + r, width, height - r * 2, fill)
+    ;[
+      [x + r, bottom + r],
+      [x + width - r, bottom + r],
+      [x + r, bottom + height - r],
+      [x + width - r, bottom + height - r],
+    ].forEach(([cx, cy]) => page.drawCircle({ x: cx, y: cy, size: r, color: color(fill) }))
+    if (border && borderWidth > 0) {
+      line(x + r, bottom, x + width - r, bottom, border, borderWidth)
+      line(x + r, bottom + height, x + width - r, bottom + height, border, borderWidth)
+      line(x, bottom + r, x, bottom + height - r, border, borderWidth)
+      line(x + width, bottom + r, x + width, bottom + height - r, border, borderWidth)
+    }
   }
-  function textWidth(text: string, font: PDFFont, size: number): number {
-    return font.widthOfTextAtSize(safe(text), size)
+
+  function pillBar(x: number, baseline: number, width: number, height: number, fill: Col) {
+    const radius = height / 2
+    if (width <= height) {
+      page.drawCircle({ x: x + width / 2, y: baseline + radius, size: width / 2, color: color(fill) })
+      return
+    }
+    rect(x + radius, baseline, width - height, height, fill)
+    page.drawCircle({ x: x + radius, y: baseline + radius, size: radius, color: color(fill) })
+    page.drawCircle({ x: x + width - radius, y: baseline + radius, size: radius, color: color(fill) })
   }
-  function wrap(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
-    const words = safe(text).split(" ")
+
+  function line(x1: number, y1: number, x2: number, y2: number, c: Col = LINE, width = 1) {
+    page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, color: color(c), thickness: width })
+  }
+
+  function textWidth(value: string, font: PDFFont, size: number): number {
+    return font.widthOfTextAtSize(safe(value), size)
+  }
+
+  function wrap(value: string, font: PDFFont, size: number, maxWidth: number): string[] {
+    const words = safe(value).split(" ")
     const lines: string[] = []
     let current = ""
-    words.forEach((word) => {
-      const next = current ? current + " " + word : word
-      if (textWidth(next, font, size) <= maxWidth || !current) current = next
+    for (const word of words) {
+      const next = current ? `${current} ${word}` : word
+      if (!current || textWidth(next, font, size) <= maxWidth) current = next
       else {
         lines.push(current)
         current = word
       }
-    })
+    }
     if (current) lines.push(current)
     return lines.length ? lines : [""]
   }
-  type TextOpts = { size?: number; bold?: boolean; color?: Col; maxWidth?: number; leading?: number }
-  function drawText(text: string, x: number, y: number, opts: TextOpts = {}) {
-    ctx.page.drawText(safe(text), {
-      x,
-      y,
-      size: opts.size || 10,
-      font: opts.bold ? bold : regular,
-      color: color(opts.color || NAVY),
-      maxWidth: opts.maxWidth,
-    })
-  }
-  function paragraph(text: string, x: number, y: number, maxWidth: number, opts: TextOpts = {}): number {
-    const size = opts.size || 10
-    const leading = opts.leading || size * 1.45
-    const lines = wrap(text, opts.bold ? bold : regular, size, maxWidth)
-    lines.forEach((value, index) => {
-      drawText(value, x, y - index * leading, { size, bold: opts.bold, color: opts.color })
-    })
-    return y - lines.length * leading
-  }
-  function brand(page: PDFPage, y: number, dark: boolean) {
-    page.drawText("comb", { x: M, y, size: 15, font: bold, color: color(dark ? WHITE : NAVY) })
-    page.drawText("invest", { x: M + 37, y, size: 15, font: bold, color: color(dark ? WHITE : BLUE) })
-  }
-  function addPage(section: string, title?: string, intro?: string): PDFPage {
-    ctx.page = doc.addPage(PAGE)
-    pages.push(ctx.page)
-    ctx.section = section || "BERATUNGSBERICHT"
-    brand(ctx.page, 803, false)
-    drawText(ctx.section.toUpperCase(), PAGE[0] - M - 180, 806, { size: 7, bold: true, color: BLUE })
-    line(M, 789, PAGE[0] - M, 789, LINE, 1)
-    ctx.y = 754
-    if (title) {
-      drawText(title, M, ctx.y, { size: 25, bold: true })
-      ctx.y -= 34
-    }
-    if (intro) {
-      ctx.y = paragraph(intro, M, ctx.y, CONTENT, { size: 10, color: MUTED, leading: 15 }) - 15
-    }
-    return ctx.page
-  }
-  function ensure(height: number, title?: string) {
-    if (ctx.y - height < 58) addPage(ctx.section, title || "Fortsetzung")
-  }
-  function sectionTitle(kicker: string, title: string, desc?: string) {
-    ensure(72)
-    drawText(kicker.toUpperCase(), M, ctx.y, { size: 7, bold: true, color: BLUE })
-    ctx.y -= 18
-    drawText(title, M, ctx.y, { size: 18, bold: true })
-    ctx.y -= 19
-    if (desc) ctx.y = paragraph(desc, M, ctx.y, CONTENT, { size: 9, color: MUTED, leading: 13 }) - 10
-  }
-  function miniCard(x: number, y: number, w: number, h: number, label: string, value: string, sub?: string, accent?: Col) {
-    rect(x, y - h, w, h, accent || SOFT, accent ? accent : LINE, accent ? 0 : 1)
-    drawText(label.toUpperCase(), x + 13, y - 18, { size: 6.5, bold: true, color: accent ? WHITE : MUTED })
-    drawText(value, x + 13, y - 42, { size: 18, bold: true, color: accent ? WHITE : NAVY })
-    if (sub) paragraph(sub, x + 13, y - 58, w - 26, { size: 7.5, color: accent ? WHITE : MUTED, leading: 10 })
-  }
-  const statusLabel = (status: string) =>
-    status === "done" ? "Abgeschlossen" : status === "progress" ? "In Bearbeitung" : "Offen"
-  const statusColor = (status: string): Col => (status === "done" ? GREEN : status === "progress" ? ORANGE : MUTED)
 
-  // --- Cover ---------------------------------------------------------------
-  ctx.page = doc.addPage(PAGE)
-  pages.push(ctx.page)
-  rect(0, 0, PAGE[0], PAGE[1], NAVY)
-  rect(0, 0, 20, PAGE[1], BLUE)
-  rect(360, 0, 235, PAGE[1], BLUE)
-  rect(390, 610, 170, 170, PALE)
-  rect(420, 640, 110, 110, WHITE)
-  brand(ctx.page, 785, true)
-  drawText("PERSÖNLICHE FINANZ- UND RISIKOANALYSE", M, 690, { size: 8, bold: true, color: WHITE })
-  paragraph("Klarheit für Ihre nächsten finanziellen Entscheidungen.", M, 645, 285, {
-    size: 29,
+  type TextOptions = { size?: number; bold?: boolean; heavy?: boolean; color?: Col; maxWidth?: number }
+
+  function drawText(value: string, x: number, baseline: number, options: TextOptions = {}) {
+    page.drawText(safe(value), {
+      x,
+      y: baseline,
+      size: options.size ?? 10,
+      font: options.heavy ? heavy : options.bold ? bold : regular,
+      color: color(options.color ?? INK),
+      maxWidth: options.maxWidth,
+    })
+  }
+
+  function paragraph(
+    value: string,
+    x: number,
+    baseline: number,
+    maxWidth: number,
+    options: TextOptions & { leading?: number } = {},
+  ): number {
+    const size = options.size ?? 10
+    const leading = options.leading ?? size * 1.45
+    const lines = wrap(value, options.heavy ? heavy : options.bold ? bold : regular, size, maxWidth)
+    lines.forEach((entry, index) => drawText(entry, x, baseline - index * leading, options))
+    return baseline - lines.length * leading
+  }
+
+  function drawBrand(dark = false) {
+    if (brandLogo && !dark) {
+      page.drawImage(brandLogo, { x: M, y: 790, width: 87, height: 31 })
+      return
+    }
+    if (brandIcon) page.drawImage(brandIcon, { x: M, y: 793, width: 27, height: 27 })
+    const wordmarkX = M + (brandIcon ? 34 : 0)
+    drawText("comb", wordmarkX, 808, { size: 15, bold: true, color: dark ? WHITE : NAVY })
+    drawText("invest", wordmarkX, 794, { size: 15, bold: true, color: dark ? SKY : BLUE })
+  }
+
+  function addPage(kicker: string, title: string, intro?: string) {
+    page = doc.addPage(PAGE)
+    pages.push(page)
+    section = kicker
+    drawBrand()
+    drawText(kicker.toUpperCase(), PAGE[0] - M - 168, 802, { size: 7, bold: true, color: BLUE })
+    line(M, 778, PAGE[0] - M, 778, LINE, 0.8)
+    y = 739
+    y = paragraph(title, M, y, CONTENT, { size: 23.5, bold: true, color: NAVY, leading: 29 }) - 4
+    if (intro) y = paragraph(intro, M, y, CONTENT - 12, { size: 9.5, color: MUTED, leading: 14 }) - 16
+  }
+
+  function ensure(height: number, continuation = "Fortsetzung") {
+    if (y - height < 58) addPage(section, continuation)
+  }
+
+  function sectionTitle(kicker: string, title: string, description?: string) {
+    ensure(74, title)
+    drawText(kicker.toUpperCase(), M, y, { size: 7, bold: true, color: BLUE })
+    y -= 18
+    drawText(title, M, y, { size: 15.5, bold: true, color: NAVY })
+    y -= 20
+    if (description) y = paragraph(description, M, y, CONTENT, { size: 9, color: MUTED, leading: 13 }) - 10
+  }
+
+  function metricCard(x: number, top: number, width: number, label: string, value: string, tone: Col = PALE) {
+    roundRect(x, top - 74, width, 74, 10, tone)
+    drawText(label.toUpperCase(), x + 12, top - 19, {
+      size: 6.5,
+      bold: true,
+      color: tone === PALE ? MUTED : WHITE,
+    })
+    const valueSize = value.length > 24 ? 10.5 : value.length > 17 ? 12.5 : 16
+    const valueColor = tone === PALE ? NAVY : WHITE
+    const lines = wrap(value, bold, valueSize, width - 24).slice(0, 2)
+    lines.forEach((entry, index) =>
+      drawText(entry, x + 12, top - 44 - index * (valueSize + 2), { size: valueSize, heavy: true, color: valueColor }),
+    )
+  }
+
+  function infoRow(label: string, value: string, rowY: number, labelWidth = 150): number {
+    drawText(label, M, rowY, { size: 8, bold: true, color: MUTED })
+    const lines = wrap(value, bold, 9.5, CONTENT - labelWidth)
+    lines.forEach((entry, index) => drawText(entry, M + labelWidth, rowY - index * 12, { size: 9.5, bold: true }))
+    const rowHeight = Math.max(30, lines.length * 12 + 12)
+    line(M, rowY - rowHeight + 10, PAGE[0] - M, rowY - rowHeight + 10, LINE, 0.7)
+    return rowHeight
+  }
+
+  // Cover - deliberately minimal, editorial and readable on a phone.
+  page = doc.addPage(PAGE)
+  pages.push(page)
+  rect(0, 0, PAGE[0], PAGE[1], PAPER)
+  roundRect(27, 30, PAGE[0] - 54, PAGE[1] - 60, 24, NAVY)
+  rect(PAGE[0] - 117, 30, 90, PAGE[1] - 60, BLUE)
+
+  roundRect(58, 730, 145, 57, 12, WHITE)
+  if (brandLogo) page.drawImage(brandLogo, { x: 72, y: 743, width: 105, height: 37 })
+  else {
+    if (brandIcon) page.drawImage(brandIcon, { x: 72, y: 744, width: 30, height: 30 })
+    const coverWordmarkX = brandIcon ? 111 : 72
+    drawText("comb", coverWordmarkX, 761, { size: 18, bold: true, color: NAVY })
+    drawText("invest", coverWordmarkX, 743, { size: 18, bold: true, color: BLUE })
+  }
+
+  roundRect(58, 643, 194, 26, 13, [0.095, 0.18, 0.34])
+  drawText("PERSÖNLICHE FINANZANALYSE", 72, 652, { size: 7, bold: true, color: SKY })
+
+  paragraph("Ihr persönlicher\nBeratungsbericht.", 58, 584, 362, {
+    size: 31,
     bold: true,
     color: WHITE,
-    leading: 35,
+    leading: 39,
   })
-  line(M, 495, 320, 495, WHITE, 1)
-  drawText(safe(data.customerName) || "Kundin / Kunde", M, 462, { size: 18, bold: true, color: WHITE })
-  drawText("Beratung vom " + fmtDate(data.createdAt), M, 438, { size: 10, color: [0.82, 0.88, 0.98] })
-  drawText("Vertraulich", M, 76, { size: 8, bold: true, color: [0.82, 0.88, 0.98] })
-  drawText("Analyse-ID " + safe(data.analysisId).slice(0, 24), M, 58, { size: 7, color: [0.72, 0.8, 0.93] })
-  drawText("combinvest", 402, 699, { size: 17, bold: true, color: BLUE })
-  drawText("BERATUNGSBERICHT", 401, 673, { size: 7, bold: true, color: NAVY })
-
-  // --- 01 Executive summary ------------------------------------------------
-  addPage(
-    "01 / Überblick",
-    "Ihre Beratung auf einen Blick",
-    "Die wichtigsten Erkenntnisse, Prioritäten und nächsten Schritte für Kunde und Innendienst.",
-  )
-  const ranked = (data.areas || []).slice().sort((a, b) => b.score - a.score)
-  const done = ranked.filter((a) => a.status === "done").length
-  miniCard(M, ctx.y, 155, 82, "Profiling", (data.answerCount || 0) + " / " + (data.questionCount || 19), "Fragen beantwortet")
-  miniCard(M + 172, ctx.y, 155, 82, "Themen", done + " / " + ranked.length, "Bereiche abgeschlossen")
-  miniCard(M + 344, ctx.y, 155, 82, "Verträge", String(Object.keys(data.contracts || {}).length), "Bestehende Produkte")
-  ctx.y -= 108
-  sectionTitle(
-    "Höchste Relevanz",
-    "Drei zentrale Beratungsfelder",
-    "Diese Rangfolge basiert auf den Antworten im Financial Profiling.",
-  )
-  ranked.slice(0, 3).forEach((item, index) => {
-    ensure(66)
-    rect(M, ctx.y - 52, CONTENT, 52, index === 0 ? PALE : SOFT, index === 0 ? BLUE : LINE, 1)
-    drawText(String(index + 1), M + 14, ctx.y - 31, { size: 17, bold: true, color: index === 0 ? BLUE : MUTED })
-    drawText(item.name, M + 48, ctx.y - 20, { size: 11, bold: true })
-    drawText(AREA_COPY[item.key] || "Persönlichen Handlungsbedarf prüfen.", M + 48, ctx.y - 37, {
-      size: 7.5,
-      color: MUTED,
-    })
-    drawText(item.score + " / 5", PAGE[0] - M - 67, ctx.y - 24, { size: 12, bold: true, color: statusColor(item.status) })
-    drawText(statusLabel(item.status), PAGE[0] - M - 86, ctx.y - 40, { size: 6.5, color: MUTED })
-    ctx.y -= 62
-  })
-  ctx.y -= 10
-  sectionTitle(
-    "Beratungskontext",
-    "Kunde und Beratung",
-    "Die Angaben dienen der eindeutigen Zuordnung und internen Weiterbearbeitung.",
-  )
-  const customer = data.customer || {}
-  const advisor = data.advisor || {}
-  const infoRows: Array<[string, string]> = [
-    ["Kunde", data.customerName],
-    ["Geburtsdatum", fmtDate(customer.birthdate)],
-    ["Kontakt", [customer.email, customer.phone].filter(Boolean).join(" · ") || "Nicht erfasst"],
-    ["Wohnort", [customer.postcode, customer.city].filter(Boolean).join(" ") || "Nicht erfasst"],
-    [
-      "Kundenberater",
-      advisor.display_name || [advisor.first_name, advisor.last_name].filter(Boolean).join(" ") || "Nicht erfasst",
-    ],
-    ["Beraterkontakt", advisor.email || "Nicht erfasst"],
-  ]
-  infoRows.forEach((row, index) => {
-    const y = ctx.y - index * 25
-    drawText(row[0], M, y, { size: 7, bold: true, color: MUTED })
-    drawText(row[1], M + 126, y, { size: 9, bold: index === 0 })
-    line(M, y - 9, PAGE[0] - M, y - 9, LINE, 0.7)
-  })
-  ctx.y -= infoRows.length * 25 + 8
-
-  // --- 02 Financial profiling ---------------------------------------------
-  addPage(
-    "02 / Financial Profiling",
-    "Persönliche Ausgangslage",
-    "Die Antworten wurden thematisch gebündelt, damit die Ausgangslage schnell nachvollziehbar bleibt.",
-  )
-  const answerMap: Record<string, ReportAnswer> = {}
-  ;(data.answers || []).forEach((item) => {
-    answerMap[item.id] = item
-  })
-  ANSWER_GROUPS.forEach((group) => {
-    ensure(55 + group[1].length * 24, group[0])
-    drawText(group[0], M, ctx.y, { size: 13, bold: true })
-    ctx.y -= 15
-    group[1].forEach((id) => {
-      const item = answerMap[id]
-      if (!item) return
-      drawText(item.question, M, ctx.y, { size: 7.5, color: MUTED, maxWidth: 245 })
-      const lines = wrap(item.answer || "Nicht beantwortet", bold, 8.2, 230)
-      lines.slice(0, 2).forEach((t, i) => {
-        drawText(t, M + 268, ctx.y - i * 10, { size: 8.2, bold: true })
-      })
-      ctx.y -= Math.max(24, lines.length * 10 + 8)
-      line(M, ctx.y + 7, PAGE[0] - M, ctx.y + 7, LINE, 0.6)
-    })
-    ctx.y -= 15
+  paragraph("Ausgangslage, Berechnungen und nächste Schritte - klar dokumentiert.", 58, 474, 335, {
+    size: 12,
+    color: [0.82, 0.87, 0.96],
+    leading: 19,
   })
 
-  // --- 03 Risk profile -----------------------------------------------------
+  // A simple financial growth motif rather than decorative stock imagery.
+  line(450, 320, 450, 576, [0.47, 0.67, 1], 0.8)
+  line(477, 320, 477, 576, [0.47, 0.67, 1], 0.8)
+  line(504, 320, 504, 576, [0.47, 0.67, 1], 0.8)
+  pillBar(441, 341, 18, 78, WHITE)
+  pillBar(468, 341, 18, 129, WHITE)
+  pillBar(495, 341, 18, 188, WHITE)
+  line(443, 444, 476, 489, WHITE, 2.2)
+  line(476, 489, 504, 548, WHITE, 2.2)
+  page.drawCircle({ x: 443, y: 444, size: 3.4, color: color(WHITE) })
+  page.drawCircle({ x: 476, y: 489, size: 3.4, color: color(WHITE) })
+  page.drawCircle({ x: 504, y: 548, size: 3.4, color: color(WHITE) })
+
+  roundRect(58, 170, 342, 142, 16, [0.075, 0.137, 0.255])
+  drawText("ERSTELLT FÜR", 78, 278, { size: 7, bold: true, color: SKY })
+  drawText(data.customerName || "Kundin / Kunde", 78, 239, { size: 23, heavy: true, color: WHITE })
+  drawText(`Beratung vom ${fmtDate(data.createdAt)}`, 78, 211, { size: 10, color: [0.78, 0.84, 0.94] })
+
+  drawText("FINANZEN", 58, 91, { size: 7, bold: true, color: SKY })
+  drawText("VORSORGE", 133, 91, { size: 7, bold: true, color: SKY })
+  drawText("ABSICHERUNG", 221, 91, { size: 7, bold: true, color: SKY })
+  drawText("Combinvest AG", 442, 67, { size: 7, bold: true, color: WHITE })
+
+  const ranked = [...(data.areas ?? [])].sort((a, b) => b.score - a.score)
+  const completed = ranked.filter((area) => area.status === "done")
+  const calculators = Object.entries(data.modules?.calculators ?? {}).filter(([, calculator]) => calculator)
+  const contractKeys = Object.keys(data.contracts ?? {})
+
+  // Personal overview
   addPage(
-    "03 / Risikoanalyse",
-    "Relevanz und Bearbeitungsstand",
-    "Die Skala zeigt den relativen Beratungsbedarf von 1 (tief) bis 5 (sehr hoch). Sie ist keine Produktbewertung.",
+    "Ihre Übersicht",
+    "Das Wichtigste auf einen Blick",
+    "Dieser Bericht enthält ausschließlich die Punkte, die in Ihrer Beratung erfasst oder berechnet wurden.",
   )
-  ranked.forEach((item, index) => {
-    ensure(72)
-    const y = ctx.y
-    drawText(String(index + 1).padStart(2, "0"), M, y, { size: 8, bold: true, color: MUTED })
-    drawText(item.name, M + 30, y, { size: 11, bold: true })
-    drawText(statusLabel(item.status), PAGE[0] - M - 95, y, { size: 7, bold: true, color: statusColor(item.status) })
-    const barX = M + 30
-    const barY = y - 24
-    const barW = 235
-    rect(barX, barY, barW, 8, LINE)
-    rect(barX, barY, (barW * Math.max(0, Math.min(5, item.score))) / 5, 8, item.score >= 4 ? BLUE : item.score === 3 ? ORANGE : MUTED)
-    drawText(item.score + " / 5", barX + barW + 12, barY, { size: 8, bold: true })
-    paragraph(AREA_COPY[item.key] || "Persönlichen Handlungsbedarf prüfen.", M + 30, y - 42, CONTENT - 30, {
-      size: 7.5,
+  const cardWidth = (CONTENT - 16) / 3
+  metricCard(M, y, cardWidth, "Themen bearbeitet", `${completed.length} von ${ranked.length}`)
+  metricCard(
+    M + cardWidth + 8,
+    y,
+    cardWidth,
+    "Gespeicherte Rechner",
+    calculators.length ? String(calculators.length) : "Keine",
+    calculators.length ? BLUE : PALE,
+  )
+  metricCard(M + (cardWidth + 8) * 2, y, cardWidth, "Verträge erfasst", String(contractKeys.length))
+  y -= 103
+
+  sectionTitle("Dokumentierter Beratungsstand", "Diese Themen wurden gemeinsam bearbeitet")
+  const documentedAreas = completed.length ? completed : ranked.filter((area) => area.status === "progress")
+  const areaColumnWidth = (CONTENT - 12) / 2
+  documentedAreas.forEach((area, index) => {
+    const column = index % 2
+    const row = Math.floor(index / 2)
+    const x = M + column * (areaColumnWidth + 12)
+    const top = y - row * 72
+    roundRect(x, top - 62, areaColumnWidth, 62, 10, SOFT)
+    roundRect(x, top - 62, 5, 62, 2.5, area.status === "done" ? GREEN : ORANGE)
+    drawText(area.name, x + 15, top - 19, { size: 10.5, bold: true, maxWidth: areaColumnWidth - 30 })
+    paragraph(AREA_COPY[area.key] ?? "Persönlichen Handlungsbedarf gemeinsam prüfen.", x + 15, top - 37, areaColumnWidth - 30, {
+      size: 7.2,
       color: MUTED,
       leading: 10,
     })
-    ctx.y -= 70
   })
-
-  // --- 04 Contracts --------------------------------------------------------
-  addPage(
-    "04 / Vertragscheck",
-    "Bestehende Verträge",
-    "Erfasste Produkte als Arbeitsgrundlage für Prüfung, Rückfragen und allfällige Offerten.",
-  )
-  const contractKeys = Object.keys(data.contracts || {})
-  const annualTotal = contractKeys.reduce((sum, key) => sum + annualPremium(data.contracts[key] || {}), 0)
-  miniCard(M, ctx.y, 240, 75, "Erfasste Produkte", String(contractKeys.length), "Vertragspositionen")
-  miniCard(M + 258, ctx.y, 241, 75, "Prämienvolumen", chf(annualTotal), "Hochrechnung pro Jahr")
-  ctx.y -= 100
-  if (!contractKeys.length) {
-    paragraph("Im Vertragscheck wurden noch keine bestehenden Produkte erfasst.", M, ctx.y, CONTENT, {
-      size: 10,
+  if (!documentedAreas.length) {
+    roundRect(M, y - 54, CONTENT, 54, 10, SOFT)
+    drawText("Die Beratungsthemen sind noch nicht als bearbeitet markiert.", M + 16, y - 31, {
+      size: 9.5,
+      bold: true,
       color: MUTED,
     })
-    ctx.y -= 30
+    y -= 64
   } else {
-    ;([
-      ["Produkt", 0],
-      ["Gesellschaft", 140],
-      ["Prämie", 310],
-      ["Ablauf", 407],
-    ] as Array<[string, number]>).forEach((h) => {
-      drawText(h[0], M + h[1], ctx.y, { size: 7, bold: true, color: MUTED })
-    })
-    ctx.y -= 15
-    line(M, ctx.y, PAGE[0] - M, ctx.y, LINE, 1)
-    ctx.y -= 15
+    y -= Math.ceil(documentedAreas.length / 2) * 72 + 8
+  }
+
+  addPage(
+    "Ihr Kundenprofil",
+    "Persönliche Ausgangslage",
+    "Diese Angaben bildeten die Grundlage für die besprochenen Themen und Berechnungen.",
+  )
+  const profileRows: Array<[string, string]> = [
+    ["Kunde", data.customerName],
+    ["Geburtsdatum", fmtDate(data.customer?.birthdate)],
+    ["Wohnort", [data.customer?.postcode, data.customer?.city].filter(Boolean).join(" ") || "Nicht erfasst"],
+    ["Zivilstand", answerValue(data, "zivilstand")],
+    ["Kinder", answerValue(data, "kinder")],
+    ["Erwerbssituation", answerValue(data, "erwerb")],
+    ["Beruf", answerValue(data, "beruf")],
+    ["Jahresbruttoeinkommen", answerValue(data, "brutto")],
+    ["Wohnsituation", answerValue(data, "wohnen")],
+    ["Liquidität", answerValue(data, "liquiditaet")],
+    ["Ziel bei Invalidität", answerValue(data, "invaliditaet_ziel")],
+    ["Ziel bei Pensionierung", answerValue(data, "pension_ziel")],
+    ["Absicherung im Todesfall", answerValue(data, "tod_ziel")],
+    ["Finanzielle Ziele", answerValue(data, "ziele")],
+  ].filter(([, value]) => meaningful(value)) as Array<[string, string]>
+  profileRows.slice(0, 14).forEach(([label, value]) => {
+    const estimatedHeight = Math.max(30, wrap(value, bold, 9.5, CONTENT - 150).length * 12 + 12)
+    ensure(estimatedHeight, "Persönliche Ausgangslage")
+    y -= infoRow(label, value, y)
+  })
+
+  // Contracts only when actually captured.
+  if (contractKeys.length) {
+    addPage(
+      "Ihre Verträge",
+      "Bestehende Verträge und Abonnemente",
+      "Die erfassten Verträge und laufenden Kosten bilden die Grundlage für die weitere Prüfung. Verbindlich bleiben die Originalunterlagen.",
+    )
+    const annualTotal = contractKeys.reduce((sum, key) => sum + annualPremium(data.contracts[key] ?? {}), 0)
+    metricCard(M, y, 242, "Erfasste Verträge", String(contractKeys.length))
+    metricCard(M + 258, y, 249, "Kosten pro Jahr", chf(annualTotal), BLUE)
+    y -= 104
+    drawText("Produkt", M, y, { size: 7, bold: true, color: MUTED })
+    drawText("Gesellschaft", M + 150, y, { size: 7, bold: true, color: MUTED })
+    drawText("Prämie", M + 330, y, { size: 7, bold: true, color: MUTED })
+    y -= 12
+    line(M, y, PAGE[0] - M, y)
+    y -= 19
     contractKeys.forEach((key) => {
-      ensure(44, "Bestehende Verträge")
-      const c = data.contracts[key] || {}
-      drawText(key, M, ctx.y, { size: 8.5, bold: true, maxWidth: 130 })
-      drawText(c.company || "Nicht erfasst", M + 140, ctx.y, { size: 8, maxWidth: 155 })
+      ensure(44, "Weitere Verträge")
+      const contract = data.contracts[key] ?? {}
+      drawText(contract.product || key.split("::")[0], M, y, { size: 9, bold: true, maxWidth: 138 })
+      drawText(contract.company || "Nicht erfasst", M + 150, y, { size: 8.5, maxWidth: 165 })
       drawText(
-        c.premium != null ? chf(c.premium) + " / " + (INTERVAL_LABEL[c.interval ?? "monthly"] || "Monat") : "-",
-        M + 310,
-        ctx.y,
-        { size: 7.5 },
+        contract.premium != null
+          ? `${chf(contract.premium)} / ${INTERVAL_LABEL[contract.interval ?? "monthly"] ?? "Monat"}`
+          : "-",
+        M + 330,
+        y,
+        { size: 8.2 },
       )
-      drawText(c.abl || "-", M + 407, ctx.y, { size: 8 })
-      if (c.pol) drawText("Police " + c.pol, M, ctx.y - 14, { size: 6.5, color: MUTED })
-      if (c.notes) drawText(c.notes, M + 140, ctx.y - 14, { size: 6.5, color: MUTED, maxWidth: 260 })
-      ctx.y -= 35
-      line(M, ctx.y + 9, PAGE[0] - M, ctx.y + 9, LINE, 0.6)
+      if (contract.pol) drawText(`Police ${contract.pol}`, M, y - 15, { size: 6.5, color: MUTED })
+      if (contract.abl) drawText(`Ablauf ${contract.abl}`, M + 330, y - 15, { size: 6.5, color: MUTED })
+      y -= 39
+      line(M, y + 10, PAGE[0] - M, y + 10, LINE, 0.7)
     })
   }
 
-  // --- 05 Calculators ------------------------------------------------------
-  addPage(
-    "05 / Berechnungen",
-    "Ergebnisse aus der Beratung",
-    "Nur tatsächlich gespeicherte Rechner und Bedarfschecks werden in diesem Abschnitt dokumentiert.",
-  )
-  const modules = data.modules || {}
-  let hasModule = false
-  function resultBlock(title: string, source: string, metrics: Array<[string, string, string?]>, description?: string) {
-    hasModule = true
-    ensure(105, title)
-    drawText(title, M, ctx.y, { size: 13, bold: true })
-    drawText(source, M, ctx.y - 14, { size: 6.5, color: MUTED })
-    ctx.y -= 30
-    const count = Math.min(3, metrics.length)
-    const w = (CONTENT - (count - 1) * 8) / Math.max(1, count)
-    metrics.slice(0, 3).forEach((metric, index) => {
-      miniCard(M + index * (w + 8), ctx.y, w, 62, metric[0], metric[1], metric[2] || "")
-    })
-    ctx.y -= 74
-    if (description) {
-      ctx.y = paragraph(description, M, ctx.y, CONTENT, { size: 8, color: MUTED, leading: 12 }) - 14
+  // One clear, phone-friendly page for every calculator used inside the analysis.
+  calculators.forEach(([key, calculator], index) => {
+    const meta = calculatorMeta(key)
+    const results = calculatorResults(key, calculator)
+    const facts = calculatorFacts(key, calculator)
+    addPage(
+      `${index + 1} von ${calculators.length} Berechnungen`,
+      meta.title,
+      "Die folgenden Werte wurden während Ihrer Beratung berechnet und ausdrücklich in die Analyse übernommen.",
+    )
+    drawText(meta.eyebrow.toUpperCase(), M, y, { size: 7, bold: true, color: BLUE })
+    const calculationDate = calculator.savedAt ? fmtDate(calculator.savedAt) : fmtDate(data.createdAt)
+    drawText(`Berechnet am ${calculationDate}`, PAGE[0] - M - 145, y, { size: 7.5, color: MUTED })
+    y -= 27
+
+    const metrics = results.slice(0, 3).map(splitMetric)
+    const isSavingsReport = key === "wealth-sparen" && metrics.length >= 3
+    const isBudgetReport = key === "budget"
+    const isPensionReport = key === "pension-gap"
+    const isAhvReport = key === "ahv-rente"
+    const isAffordabilityReport = key === "real-estate-affordability"
+    const isFranchiseReport = key === "health-franchise"
+    const isSupplementaryReport = key === "supplementaryInsurance"
+    const isInsuranceNeedsReport = key === "insuranceNeeds"
+    const hasDedicatedVisual =
+      isSavingsReport ||
+      isBudgetReport ||
+      isPensionReport ||
+      isAhvReport ||
+      isAffordabilityReport ||
+      isFranchiseReport ||
+      isSupplementaryReport ||
+      isInsuranceNeedsReport
+
+    if (isBudgetReport) {
+      const income = numericCHF(resultWith(results, "Einkommen")) ?? 0
+      const expenses = numericCHF(resultWith(results, "Ausgaben")) ?? 0
+      const balance = numericCHF(resultWith(results, "Überschuss")) ?? income - expenses
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Einnahmen / Monat", chf(income), BLUE)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "Ausgaben / Monat", chf(expenses), PALE)
+      metricCard(
+        M + (metricWidth + metricGap) * 2,
+        y,
+        metricWidth,
+        balance >= 0 ? "Frei verfügbar" : "Monatliches Defizit",
+        chf(Math.abs(balance)),
+        balance >= 0 ? GREEN : RED,
+      )
+      y -= 103
+
+      sectionTitle("Monatlicher Überblick", "So verteilt sich Ihr Einkommen")
+      const barWidth = 318
+      const maximum = Math.max(income, expenses, 1)
+      ;[
+        ["Einnahmen", income, BLUE],
+        ["Ausgaben", expenses, ORANGE],
+      ].forEach(([label, amount, tone], rowIndex) => {
+        drawText(String(label), M, y - rowIndex * 30, { size: 8.5, bold: true, color: MUTED })
+        pillBar(M + 92, y - 3 - rowIndex * 30, barWidth, 11, LINE)
+        pillBar(M + 92, y - 3 - rowIndex * 30, Math.max(10, (barWidth * Number(amount)) / maximum), 11, tone as Col)
+        drawText(chf(amount), PAGE[0] - M - 78, y - rowIndex * 30, { size: 8.5, heavy: true })
+      })
+      y -= 78
+    } else if (isPensionReport) {
+      const target = numericCHF(resultWith(results, "Ziel")) ?? 0
+      const current = numericCHF(resultWith(results, "Vorhandene Leistungen")) ?? 0
+      const gap = numericCHF(resultWith(results, "Deckungslücke")) ?? Math.max(0, target - current)
+      const coverage = Math.max(0, Math.min(100, numericPercent(resultWith(results, "Deckung")) ?? (target > 0 ? (current / target) * 100 : 0)))
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Zielabsicherung / Jahr", chf(target), PALE)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "Vorhandene Leistungen", chf(current), BLUE)
+      metricCard(M + (metricWidth + metricGap) * 2, y, metricWidth, "Vorsorgelücke / Jahr", chf(gap), gap > 0 ? RED : GREEN)
+      y -= 103
+
+      sectionTitle("Absicherung", `${Math.round(coverage)} % des Ziels sind gedeckt`)
+      pillBar(M, y - 2, CONTENT, 18, [0.97, 0.86, 0.86])
+      if (coverage > 0) pillBar(M, y - 2, Math.max(18, (CONTENT * coverage) / 100), 18, BLUE)
+      drawText(`Vorhanden ${chf(current)}`, M, y - 27, { size: 8, bold: true, color: BLUE_DARK })
+      drawText(`Lücke ${chf(gap)}`, PAGE[0] - M - 104, y - 27, { size: 8, bold: true, color: RED })
+      y -= 52
+    } else if (isAhvReport) {
+      const target = Number(calculator.inputs?.wunscheinkommen) || 0
+      const pension = numericCHF(resultWith(results, "AHV-Rente")) ?? 0
+      const gap = numericCHF(resultWith(results, "Vorsorgelücke")) ?? Math.max(0, target - pension)
+      const coverage = target > 0 ? Math.max(0, Math.min(100, (pension / target) * 100)) : 0
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Wunschbedarf / Monat", chf(target), PALE)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "AHV-Rente / Monat", chf(pension), BLUE)
+      metricCard(M + (metricWidth + metricGap) * 2, y, metricWidth, "Lücke / Monat", chf(gap), gap > 0 ? RED : GREEN)
+      y -= 103
+
+      sectionTitle("Monatliche Deckung", `${Math.round(coverage)} % des Wunschbedarfs`)
+      pillBar(M, y - 2, CONTENT, 18, [0.97, 0.86, 0.86])
+      if (coverage > 0) pillBar(M, y - 2, Math.max(18, (CONTENT * coverage) / 100), 18, BLUE)
+      y -= 42
+    } else if (isAffordabilityReport) {
+      const quote = numericPercent(resultWith(results, "Bank-Tragbarkeit")) ?? 0
+      const equity = numericCHF(resultWith(results, "Eigenmittel")) ?? 0
+      const firstMortgage = numericCHF(resultWith(results, "1. Hypothek")) ?? 0
+      const secondMortgage = numericCHF(resultWith(results, "2. Hypothek")) ?? 0
+      const purchasePrice = Number(calculator.inputs?.kaufpreis) || equity + firstMortgage + secondMortgage
+      const ownership = numericCHF(resultWith(results, "Effektive Eigentümerkosten")) ?? 0
+      const cashflow = numericCHF(resultWith(results, "Liquiditätsabfluss")) ?? 0
+      const rent = numericCHF(resultWith(results, "Vergleichsmiete")) ?? 0
+      const affordable = results.some((result) => result === "Tragbar")
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Bank-Tragbarkeit", `${quote.toFixed(1)} %`, affordable ? GREEN : RED)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "Kaufpreis", chf(purchasePrice), PALE)
+      metricCard(M + (metricWidth + metricGap) * 2, y, metricWidth, "Eigenmittel", chf(equity), BLUE)
+      y -= 103
+
+      sectionTitle("Finanzierung", "So setzt sich der Kaufpreis zusammen")
+      const financingWidth = CONTENT
+      const base = Math.max(purchasePrice, 1)
+      pillBar(M, y - 2, financingWidth, 18, LINE)
+      const equityWidth = (financingWidth * equity) / base
+      const firstWidth = (financingWidth * firstMortgage) / base
+      rect(M, y - 2, equityWidth, 18, GREEN)
+      rect(M + equityWidth, y - 2, firstWidth, 18, BLUE)
+      rect(M + equityWidth + firstWidth, y - 2, Math.max(0, financingWidth - equityWidth - firstWidth), 18, ORANGE)
+      drawText(`Eigenmittel ${chf(equity)}`, M, y - 27, { size: 7.5, bold: true, color: GREEN })
+      drawText(`1. Hypothek ${chf(firstMortgage)}`, M + 157, y - 27, { size: 7.5, bold: true, color: BLUE_DARK })
+      drawText(`2. Hypothek ${chf(secondMortgage)}`, M + 344, y - 27, { size: 7.5, bold: true, color: ORANGE })
+      y -= 56
+
+      sectionTitle("Monatlicher Vergleich", "Eigentum und Vergleichsmiete")
+      const comparisonMax = Math.max(ownership, cashflow, rent, 1)
+      ;[
+        ["Eigentümerkosten", ownership, BLUE],
+        ["Cashflow inkl. Amortisation", cashflow, GREEN],
+        ["Vergleichsmiete", rent, ORANGE],
+      ].forEach(([label, amount, tone], rowIndex) => {
+        drawText(String(label), M, y - rowIndex * 28, { size: 7.8, bold: true, color: MUTED, maxWidth: 145 })
+        pillBar(M + 156, y - 3 - rowIndex * 28, 244, 10, LINE)
+        pillBar(M + 156, y - 3 - rowIndex * 28, Math.max(9, (244 * Number(amount)) / comparisonMax), 10, tone as Col)
+        drawText(chf(amount), PAGE[0] - M - 78, y - rowIndex * 28, { size: 8, heavy: true })
+      })
+      y -= 91
+    } else if (isFranchiseReport) {
+      const franchise = numericCHF(resultWith(results, "Beste Franchise")) ?? 0
+      const annualCosts = numericCHF(resultWith(results, "Jahreskosten")) ?? 0
+      const savings = numericCHF(resultWith(results, "Ersparnis")) ?? 0
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Empfohlene Franchise", chf(franchise), BLUE)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "Erwartete Jahreskosten", chf(annualCosts), PALE)
+      metricCard(
+        M + (metricWidth + metricGap) * 2,
+        y,
+        metricWidth,
+        savings > 0 ? "Mögliche Ersparnis" : "Aktuelle Wahl",
+        savings > 0 ? `${chf(savings)} / Jahr` : "Bereits passend",
+        savings > 0 ? GREEN : PALE,
+      )
+      y -= 103
+
+      sectionTitle("Ihre Auswahl", "Grundversicherung im Überblick")
+      const franchiseFacts = [
+        ["Wohnort", calculator.inputs?.ort],
+        ["Geburtsjahr", calculator.inputs?.geburtsjahr],
+        ["Versicherer", calculator.inputs?.versicherer],
+        ["Modell", calculator.inputs?.tarif],
+        ["Unfalldeckung", calculator.inputs?.unfalldeckung],
+        [
+          "Gesundheitskosten / Jahr",
+          Number(calculator.inputs?.gesundheitskosten) > 0 ? chf(calculator.inputs?.gesundheitskosten) : "",
+        ],
+      ].filter(([, value]) => meaningful(value)) as Array<[string, unknown]>
+      franchiseFacts.forEach(([label, value], factIndex) => {
+        const column = factIndex % 2
+        const row = Math.floor(factIndex / 2)
+        const width = (CONTENT - 12) / 2
+        const x = M + column * (width + 12)
+        const top = y - row * 46
+        roundRect(x, top - 36, width, 36, 8, SOFT)
+        drawText(label.toUpperCase(), x + 12, top - 13, { size: 6.2, bold: true, color: MUTED })
+        drawText(safe(value), x + 12, top - 27, { size: 8.5, bold: true, maxWidth: width - 24 })
+      })
+      y -= Math.ceil(franchiseFacts.length / 2) * 46 + 8
+    } else if (isSupplementaryReport || isInsuranceNeedsReport) {
+      const selected = stringList(calculator.selected)
+      const existing = isSupplementaryReport ? supplementaryExisting(calculator) : insuranceExisting(calculator)
+      const existingNames = existing.map(normalizedCoverage)
+      const gaps = selected.filter((item) => !existingNames.includes(normalizedCoverage(item)))
+      const metricGap = 8
+      const metricWidth = (CONTENT - metricGap * 2) / 3
+      metricCard(M, y, metricWidth, "Gewünscht", String(selected.length), BLUE)
+      metricCard(M + metricWidth + metricGap, y, metricWidth, "Bereits vorhanden", String(existing.length), PALE)
+      metricCard(M + (metricWidth + metricGap) * 2, y, metricWidth, "Noch zu prüfen", String(gaps.length), gaps.length ? ORANGE : GREEN)
+      y -= 103
+
+      sectionTitle(
+        "Deckungsübersicht",
+        isSupplementaryReport ? "Gewünschte Zusatzleistungen" : "Gewünschte Versicherungsdeckungen",
+      )
+      const items = selected.length ? selected : existing
+      if (!items.length) {
+        roundRect(M, y - 48, CONTENT, 48, 9, SOFT)
+        drawText("Es wurden noch keine einzelnen Leistungen ausgewählt.", M + 15, y - 29, {
+          size: 9,
+          bold: true,
+          color: MUTED,
+        })
+        y -= 62
+      } else {
+        const itemWidth = (CONTENT - 12) / 2
+        items.slice(0, 12).forEach((item, itemIndex) => {
+          const column = itemIndex % 2
+          const row = Math.floor(itemIndex / 2)
+          const x = M + column * (itemWidth + 12)
+          const top = y - row * 38
+          const isExisting = existingNames.includes(normalizedCoverage(item))
+          roundRect(x, top - 30, itemWidth, 30, 7, isExisting ? [0.92, 0.98, 0.95] : PALE)
+          page.drawCircle({ x: x + 14, y: top - 15, size: 3.2, color: color(isExisting ? GREEN : BLUE) })
+          drawText(item, x + 25, top - 19, { size: 7.8, bold: true, maxWidth: itemWidth - 78 })
+          drawText(isExisting ? "Bestehend" : "Prüfen", x + itemWidth - 52, top - 19, {
+            size: 6.2,
+            bold: true,
+            color: isExisting ? GREEN : BLUE_DARK,
+          })
+        })
+        y -= Math.ceil(Math.min(items.length, 12) / 2) * 38 + 8
+      }
+    } else if (isSavingsReport) {
+      const total = numericCHF(metrics[0].value) ?? 0
+      const paid = numericCHF(metrics[1].value) ?? 0
+      const interest = numericCHF(metrics[2].value) ?? Math.max(0, total - paid)
+      const paidShare = total > 0 ? Math.round((paid / total) * 100) : 0
+      const interestShare = total > 0 ? Math.max(0, 100 - paidShare) : 0
+
+      roundRect(M, y - 112, CONTENT, 112, 16, NAVY)
+      drawText("VORAUSSICHTLICHES ENDVERMÖGEN", M + 22, y - 27, { size: 7, bold: true, color: SKY })
+      drawText(metrics[0].value, M + 22, y - 67, { size: 26, heavy: true, color: WHITE })
+      const savingsHorizon = calculator.inputs?.anlagehorizont ?? calculator.inputs?.horizont
+      drawText(
+        `nach ${meaningful(savingsHorizon) ? `${safe(savingsHorizon)} Jahren` : "dem gewählten Zeitraum"}`,
+        M + 22,
+        y - 90,
+        {
+        size: 8.5,
+        color: [0.76, 0.83, 0.94],
+        },
+      )
+      drawText(`${interestShare} %`, PAGE[0] - M - 96, y - 53, { size: 20, heavy: true, color: SKY })
+      drawText("des Endvermögens", PAGE[0] - M - 126, y - 75, { size: 7.5, color: [0.76, 0.83, 0.94] })
+      drawText("entstehen durch Zinsen", PAGE[0] - M - 142, y - 89, { size: 7.5, color: [0.76, 0.83, 0.94] })
+      y -= 139
+
+      sectionTitle("Ihre Rechnung", "Einzahlungen und Zinsen")
+      const barWidth = CONTENT
+      pillBar(M, y - 4, barWidth, 12, LINE)
+      if (total > 0) {
+        pillBar(M, y - 4, Math.max(12, (barWidth * paid) / total), 12, BLUE)
+        const interestWidth = Math.max(12, (barWidth * interest) / total)
+        pillBar(M + barWidth - interestWidth, y - 4, interestWidth, 12, MINT)
+      }
+      y -= 31
+
+      roundRect(M, y - 102, CONTENT, 102, 12, SOFT)
+      drawText("BESTANDTEIL", M + 16, y - 20, { size: 6.5, bold: true, color: MUTED })
+      drawText("BETRAG", M + 275, y - 20, { size: 6.5, bold: true, color: MUTED })
+      drawText("ANTEIL", PAGE[0] - M - 66, y - 20, { size: 6.5, bold: true, color: MUTED })
+      line(M + 16, y - 30, PAGE[0] - M - 16, y - 30, LINE, 0.8)
+      drawText("Ihre Einzahlungen", M + 16, y - 49, { size: 9, bold: true })
+      drawText(metrics[1].value, M + 275, y - 49, { size: 9, heavy: true })
+      drawText(`${paidShare} %`, PAGE[0] - M - 62, y - 49, { size: 9, heavy: true, color: BLUE })
+      drawText("Ertrag durch Zinsen", M + 16, y - 75, { size: 9, bold: true })
+      drawText(metrics[2].value, M + 275, y - 75, { size: 9, heavy: true })
+      drawText(`${interestShare} %`, PAGE[0] - M - 62, y - 75, { size: 9, heavy: true, color: GREEN })
+      line(M + 16, y - 86, PAGE[0] - M - 16, y - 86, LINE, 0.8)
+      drawText("Ihr Endvermögen", M + 16, y - 98, { size: 9, heavy: true, color: NAVY })
+      drawText(metrics[0].value, M + 275, y - 98, { size: 9, heavy: true, color: NAVY })
+      y -= 126
+    } else if (metrics.length) {
+      const gap = 8
+      const width = (CONTENT - gap * (metrics.length - 1)) / metrics.length
+      metrics.forEach((metric, metricIndex) =>
+        metricCard(M + metricIndex * (width + gap), y, width, metric.label, metric.value, metricIndex === 0 ? BLUE : PALE),
+      )
+      y -= 101
     }
-  }
-  Object.keys(modules.calculators || {})
-    .slice(0, 6)
-    .forEach((key) => {
-      const c = (modules.calculators || {})[key]
-      if (!c || !Array.isArray(c.results) || !c.results.length) return
-      resultBlock(
-        CALC_TITLES[key] || "Rechner: " + key,
-        c.source || "Stand " + (c.calculationYear || 2026),
-        c.results.slice(0, 3).map((value, index) => ["Ergebnis " + (index + 1), safe(value).slice(0, 42), ""] as [string, string, string]),
-        CALC_NOTES[key] || "",
-      )
-    })
-  if (!hasModule) {
-    paragraph("Es wurden noch keine Rechnerresultate ausdrücklich in diese Analyse übernommen.", M, ctx.y, CONTENT, {
-      size: 10,
-      color: MUTED,
-    })
-  }
 
-  // --- 06 Recommendations --------------------------------------------------
+    const numericMetrics = results
+      .map(splitMetric)
+      .map((metric) => ({ ...metric, number: numericCHF(metric.value) }))
+      .filter((metric): metric is { label: string; value: string; number: number } => metric.number != null && metric.number >= 0)
+      .slice(0, 4)
+    if (!hasDedicatedVisual && numericMetrics.length >= 2) {
+      sectionTitle("Visueller Vergleich", "Ihre Zahlen im Verhältnis")
+      const max = Math.max(...numericMetrics.map((metric) => metric.number), 1)
+      numericMetrics.forEach((metric, metricIndex) => {
+        ensure(34)
+        drawText(metric.label, M, y, { size: 8, bold: true, color: MUTED, maxWidth: 155 })
+        pillBar(M + 165, y - 2, 245, 10, LINE)
+        pillBar(M + 165, y - 2, Math.max(8, (245 * metric.number) / max), 10, metricIndex === 0 ? BLUE : [0.46, 0.64, 0.94])
+        drawText(metric.value, PAGE[0] - M - 80, y, { size: 8, bold: true })
+        y -= 28
+      })
+      y -= 8
+    }
+
+    const factsToRender = isFranchiseReport ? [] : facts
+    if (factsToRender.length) {
+      sectionTitle("Berechnungsgrundlage", "Ihre verwendeten Angaben")
+      const columns = isAffordabilityReport && factsToRender.length >= 5 ? 3 : factsToRender.length > 4 ? 2 : 1
+      const columnGap = columns === 3 ? 10 : 18
+      const columnWidth = columns > 1 ? (CONTENT - columnGap * (columns - 1)) / columns : CONTENT
+      factsToRender.forEach(([label, value], factIndex) => {
+        const column = columns > 1 ? factIndex % columns : 0
+        const row = columns > 1 ? Math.floor(factIndex / columns) : factIndex
+        const x = M + column * (columnWidth + columnGap)
+        const rowTop = y - row * 42
+        roundRect(x, rowTop - 32, columnWidth, 32, 7, SOFT)
+        drawText(label.toUpperCase(), x + 10, rowTop - 12, { size: 6, bold: true, color: MUTED })
+        drawText(value, x + 10, rowTop - 25, { size: 8.5, bold: true, maxWidth: columnWidth - 20 })
+      })
+      y -= Math.ceil(factsToRender.length / columns) * 42 + 10
+    }
+
+    if (!isSavingsReport) {
+      ensure(92)
+      roundRect(M, y - 76, CONTENT, 76, 12, PALE)
+      roundRect(M, y - 76, 5, 76, 2.5, BLUE)
+      drawText("WAS DIESES ERGEBNIS ZEIGT", M + 15, y - 20, { size: 7, bold: true, color: BLUE_DARK })
+      paragraph(meta.meaning, M + 15, y - 39, CONTENT - 30, { size: 10, color: NAVY, leading: 14 })
+      y -= 93
+      drawText(`Grundlage: ${calculator.source || meta.source}`, M, y, { size: 7.5, color: MUTED })
+      drawText(`Datenstand ${calculator.calculationYear || 2026}`, PAGE[0] - M - 88, y, {
+        size: 7.5,
+        bold: true,
+        color: MUTED,
+      })
+    }
+  })
+
+  // Closing page
   addPage(
-    "06 / Empfehlungen",
+    "Ihr weiterer Weg",
     "Empfehlungen und nächste Schritte",
-    "Der Bericht trennt zwischen abgeschlossenen, laufenden und offenen Beratungsthemen.",
+    "Diese Punkte halten fest, was nach der Beratung weiterverfolgt oder beim nächsten Termin entschieden wird.",
   )
-  ranked.forEach((item) => {
-    ensure(61)
-    const st = item.status || "open"
-    const c = statusColor(st)
-    rect(M, ctx.y - 49, 5, 49, c)
-    drawText(item.name, M + 17, ctx.y - 16, { size: 10, bold: true })
-    drawText(statusLabel(st), PAGE[0] - M - 91, ctx.y - 16, { size: 7, bold: true, color: c })
-    paragraph(AREA_COPY[item.key] || "Persönlichen Handlungsbedarf prüfen.", M + 17, ctx.y - 32, CONTENT - 17, {
-      size: 7.5,
-      color: MUTED,
-      leading: 10,
+  const nextAreas = ranked.filter((area) => area.status !== "done").slice(0, 5)
+  sectionTitle("Empfehlungen", nextAreas.length ? "Das bleibt zu prüfen" : "Ihre Themen sind dokumentiert")
+  if (!nextAreas.length) {
+    roundRect(M, y - 54, CONTENT, 54, 11, [0.92, 0.98, 0.95])
+    drawText("Alle relevanten Themen wurden im aktuellen Beratungsstand bearbeitet.", M + 16, y - 32, {
+      size: 10,
+      bold: true,
+      color: GREEN,
     })
-    ctx.y -= 59
-  })
-
-  // --- 07 Handover ---------------------------------------------------------
-  addPage(
-    "07 / Innendienst",
-    "Übergabe und Vollständigkeitskontrolle",
-    "Kompakte Arbeitsgrundlage für Nachbearbeitung, Dokumentation und Folgetermin.",
-  )
-  const checklist: Array<[string, string]> = [
-    ["Kundendaten und Identität", data.customerName ? "Vorhanden" : "Prüfen"],
-    ["Financial Profiling", (data.answerCount || 0) === (data.questionCount || 19) ? "Vollständig" : "Unvollständig"],
-    ["Vertragscheck", contractKeys.length ? contractKeys.length + " Produkte" : "Keine Verträge erfasst"],
-    ["Risikoanalyse", done + " von " + ranked.length + " Themen abgeschlossen"],
-    ["Rechnerresultate", hasModule ? "Im Bericht enthalten" : "Keine übernommen"],
-    ["Beratungsdokumente", modules.documents && modules.documents.status ? modules.documents.status : "Separat prüfen"],
-    [
-      "Nächster Termin",
-      modules.appointment && modules.appointment.date
-        ? fmtDate(modules.appointment.date) + " " + (modules.appointment.time || "")
-        : "Noch nicht erfasst",
-    ],
-  ]
-  checklist.forEach((item, index) => {
-    const y = ctx.y - index * 38
-    const ok = /Vorhanden|Vollständig|enthalten|abgeschlossen|Produkte/.test(item[1])
-    rect(M, y - 25, 24, 24, ok ? GREEN : SOFT, ok ? GREEN : LINE, 1)
-    drawText(ok ? "OK" : "!", M + (ok ? 5 : 9), y - 18, { size: 8, bold: true, color: ok ? WHITE : ORANGE })
-    drawText(item[0], M + 38, y - 9, { size: 9, bold: true })
-    drawText(item[1], M + 250, y - 9, { size: 8, color: ok ? GREEN : MUTED })
-    line(M + 38, y - 25, PAGE[0] - M, y - 25, LINE, 0.6)
-  })
-  ctx.y -= checklist.length * 38 + 12
-  sectionTitle("Notizen", "Beratungsnotizen")
-  let noteText = (data.notes || [])
-    .map((n) => (typeof n === "string" ? n : n.text || n.note || ""))
-    .filter(Boolean)
-    .join("\n")
-  if (!noteText) noteText = "Keine zusätzlichen Beratungsnotizen erfasst."
-  noteText
-    .split(/\n+/)
-    .slice(0, 10)
-    .forEach((note) => {
-      ensure(28)
-      drawText("-", M, ctx.y, { size: 9, bold: true, color: BLUE })
-      ctx.y = paragraph(note, M + 15, ctx.y, CONTENT - 15, { size: 8.5, color: MUTED, leading: 12 }) - 6
+    y -= 72
+  } else {
+    nextAreas.forEach((area) => {
+      ensure(64, "Weitere Empfehlungen")
+      roundRect(M, y - 51, 5, 51, 2.5, statusColor(area.status))
+      drawText(area.name, M + 17, y - 16, { size: 10.5, bold: true })
+      drawText(statusLabel(area.status), PAGE[0] - M - 86, y - 16, {
+        size: 7,
+        bold: true,
+        color: statusColor(area.status),
+      })
+      paragraph(AREA_COPY[area.key] ?? "Persönlichen Handlungsbedarf gemeinsam prüfen.", M + 17, y - 34, CONTENT - 17, {
+        size: 8,
+        color: MUTED,
+        leading: 11,
+      })
+      y -= 62
     })
+  }
 
-  // --- 08 Methodology ------------------------------------------------------
-  addPage(
-    "08 / Dokumentation",
-    "Hinweise und Berechnungsgrundlagen",
-    "Transparenz zu Datenstand, Aussagekraft und weiterer Verwendung dieses Berichts.",
+  const appointment = data.modules?.appointment
+  if (appointment?.date || appointment?.purpose || appointment?.place) {
+    y -= 6
+    sectionTitle("Folgetermin", "So geht es weiter")
+    const appointmentRows: Array<[string, string]> = [
+      ["Datum und Zeit", [fmtDate(appointment.date), appointment.time].filter(Boolean).join(" ")],
+      ["Ort oder Kanal", appointment.place ?? ""],
+      ["Ziel des Termins", appointment.purpose ?? ""],
+    ].filter(([, value]) => meaningful(value)) as Array<[string, string]>
+    appointmentRows.forEach(([label, value]) => {
+      const estimatedHeight = Math.max(30, wrap(value, bold, 9.5, CONTENT - 130).length * 12 + 12)
+      ensure(estimatedHeight, "Folgetermin")
+      y -= infoRow(label, value, y, 130)
+    })
+  }
+
+  y -= 8
+  sectionTitle("Ihr Ansprechpartner", "Wir begleiten Sie weiter")
+  const advisorName =
+    data.advisor?.display_name ||
+    [data.advisor?.first_name, data.advisor?.last_name].filter(Boolean).join(" ") ||
+    "Ihr Combinvest-Berater"
+  roundRect(M, y - 76, CONTENT, 76, 13, NAVY)
+  drawText(advisorName, M + 17, y - 27, { size: 14, bold: true, color: WHITE })
+  drawText(data.advisor?.email || "combinvest.swiss", M + 17, y - 49, { size: 9, color: [0.78, 0.85, 0.96] })
+  drawText("COMBINVEST", PAGE[0] - M - 105, y - 28, { size: 8, bold: true, color: [0.55, 0.7, 1] })
+  drawText("Finanzen verständlich planen", PAGE[0] - M - 135, y - 48, { size: 7.5, color: [0.78, 0.85, 0.96] })
+  y -= 101
+
+  paragraph(
+    "Dieser Bericht fasst den gemeinsam erfassten Beratungsstand zusammen. Verbindlich bleiben Originalunterlagen, Policen, Vorsorgeausweise und bestätigte Offerten.",
+    M,
+    y,
+    CONTENT,
+    { size: 7.5, color: MUTED, leading: 11 },
   )
-  const legal: Array<[string, string]> = [
-    [
-      "Zweck des Berichts",
-      "Dieser Bericht fasst die im Beratungsgespräch erfassten Angaben, Prioritäten, Verträge und ausgewählten Rechnerresultate zusammen. Er unterstützt Kunde, Berater und Innendienst bei der Nachbearbeitung.",
-    ],
-    [
-      "Datenqualität",
-      "Die Resultate hängen von der Vollständigkeit und Richtigkeit der Kundendaten sowie von vorhandenen Originalunterlagen ab. Schätzungen und automatisch berechnete Werte sind als solche im jeweiligen Rechner kenntlich gemacht.",
-    ],
-    [
-      "Versicherungen und Vorsorge",
-      "Verbindlich sind Policen, Versicherungsbedingungen, Vorsorgeausweise sowie Entscheide der zuständigen Versicherer, Vorsorgeeinrichtungen und Behörden.",
-    ],
-    [
-      "Keine Produktzusage",
-      "Empfehlungen in diesem Bericht sind Beratungs- und Prüfaufträge. Eine Annahme, Leistung, Prämie oder Rendite ist erst nach Prüfung und Bestätigung durch den jeweiligen Anbieter verbindlich.",
-    ],
-    [
-      "Vertraulichkeit",
-      "Das Dokument enthält Personendaten und ist vertraulich zu behandeln. Die Zustellung an Dritte erfolgt nur im Rahmen des Beratungsauftrags und der anwendbaren Datenschutzvorgaben.",
-    ],
-  ]
-  legal.forEach((item) => {
-    ensure(95)
-    drawText(item[0], M, ctx.y, { size: 11, bold: true })
-    ctx.y = paragraph(item[1], M, ctx.y - 18, CONTENT, { size: 8.5, color: MUTED, leading: 13 }) - 18
-  })
-  drawText("Erstellt mit der Combinvest Beratungsplattform · Datenstand 2026", M, 70, { size: 7, bold: true, color: BLUE })
 
-  // --- Footers -------------------------------------------------------------
-  pages.forEach((page, index) => {
+  pages.forEach((current, index) => {
     if (index === 0) return
-    page.drawLine({ start: { x: M, y: 38 }, end: { x: PAGE[0] - M, y: 38 }, color: color(LINE), thickness: 0.7 })
-    page.drawText("COMBINVEST · VERTRAULICH", { x: M, y: 22, size: 6, font: bold, color: color(MUTED) })
-    const pageText = index + " / " + (pages.length - 1)
-    page.drawText(pageText, {
+    current.drawLine({
+      start: { x: M, y: 37 },
+      end: { x: PAGE[0] - M, y: 37 },
+      color: color(LINE),
+      thickness: 0.7,
+    })
+    current.drawText("COMBINVEST - PERSÖNLICHE FINANZANALYSE", {
+      x: M,
+      y: 21,
+      size: 6,
+      font: bold,
+      color: color(MUTED),
+    })
+    const pageText = `${index} / ${pages.length - 1}`
+    current.drawText(pageText, {
       x: PAGE[0] - M - textWidth(pageText, bold, 6),
-      y: 22,
+      y: 21,
       size: 6,
       font: bold,
       color: color(MUTED),
@@ -585,19 +1383,4 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   })
 
   return doc.save({ useObjectStreams: true })
-}
-
-// Friendly titles/notes for the calculators we persist via CalcActionBar.
-const CALC_TITLES: Record<string, string> = {
-  "pension-gap": "Vorsorgelückenanalyse",
-  "health-franchise": "Franchise-Vergleich",
-  "real-estate-affordability": "Tragbarkeit Wohneigentum",
-}
-const CALC_NOTES: Record<string, string> = {
-  "pension-gap":
-    "Richtwerte nach AHV-Skala 44 und BVG-Minimum. Verbindlich sind die Ausweise und Entscheide der zuständigen Einrichtungen.",
-  "health-franchise":
-    "Szenarioberechnung mit den erfassten Gesundheitskosten (BAG / Priminfo 2026). Prämienverbilligung und Sonderfälle sind nicht eingerechnet.",
-  "real-estate-affordability":
-    "Kalkulatorische Tragbarkeit nach Schweizer Standard (5 % Zins, 1 % Nebenkosten, 33 %-Regel). Verbindlich sind die Konditionen des Finanzierungsinstituts.",
 }

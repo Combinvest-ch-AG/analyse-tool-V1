@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { ZusatzCheck } from "@/components/portal/versicherung/zusatz-check"
+import { getAnalysis, getCalculatorSnapshot } from "@/lib/data/portal"
 
 export const metadata: Metadata = {
   title: "Zusatzversicherungs-Check · Combinvest",
@@ -14,6 +15,7 @@ export default async function ZusatzPage({
 }) {
   const sp = await searchParams
   const ctx = { analysisId: sp.aid, customerId: sp.cid }
+  const analysis = sp.aid ? await getAnalysis(sp.aid) : null
   const back = sp.aid ? `/versicherung/uebersicht?aid=${sp.aid}&cid=${sp.cid ?? ""}` : "/versicherung/uebersicht"
   return (
     <CalcShell
@@ -25,7 +27,7 @@ export default async function ZusatzPage({
       chip="Bedarfsanalyse"
       source="Zusatzversicherungen sind freiwillige Verträge nach VVG; Leistungsumfang und Bedingungen unterscheiden sich je Versicherer."
     >
-      <ZusatzCheck ctx={ctx} />
+      <ZusatzCheck ctx={ctx} saved={getCalculatorSnapshot(analysis, "supplementaryInsurance")} />
     </CalcShell>
   )
 }

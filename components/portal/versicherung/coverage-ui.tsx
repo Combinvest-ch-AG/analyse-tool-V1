@@ -92,20 +92,20 @@ export function CoverageRow({
   onInfo: () => void
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold text-foreground">{label}</span>
+    <div className="grid gap-3 rounded-xl border border-border bg-background px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="min-w-0 text-sm font-semibold leading-snug text-foreground">{label}</span>
         <button
           type="button"
           onClick={onInfo}
           aria-label={`Erklärung zu ${label}`}
-          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          className="inline-flex h-5 w-5 flex-none items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
         >
           <Info className="h-3 w-3" />
         </button>
       </div>
-      <div className="flex items-center gap-4">
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="grid grid-cols-[auto_116px] items-center gap-3 sm:justify-self-end">
+        <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
           <input
             type="checkbox"
             checked={existing}
@@ -114,8 +114,7 @@ export function CoverageRow({
           />
           Bestehend
         </label>
-        <label className="flex cursor-pointer select-none items-center gap-2">
-          <span className="sr-only">Gewünscht</span>
+        <div className="grid grid-cols-[36px_72px] items-center gap-2">
           <button
             type="button"
             role="switch"
@@ -123,20 +122,20 @@ export function CoverageRow({
             aria-label={`${label} gewünscht`}
             disabled={fixed}
             onClick={() => !fixed && onWanted(!wanted)}
-            className={`relative h-5 w-9 rounded-full transition-colors ${
+            className={`relative h-5 w-9 flex-none rounded-full transition-colors ${
               wanted ? "bg-primary" : "bg-border"
             } ${fixed ? "opacity-60" : ""}`}
           >
             <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-card transition-transform ${
-                wanted ? "translate-x-4" : "translate-x-0.5"
+              className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-card shadow-sm transition-transform ${
+                wanted ? "translate-x-4" : "translate-x-0"
               }`}
             />
           </button>
-          <span className={`text-xs font-semibold ${wanted ? "text-primary" : "text-muted-foreground"}`}>
+          <span className={`w-[72px] whitespace-nowrap text-xs font-semibold ${wanted ? "text-primary" : "text-muted-foreground"}`}>
             {wanted ? "Gewünscht" : "Aus"}
           </span>
-        </label>
+        </div>
       </div>
     </div>
   )
@@ -163,12 +162,12 @@ export function SectionToggle({
   onInfo?: () => void
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="flex items-start gap-3">
+    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+      <div className="flex min-w-0 items-start gap-3">
         <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
           {index}
         </span>
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="text-base font-bold text-foreground">{title}</h2>
             {onInfo && (
@@ -185,8 +184,8 @@ export function SectionToggle({
           <p className="mt-1 text-sm text-muted-foreground">{copy}</p>
         </div>
       </div>
-      <div className="flex items-center gap-4">
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <div className="ml-9 grid grid-cols-[auto_116px] items-center gap-3 sm:ml-0 sm:justify-self-end">
+        <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
           <input
             type="checkbox"
             checked={existing}
@@ -195,25 +194,25 @@ export function SectionToggle({
           />
           Bestehend
         </label>
-        <label className="flex cursor-pointer select-none items-center gap-2">
+        <div className="grid grid-cols-[36px_72px] items-center gap-2">
           <button
             type="button"
             role="switch"
             aria-checked={enabled}
             aria-label={`${title} gewünscht`}
             onClick={() => onEnabled(!enabled)}
-            className={`relative h-5 w-9 rounded-full transition-colors ${enabled ? "bg-primary" : "bg-border"}`}
+            className={`relative h-5 w-9 flex-none rounded-full transition-colors ${enabled ? "bg-primary" : "bg-border"}`}
           >
             <span
-              className={`absolute top-0.5 h-4 w-4 rounded-full bg-card transition-transform ${
-                enabled ? "translate-x-4" : "translate-x-0.5"
+              className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-card shadow-sm transition-transform ${
+                enabled ? "translate-x-4" : "translate-x-0"
               }`}
             />
           </button>
-          <span className={`text-xs font-semibold ${enabled ? "text-primary" : "text-muted-foreground"}`}>
+          <span className={`w-[72px] whitespace-nowrap text-xs font-semibold ${enabled ? "text-primary" : "text-muted-foreground"}`}>
             {enabled ? "Gewünscht" : "Aus"}
           </span>
-        </label>
+        </div>
       </div>
     </div>
   )

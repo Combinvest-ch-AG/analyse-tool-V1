@@ -1,10 +1,11 @@
 import {
   AREAS,
   QUESTIONS,
-  answerLabel,
+  answerSummary,
   countAnswered,
+  isQuestionVisible,
   scores,
-  TOTAL_QUESTIONS,
+  visibleQuestionCount,
   type Contract,
   type ThemeStatus,
   type WizardAnswers,
@@ -17,7 +18,10 @@ type Snapshot = {
   answers?: WizardAnswers
   themeStatus?: Record<string, ThemeStatus>
   contracts?: Record<string, Contract>
-  calculatorResults?: Record<string, { results?: string[]; savedAt?: string }>
+  calculatorResults?: Record<string, ReportCalculator>
+  closing?: {
+    appointment?: { date?: string; time?: string; place?: string; purpose?: string }
+  }
   notes?: Array<string | { text?: string; note?: string }>
 }
 
@@ -45,6 +49,7 @@ export function buildReportData(
   const contracts: Record<string, ReportContract> = {}
   Object.entries(snapshot.contracts ?? {}).forEach(([key, c]) => {
     contracts[key] = {
+      product: c.product ?? key.split("::")[0],
       company: c.company,
       pol: c.pol,
       premium: c.premium,
@@ -57,8 +62,40 @@ export function buildReportData(
 
   const calculators: Record<string, ReportCalculator> = {}
   Object.entries(snapshot.calculatorResults ?? {}).forEach(([key, value]) => {
-    if (!value || !Array.isArray(value.results) || !value.results.length) return
-    calculators[key] = { results: value.results, calculationYear: YEAR }
+    if (!value || typeof value !== "object") return
+    const declaredResults = Array.isArray(value.results) ? value.results.map(String).filter(Boolean) : null
+    const onlyPlaceholders =
+      declaredResults != null &&
+      declaredResults.length > 0 &&
+      declaredResults.every((result) => /noch keine|keine auswahl|nicht erfasst|bitte erfassen/i.test(result))
+    if (onlyPlaceholders) return
+    if (
+      key === "supplementaryInsurance" &&
+      (!Array.isArray(value.selected) || value.selected.length === 0) &&
+      !value.hospital &&
+      !value.existingHospital
+    ) return
+    if (
+      key === "insuranceNeeds" &&
+      (!Array.isArray(value.selected) || value.selected.length === 0) &&
+      ![value.household, value.liability, value.motor].some(
+        (group) => {
+          if (!group || typeof group !== "object") return false
+          const record = group as Record<string, unknown>
+          return Boolean(record.enabled || record.existing)
+        },
+      )
+    ) return
+    if (
+      key === "sealth-check" &&
+      (!Array.isArray(value.answers) || !value.answers.some(Boolean)) &&
+      !value.recommendation &&
+      !value.selectedPackage
+    ) return
+    calculators[key] = {
+      ...value,
+      calculationYear: Number(value.calculationYear) || YEAR,
+    }
   })
 
   return {
@@ -66,7 +103,7 @@ export function buildReportData(
     createdAt: analysis.created_at,
     analysisId: analysis.id,
     answerCount: countAnswered(answers),
-    questionCount: TOTAL_QUESTIONS,
+    questionCount: visibleQuestionCount(answers),
     areas: AREAS.map((a) => ({
       key: a.key,
       name: a.name,
@@ -91,12 +128,17 @@ export function buildReportData(
           email: advisor.email,
         }
       : undefined,
-    answers: QUESTIONS.map((q) => ({
-      id: q.id,
-      question: q.t,
-      answer: answerLabel(q, answers[q.id] ?? null),
-    })),
-    modules: { calculators },
+    answers: QUESTIONS
+      .filter((q) => isQuestionVisible(q, answers))
+      .map((q) => ({
+        id: q.id,
+        question: q.t,
+        answer: answerSummary(q, answers),
+      })),
+    modules: {
+      calculators,
+      appointment: snapshot.closing?.appointment,
+    },
     notes: snapshot.notes,
   }
 }

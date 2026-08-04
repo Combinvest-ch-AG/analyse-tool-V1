@@ -41,7 +41,6 @@ export const THEME_TOOLS: Record<string, ThemeTool> = {
   rente: { id: "rente", title: "AHV-Rentenrechner", icon: "doc", desc: "AHV-Rente mit durchschnittlichem Jahreseinkommen und Rentenskala 44 schätzen.", href: "/rechner/ahv" },
   vorsorge: { id: "vorsorge", title: "Vorsorgelückenanalyse", icon: "target", desc: "Invalidität, Pensionierung und Todesfall über AHV/IV, BVG, UVG und 3a vergleichen.", href: "/rechner/vorsorge" },
   steuer3a: { id: "steuer3a", title: "Steuereffekte 3a", icon: "calc", desc: "Welche Steuerwirkung hat die regelmässige Einzahlung in die Säule 3a?", href: "/rechner/vermoegen?tool=3a" },
-  luecke: { id: "luecke", title: "Vorsorgelücke", icon: "gauge", desc: "Leistungen aus AHV/IV, BVG, UVG und 3a dem Zielbedarf gegenüberstellen.", href: "/rechner/vorsorge" },
   franchise: { id: "franchise", title: "Franchise-Vergleich", icon: "heart", desc: "Grundversicherungsprämie vergleichen und Ihr Sparpotenzial sehen.", href: "/rechner/franchise" },
   zusatz: { id: "zusatz", title: "Zusatzversicherungs-Check", icon: "shield", desc: "Spital- und ambulante Ergänzungen wählen und jede Deckung verständlich erklären.", href: "/versicherung/zusatz" },
   versicherungsberatung: { id: "versicherungsberatung", title: "Versicherungsübersicht", icon: "shield", desc: "Grund-, Zusatzversicherung und Sachdeckungen gemeinsam überblicken.", href: "/versicherung/uebersicht" },
@@ -49,8 +48,8 @@ export const THEME_TOOLS: Record<string, ThemeTool> = {
   tragbar: { id: "tragbar", title: "Wohnrechner — Tragbarkeit", icon: "home", desc: "Können Sie sich die Finanzierung Ihrer Wunschimmobilie leisten?", href: "/rechner/tragbarkeit" },
   steuer: { id: "steuer", title: "Steuerwirkung", icon: "calc", desc: "Schätzen Sie die Wirkung eines frei wählbaren Grenzsteuersatzes.", href: "/rechner/vermoegen?tool=steuer" },
   inflation: { id: "inflation", title: "Inflationsrechner", icon: "chart", desc: "Sehen Sie, wie Inflation die künftige Kaufkraft eines Betrags verändert.", href: "/rechner/vermoegen?tool=inflation" },
-  kosten: { id: "kosten", title: "Anlagekosten (TER)", icon: "calc", desc: "Vermögensentwicklung vor und nach laufenden Produktkosten vergleichen.", href: "/rechner/vermoegen?tool=kosten" },
-  sparziel: { id: "sparziel", title: "Sparzielrechner", icon: "target", desc: "Monatliche Sparrate für Ihr persönliches Zielvermögen berechnen.", href: "/rechner/vermoegen?tool=ziel" },
+  kosten: { id: "kosten", title: "TER-Vergleich", icon: "calc", desc: "Zwei Anlagen mit unterschiedlichen laufenden Kosten direkt vergleichen.", href: "/rechner/vermoegen?tool=kosten" },
+  sparziel: { id: "sparziel", title: "Zielvermögensrechner", icon: "target", desc: "Berechnen, wann Startkapital und Sparrate Ihr Zielvermögen erreichen.", href: "/rechner/vermoegen?tool=ziel" },
   freizuegigkeit: { id: "freizuegigkeit", title: "Freizügigkeitskonto", icon: "doc", desc: "Anfrage für Konto oder Depot strukturiert aus der Vermögensberatung vorbereiten.", href: "/rechner/freizuegigkeit" },
 }
 
@@ -78,13 +77,13 @@ export const THEMES: Record<AreaKey, ThemeConfig> = {
     name: "Lebensstandard beibehalten",
     headline: "Das Einkommen absichern",
     points: ["Krankheit ist häufiger als Unfall", "Einkommensausfall als Jahresbedarf", "Lücken früh erkennen"],
-    tools: ["budget", "luecke", "vorsorge", "startwarten"],
+    tools: ["budget", "vorsorge", "startwarten"],
   },
   health: {
     name: "Gesundheit",
     headline: "Prämien senken ohne Leistungsverlust",
     points: ["Franchise gezielt wählen", "Modelle vergleichen", "Zusatzdeckungen prüfen"],
-    tools: ["franchise", "zusatz", "budget", "luecke"],
+    tools: ["franchise", "zusatz", "budget"],
   },
   "real-estate": {
     name: "Immobilien",

@@ -195,7 +195,7 @@ export function BudgetSankey({ income, cats }: { income: Item[]; cats: Category[
                 d={linkPath(l as never) || undefined}
                 stroke={`url(#bdgg${i})`}
                 strokeWidth={Math.max(1, l.width)}
-                strokeOpacity={active ? 0.78 : dimmed ? 0.1 : 0.42}
+                strokeOpacity={active ? 0.86 : dimmed ? 0.08 : 0.48}
                 className="cursor-pointer transition-[stroke-opacity] duration-150"
                 onMouseEnter={(e) => {
                   setHoverLink(i)
@@ -227,7 +227,7 @@ export function BudgetSankey({ income, cats }: { income: Item[]; cats: Category[
               width={Math.max(1, n.x1 - n.x0)}
               height={Math.max(1, n.y1 - n.y0)}
               fill={n.color}
-              rx={2}
+              rx={5}
               className="cursor-pointer"
               onMouseEnter={(e) => {
                 setHoverNode(i)
@@ -273,7 +273,7 @@ export function BudgetSankey({ income, cats }: { income: Item[]; cats: Category[
 
       {tip ? (
         <div
-          className="pointer-events-none absolute z-50 max-w-[250px] rounded-lg bg-foreground px-2.5 py-1.5 text-xs leading-relaxed text-background shadow-lg"
+          className="pointer-events-none absolute z-50 max-w-[270px] rounded-xl border border-white/10 bg-[#101B34] px-3 py-2 text-xs leading-relaxed text-white shadow-xl"
           style={{ left: tip.x, top: tip.y }}
           dangerouslySetInnerHTML={{ __html: tip.html }}
         />

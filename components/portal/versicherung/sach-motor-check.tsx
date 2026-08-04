@@ -1,10 +1,8 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ClipboardCheck } from "lucide-react"
-import { saveCalculatorResult } from "@/app/actions/portal"
-import type { CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 import { InfoDialog, CoverageRow, SectionToggle, type CoverageInfo } from "@/components/portal/versicherung/coverage-ui"
 
 type GroupKey = "household" | "liability" | "motor"
@@ -52,21 +50,30 @@ const ORDER: GroupKey[] = ["household", "liability", "motor"]
 const INPUT =
   "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
 
-export function SachMotorCheck({ ctx }: { ctx: CalcContext }) {
-  const [enabled, setEnabled] = useState<Record<GroupKey, boolean>>({ household: false, liability: false, motor: false })
-  const [groupExisting, setGroupExisting] = useState<Record<GroupKey, boolean>>({ household: false, liability: false, motor: false })
-  const [wanted, setWanted] = useState<Record<string, boolean>>({ "motor:liability": true })
-  const [existing, setExisting] = useState<Record<string, boolean>>({})
-  const [residence, setResidence] = useState("tenant")
-  const [householdSize, setHouseholdSize] = useState("1")
-  const [householdValue, setHouseholdValue] = useState("")
-  const [vehicleYear, setVehicleYear] = useState("")
-  const [vehicleValue, setVehicleValue] = useState("")
-  const [leasing, setLeasing] = useState(false)
-  const [notes, setNotes] = useState("")
+export function SachMotorCheck({ ctx, saved }: { ctx: CalcContext; saved?: SavedCalculatorPayload }) {
+  const storedGroups = Object.fromEntries(ORDER.map((g) => [g, saved?.[g] && typeof saved[g] === "object" ? saved[g] as Record<string, unknown> : {}])) as Record<GroupKey, Record<string, unknown>>
+  const restoredWanted: Record<string, boolean> = { "motor:liability": true }
+  const restoredExisting: Record<string, boolean> = {}
+  for (const group of ORDER) {
+    for (const item of Array.isArray(storedGroups[group].covers) ? storedGroups[group].covers as { id?: string }[] : []) {
+      if (item.id) restoredWanted[`${group}:${item.id}`] = true
+    }
+    for (const item of Array.isArray(storedGroups[group].existingCovers) ? storedGroups[group].existingCovers as { id?: string }[] : []) {
+      if (item.id) restoredExisting[`${group}:${item.id}`] = true
+    }
+  }
+  const [enabled, setEnabled] = useState<Record<GroupKey, boolean>>(Object.fromEntries(ORDER.map((g) => [g, Boolean(storedGroups[g].enabled)])) as Record<GroupKey, boolean>)
+  const [groupExisting, setGroupExisting] = useState<Record<GroupKey, boolean>>(Object.fromEntries(ORDER.map((g) => [g, Boolean(storedGroups[g].existing)])) as Record<GroupKey, boolean>)
+  const [wanted, setWanted] = useState<Record<string, boolean>>(restoredWanted)
+  const [existing, setExisting] = useState<Record<string, boolean>>(restoredExisting)
+  const [residence, setResidence] = useState(typeof storedGroups.household.residence === "string" ? storedGroups.household.residence : "tenant")
+  const [householdSize, setHouseholdSize] = useState(String(storedGroups.household.householdSize ?? "1"))
+  const [householdValue, setHouseholdValue] = useState(storedGroups.household.householdValue ? String(storedGroups.household.householdValue) : "")
+  const [vehicleYear, setVehicleYear] = useState(storedGroups.motor.vehicleYear ? String(storedGroups.motor.vehicleYear) : "")
+  const [vehicleValue, setVehicleValue] = useState(storedGroups.motor.vehicleValue ? String(storedGroups.motor.vehicleValue) : "")
+  const [leasing, setLeasing] = useState(Boolean(storedGroups.motor.leasing))
+  const [notes, setNotes] = useState(typeof saved?.notes === "string" ? saved.notes : "")
   const [info, setInfo] = useState<{ item: CoverageInfo; category: string } | null>(null)
-  const [pending, startTransition] = useTransition()
-  const [saved, setSaved] = useState<"idle" | "ok" | "err">("idle")
 
   const key = (g: GroupKey, id: string) => `${g}:${id}`
 
@@ -99,30 +106,35 @@ export function SachMotorCheck({ ctx }: { ctx: CalcContext }) {
       : "Deckungsumfang und Selbstbehalte mit der bestehenden Police vergleichen."
   }, [enabled.motor, vehicleYear, leasing, wanted])
 
-  const canTransfer = !!ctx.analysisId
+  const covers = (g: GroupKey) => GROUPS[g].items.filter((c) => wanted[key(g, c.id)]).map((c) => ({ id: c.id, label: c.label }))
+  const existingCovers = (g: GroupKey) => GROUPS[g].items.filter((c) => existing[key(g, c.id)]).map((c) => ({ id: c.id, label: c.label }))
 
-  function transfer() {
-    if (!ctx.analysisId) return
-    const covers = (g: GroupKey) => GROUPS[g].items.filter((c) => wanted[key(g, c.id)]).map((c) => ({ id: c.id, label: c.label }))
-    const existingCovers = (g: GroupKey) => GROUPS[g].items.filter((c) => existing[key(g, c.id)]).map((c) => ({ id: c.id, label: c.label }))
-    startTransition(async () => {
-      const res = await saveCalculatorResult({
-        analysisId: ctx.analysisId!,
-        key: "insuranceNeeds",
-        payload: {
+  return (
+    <>
+      <CalcActionBar
+        ctx={ctx}
+        calcKey="insuranceNeeds"
+        buildPayload={() => ({
           household: { enabled: enabled.household, existing: groupExisting.household, residence, householdSize: Number(householdSize) || 1, householdValue: Number(householdValue) || 0, covers: covers("household"), existingCovers: existingCovers("household") },
           liability: { enabled: enabled.liability, existing: groupExisting.liability, covers: covers("liability"), existingCovers: existingCovers("liability") },
           motor: { enabled: enabled.motor, existing: groupExisting.motor, vehicleYear: Number(vehicleYear) || null, vehicleValue: Number(vehicleValue) || 0, leasing, covers: covers("motor"), existingCovers: existingCovers("motor") },
           notes,
           selected: wantedLabels,
-        },
-      })
-      setSaved(res.ok ? "ok" : "err")
-    })
-  }
-
-  return (
-    <>
+        })}
+        onReset={() => {
+          setEnabled({ household: false, liability: false, motor: false })
+          setGroupExisting({ household: false, liability: false, motor: false })
+          setWanted({ "motor:liability": true })
+          setExisting({})
+          setResidence("tenant")
+          setHouseholdSize("1")
+          setHouseholdValue("")
+          setVehicleYear("")
+          setVehicleValue("")
+          setLeasing(false)
+          setNotes("")
+        }}
+      />
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-5">
           {ORDER.map((g, gi) => (
@@ -252,25 +264,12 @@ export function SachMotorCheck({ ctx }: { ctx: CalcContext }) {
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={transfer}
-              disabled={!canTransfer || pending}
-              title={canTransfer ? undefined : "Aus einer Kundenanalyse öffnen"}
-              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              <ClipboardCheck className="h-4 w-4" />
-              {pending ? "Wird übernommen …" : "In Analyse übernehmen"}
-            </button>
             <Link
               href={ctx.analysisId ? `/versicherung/uebersicht?aid=${ctx.analysisId}&cid=${ctx.customerId ?? ""}` : "/versicherung/uebersicht"}
               className="mt-2 inline-flex w-full items-center justify-center rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
             >
               Zur Versicherungsübersicht
             </Link>
-            <p aria-live="polite" className={`mt-2 text-center text-xs font-semibold ${saved === "ok" ? "text-success" : saved === "err" ? "text-destructive" : "text-transparent"}`}>
-              {saved === "ok" ? "Auswahl wurde in die Analyse übernommen." : saved === "err" ? "Speichern nicht möglich." : "·"}
-            </p>
           </div>
         </div>
       </div>

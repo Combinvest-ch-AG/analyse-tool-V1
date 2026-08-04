@@ -2,6 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { ArrowLeft, UserPlus } from "lucide-react"
 import { getCurrentAdvisor } from "@/lib/auth/advisor"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { Wordmark } from "@/components/auth/wordmark"
 import { InviteForm } from "@/components/admin/invite-form"
@@ -17,7 +18,21 @@ export default async function InvitationsPage() {
     .select("id, display_name, email, role, active, auth_user_id")
     .order("last_name", { ascending: true })
 
-  const pending = (advisors ?? []).filter((a) => !a.auth_user_id).length
+  const admin = createAdminClient()
+  const { data: authData } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+  const authUsers = new Map((authData?.users ?? []).map((user) => [user.id, user]))
+  const advisorRows = (advisors ?? []).map((profile) => {
+    const authUser = profile.auth_user_id ? authUsers.get(profile.auth_user_id) : null
+    const status = !profile.auth_user_id
+      ? "not_invited"
+      : authUser?.last_sign_in_at
+        ? "active"
+        : "invited"
+
+    return { ...profile, status }
+  })
+  const activeCount = advisorRows.filter((profile) => profile.status === "active").length
+  const invitedCount = advisorRows.filter((profile) => profile.status === "invited").length
 
   return (
     <div className="min-h-dvh bg-background">
@@ -55,7 +70,7 @@ export default async function InvitationsPage() {
           <div className="flex items-baseline justify-between">
             <h2 className="text-lg font-semibold text-foreground">Beraterverzeichnis</h2>
             <p className="text-sm text-muted-foreground">
-              {advisors?.length ?? 0} Profile · {pending} ausstehend
+              {advisorRows.length} Profile · {activeCount} aktiv · {invitedCount} eingeladen
             </p>
           </div>
 
@@ -70,7 +85,7 @@ export default async function InvitationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {(advisors ?? []).map((a) => (
+                {advisorRows.map((a) => (
                   <tr key={a.id} className="bg-card">
                     <td className="px-4 py-3 font-medium text-foreground">{a.display_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{a.email}</td>
@@ -78,12 +93,14 @@ export default async function InvitationsPage() {
                     <td className="px-4 py-3">
                       <span
                         className={
-                          a.auth_user_id
-                            ? "inline-flex rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
-                            : "inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                          a.status === "active"
+                            ? "inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700"
+                            : a.status === "invited"
+                              ? "inline-flex rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
+                              : "inline-flex rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
                         }
                       >
-                        {a.auth_user_id ? "Aktiv" : "Eingeladen"}
+                        {a.status === "active" ? "Aktiv" : a.status === "invited" ? "Eingeladen" : "Nicht eingeladen"}
                       </span>
                     </td>
                   </tr>

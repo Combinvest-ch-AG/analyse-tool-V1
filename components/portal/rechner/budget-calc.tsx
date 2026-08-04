@@ -7,37 +7,93 @@ import { formatCHF } from "@/lib/format"
 import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
 import { BudgetSankey } from "@/components/portal/rechner/budget-sankey"
 
-type Item = { name: string; amount: number }
-type Category = { name: string; color: string; subs: Item[] }
+export type BudgetItem = { name: string; amount: number; sourceKey?: string }
+export type BudgetCategory = { name: string; color: string; subs: BudgetItem[] }
+export type BudgetData = { income: BudgetItem[]; cats: BudgetCategory[] }
+export type ImportedBudgetCost = {
+  sourceKey: string
+  name: string
+  amount: number
+  group: "Versicherungen" | "Abonnemente" | "Finanzierung" | "Sparen & Vorsorge"
+}
 
 const PALETTE = ["#EE6A20", "#256ABF", "#159B8A", "#C2554E", "#3F7CC0", "#B07A1E"]
 
-function defaultData(monthlyIncome?: number): { income: Item[]; cats: Category[] } {
-  const lohn = monthlyIncome && monthlyIncome > 0 ? Math.round(monthlyIncome / 50) * 50 : 4500
-  return {
-    income: [
-      { name: "Lohn (netto)", amount: lohn },
-      { name: "Nebeneinkommen", amount: 0 },
-    ],
-    cats: [
-      { name: "Fixkosten", color: PALETTE[0], subs: [{ name: "Miete", amount: 1500 }, { name: "Krankenkasse", amount: 400 }, { name: "Steuern", amount: 800 }] },
-      { name: "Leben", color: PALETTE[1], subs: [{ name: "Essen", amount: 600 }, { name: "Transport", amount: 400 }, { name: "Hobbys", amount: 300 }] },
-      { name: "Sparen", color: PALETTE[2], subs: [{ name: "Sparkonto", amount: 200 }, { name: "3a / ETF-Sparplan", amount: 500 }] },
-    ],
+function defaultData(
+  monthlyIncome?: number,
+  profiledIncome = false,
+  importedCosts: ImportedBudgetCost[] = [],
+  savedData?: BudgetData,
+): BudgetData {
+  const lohn = monthlyIncome && monthlyIncome > 0 ? Math.round(monthlyIncome) : 0
+  const data: BudgetData = savedData
+    ? structuredClone(savedData)
+    : {
+        income: [
+          {
+            name: profiledIncome ? "Bruttolohn (aus Profiling)" : "Lohn (netto)",
+            amount: lohn,
+            sourceKey: profiledIncome ? "profile:brutto" : undefined,
+          },
+          { name: "Nebeneinkommen", amount: 0 },
+        ],
+        cats: [
+          { name: "Fixkosten", color: PALETTE[0], subs: [{ name: "Miete", amount: 0 }, { name: "Steuern", amount: 0 }] },
+          { name: "Leben", color: PALETTE[1], subs: [{ name: "Essen", amount: 0 }, { name: "Transport", amount: 0 }, { name: "Freizeit", amount: 0 }] },
+          { name: "Sparen", color: PALETTE[2], subs: [{ name: "Freies Sparen", amount: 0 }] },
+        ],
+      }
+
+  if (profiledIncome && lohn > 0) {
+    const existingIncome = data.income.find(
+      (item) => item.sourceKey === "profile:brutto" || item.name === "Bruttolohn (aus Profiling)",
+    )
+    if (existingIncome) {
+      existingIncome.name = "Bruttolohn (aus Profiling)"
+      existingIncome.amount = lohn
+      existingIncome.sourceKey = "profile:brutto"
+    } else {
+      data.income.unshift({ name: "Bruttolohn (aus Profiling)", amount: lohn, sourceKey: "profile:brutto" })
+    }
   }
+
+  data.cats.forEach((category) => {
+    category.subs = category.subs.filter((item) => !item.sourceKey?.startsWith("contract:"))
+  })
+
+  importedCosts.forEach((cost) => {
+    let category = data.cats.find((item) => item.name === cost.group)
+    if (!category) {
+      category = {
+        name: cost.group,
+        color: PALETTE[data.cats.length % PALETTE.length],
+        subs: [],
+      }
+      data.cats.push(category)
+    }
+    category.subs.push({ name: cost.name, amount: cost.amount, sourceKey: cost.sourceKey })
+  })
+
+  return data
 }
 
 const clamp = (v: number) => (!isFinite(v) || v < 0 ? 0 : Math.min(v, 1e8))
-const catTotal = (c: Category) => c.subs.reduce((t, s) => t + clamp(s.amount), 0)
+const catTotal = (c: BudgetCategory) => c.subs.reduce((t, s) => t + clamp(s.amount), 0)
 
 export function BudgetCalc({
   defaults,
+  importedCosts = [],
+  savedData,
   ctx,
 }: {
-  defaults?: { monthlyIncome?: number }
+  defaults?: { monthlyIncome?: number; profiledIncome?: boolean }
+  importedCosts?: ImportedBudgetCost[]
+  savedData?: BudgetData
   ctx?: CalcContext
 }) {
-  const [data, setData] = useState(() => defaultData(defaults?.monthlyIncome))
+  const [data, setData] = useState(() =>
+    defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData),
+  )
 
   const totals = useMemo(() => {
     const inc = data.income.reduce((t, x) => t + clamp(x.amount), 0)
@@ -46,8 +102,14 @@ export function BudgetCalc({
   }, [data])
 
   const savingsRate = totals.inc > 0 ? Math.round((Math.max(0, totals.bal) / totals.inc) * 100) : 0
+  const imported = useMemo(() => {
+    const items = data.cats.flatMap((category) =>
+      category.subs.filter((item) => item.sourceKey?.startsWith("contract:")),
+    )
+    return { count: items.length, total: items.reduce((sum, item) => sum + clamp(item.amount), 0) }
+  }, [data])
 
-  function update(fn: (draft: { income: Item[]; cats: Category[] }) => void) {
+  function update(fn: (draft: BudgetData) => void) {
     setData((prev) => {
       const next = structuredClone(prev)
       fn(next)
@@ -65,6 +127,8 @@ export function BudgetCalc({
           inputs: {
             einkommen_monat: totals.inc,
             ausgaben_monat: totals.exp,
+            vertragskosten_monat: imported.total,
+            data,
           },
           results: [
             `Einkommen ${formatCHF(totals.inc)}/Monat`,
@@ -72,8 +136,24 @@ export function BudgetCalc({
             `Überschuss ${formatCHF(totals.bal)} (${savingsRate} % Sparquote)`,
           ],
         })}
-        onReset={() => setData(defaultData(defaults?.monthlyIncome))}
+        onReset={() =>
+          setData(defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData))
+        }
       />
+
+      {imported.count > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <div>
+            <p className="text-sm font-bold text-foreground">
+              {imported.count} Vertragskosten automatisch übernommen
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Zahlungsintervalle wurden auf den Monatsbetrag umgerechnet.
+            </p>
+          </div>
+          <span className="text-sm font-black tabular-nums text-primary">{formatCHF(imported.total)} / Monat</span>
+        </div>
+      )}
 
       {/* Metrics */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -88,9 +168,18 @@ export function BudgetCalc({
 
       {/* Flow */}
       <div className="mt-4 rounded-2xl border border-border bg-card p-5">
-        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-          Geldfluss
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-extrabold text-foreground">Ihr monatlicher Geldfluss</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Fahren Sie über eine Verbindung, um Betrag und Anteil exakt zu sehen.
+            </p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${
+            totals.bal >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+          }`}>
+            {totals.bal >= 0 ? "Überschuss" : "Defizit"} {formatCHF(Math.abs(totals.bal))}
+          </span>
         </div>
         <div className="mt-4">
           <BudgetSankey income={data.income} cats={data.cats} />
@@ -111,7 +200,11 @@ export function BudgetCalc({
           tone="crit"
           title={`Ihre Ausgaben übersteigen Ihr Einkommen um ${formatCHF(-totals.bal)}.`}
           body="Fixkosten wie Krankenkasse und Versicherungen sind oft der grösste Hebel – der Franchise-Vergleich zeigt Ihr Sparpotenzial."
-          href="/rechner/franchise"
+          href={
+            ctx?.analysisId
+              ? `/rechner/franchise?aid=${encodeURIComponent(ctx.analysisId)}&cid=${encodeURIComponent(ctx.customerId ?? "")}`
+              : "/rechner/franchise"
+          }
           cta="Franchise-Vergleich öffnen"
         />
       ) : null}
@@ -176,8 +269,7 @@ export function BudgetCalc({
       </div>
 
       <p className="mt-4 text-[12.5px] text-muted-foreground">
-        Richtwert: Eine Sparquote ab 15–20 % gilt als solide Basis. Beträge werden gerundet dargestellt, intern wird
-        exakt gerechnet.
+        Alle Beträge beruhen auf Ihren Eingaben. Die Darstellung wird auf ganze Franken gerundet, intern wird exakt gerechnet.
       </p>
     </>
   )

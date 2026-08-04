@@ -11,6 +11,7 @@ export function CalcShell({
   chip,
   explain,
   source,
+  wide,
   children,
 }: {
   eyebrow: string
@@ -24,12 +25,13 @@ export function CalcShell({
   chip?: string
   explain?: string
   source?: string
+  wide?: boolean
   children: React.ReactNode
 }) {
   const resolvedBackHref = analysisId ? `/analyse/${analysisId}` : backHref
   const resolvedBackLabel = analysisId ? "Zur Risikoanalyse" : backLabel
   return (
-    <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
+    <div className={`mx-auto px-5 py-8 sm:px-8 ${wide ? "max-w-[1440px]" : "max-w-6xl"}`}>
       <div className="flex items-center justify-between gap-3">
         <Link
           href={resolvedBackHref}

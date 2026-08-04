@@ -48,8 +48,10 @@ test("BVG/IV share is zero below 40%, ramps to 50%, then linear, capped at 100%"
 })
 
 test("AHV scale 44 clamps income and monthly pension to statutory bounds", () => {
-  assert.equal(ahvScale44(0).usedIncome, 15_120) // income floored
-  assert.equal(ahvScale44(0).monthly, 1_260) // minimum pension
+  assert.equal(ahvScale44(0).usedIncome, 0) // no income -> no pension (guard clause)
+  assert.equal(ahvScale44(0).monthly, 0)
+  assert.equal(ahvScale44(1).usedIncome, 15_120) // any positive income floored to statutory minimum
+  assert.equal(ahvScale44(1).monthly, 1_260) // minimum pension
   assert.equal(ahvScale44(1_000_000).usedIncome, 90_720) // income capped
   assert.equal(ahvScale44(1_000_000).monthly, 2_520) // maximum pension
   assert.equal(ahvScale44(45_360).usedIncome, 45_360) // exact step boundary

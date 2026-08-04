@@ -1,10 +1,9 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ClipboardCheck, ArrowRight } from "lucide-react"
-import { saveCalculatorResult } from "@/app/actions/portal"
-import type { CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { ArrowRight } from "lucide-react"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 import { InfoDialog, CoverageRow, SectionToggle, type CoverageInfo } from "@/components/portal/versicherung/coverage-ui"
 
 const HOSPITAL: CoverageInfo = {
@@ -36,16 +35,18 @@ const COVERAGES: CoverageInfo[] = [
 
 const LEVEL_LABEL: Record<string, string> = { flex: "Flex", semi: "Halbprivat", private: "Privat" }
 
-export function ZusatzCheck({ ctx }: { ctx: CalcContext }) {
-  const [hospital, setHospital] = useState(false)
-  const [hospitalExisting, setHospitalExisting] = useState(false)
-  const [hospitalLevel, setHospitalLevel] = useState<string | null>(null)
-  const [wanted, setWanted] = useState<Record<string, boolean>>({})
-  const [existing, setExisting] = useState<Record<string, boolean>>({})
-  const [notes, setNotes] = useState("")
+export function ZusatzCheck({ ctx, saved }: { ctx: CalcContext; saved?: SavedCalculatorPayload }) {
+  const [hospital, setHospital] = useState(Boolean(saved?.hospital))
+  const [hospitalExisting, setHospitalExisting] = useState(Boolean(saved?.existingHospital))
+  const [hospitalLevel, setHospitalLevel] = useState<string | null>(typeof saved?.hospitalLevel === "string" ? saved.hospitalLevel : null)
+  const [wanted, setWanted] = useState<Record<string, boolean>>(
+    saved?.ambulatory && typeof saved.ambulatory === "object" ? saved.ambulatory as Record<string, boolean> : {},
+  )
+  const [existing, setExisting] = useState<Record<string, boolean>>(
+    saved?.existingAmbulatory && typeof saved.existingAmbulatory === "object" ? saved.existingAmbulatory as Record<string, boolean> : {},
+  )
+  const [notes, setNotes] = useState(typeof saved?.notes === "string" ? saved.notes : "")
   const [info, setInfo] = useState<{ item: CoverageInfo; category: string } | null>(null)
-  const [pending, startTransition] = useTransition()
-  const [saved, setSaved] = useState<"idle" | "ok" | "err">("idle")
 
   const selected = useMemo(() => {
     const items: string[] = []
@@ -61,15 +62,12 @@ export function ZusatzCheck({ ctx }: { ctx: CalcContext }) {
     return selected.filter((s) => !existLabels.has(s.split(" · ")[0]))
   }, [selected, existing, hospitalExisting])
 
-  const canTransfer = !!ctx.analysisId
-
-  function transfer() {
-    if (!ctx.analysisId) return
-    startTransition(async () => {
-      const res = await saveCalculatorResult({
-        analysisId: ctx.analysisId!,
-        key: "supplementaryInsurance",
-        payload: {
+  return (
+    <>
+      <CalcActionBar
+        ctx={ctx}
+        calcKey="supplementaryInsurance"
+        buildPayload={() => ({
           hospital,
           existingHospital: hospitalExisting,
           hospitalLevel,
@@ -77,14 +75,16 @@ export function ZusatzCheck({ ctx }: { ctx: CalcContext }) {
           existingAmbulatory: Object.fromEntries(COVERAGES.map((c) => [c.id, !!existing[c.id]])),
           notes,
           selected,
-        },
-      })
-      setSaved(res.ok ? "ok" : "err")
-    })
-  }
-
-  return (
-    <>
+        })}
+        onReset={() => {
+          setHospital(false)
+          setHospitalExisting(false)
+          setHospitalLevel(null)
+          setWanted({})
+          setExisting({})
+          setNotes("")
+        }}
+      />
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         {/* Form */}
         <div className="space-y-5">
@@ -201,16 +201,6 @@ export function ZusatzCheck({ ctx }: { ctx: CalcContext }) {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={transfer}
-              disabled={!canTransfer || pending}
-              title={canTransfer ? undefined : "Aus einer Kundenanalyse öffnen"}
-              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary-deep disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              <ClipboardCheck className="h-4 w-4" />
-              {pending ? "Wird übernommen …" : "In Analyse übernehmen"}
-            </button>
             <Link
               href={ctx.analysisId ? `/versicherung/sach-motor?aid=${ctx.analysisId}&cid=${ctx.customerId ?? ""}` : "/versicherung/sach-motor"}
               className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
@@ -218,9 +208,6 @@ export function ZusatzCheck({ ctx }: { ctx: CalcContext }) {
               Weiter zu Hausrat &amp; Auto
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <p aria-live="polite" className={`mt-2 text-center text-xs font-semibold ${saved === "ok" ? "text-success" : saved === "err" ? "text-destructive" : "text-transparent"}`}>
-              {saved === "ok" ? "In die Analyse übernommen." : saved === "err" ? "Speichern nicht möglich." : "·"}
-            </p>
           </div>
         </div>
       </div>

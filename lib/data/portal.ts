@@ -156,6 +156,21 @@ export async function getAnalysis(analysisId: string): Promise<AnalysisRow | nul
   return (data as AnalysisRow) ?? null
 }
 
+/** Returns one calculator's last persisted payload from an analysis snapshot. */
+export function getCalculatorSnapshot(
+  analysis: AnalysisRow | null,
+  key: string,
+): Record<string, unknown> | undefined {
+  const snapshot = analysis?.latest_snapshot
+  if (!snapshot || typeof snapshot !== "object") return undefined
+  const results = snapshot.calculatorResults
+  if (!results || typeof results !== "object" || Array.isArray(results)) return undefined
+  const value = (results as Record<string, unknown>)[key]
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined
+}
+
 export async function getCustomerById(customerId: string): Promise<CustomerRow | null> {
   const supabase = await createClient()
   const { data, error } = await supabase

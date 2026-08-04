@@ -6,11 +6,13 @@ import Link from "next/link"
 import { ArrowLeft, ArrowRight, Check, Cloud, CloudOff, Gift, Loader2, RefreshCw } from "lucide-react"
 import {
   QUESTIONS,
-  TOTAL_QUESTIONS,
+  PROFILING_SCHEMA_VERSION,
   countAnswered,
   isAnswered,
+  isQuestionVisible,
   needScore,
   progressPercent,
+  visibleQuestionCount,
   type AreaKey,
   type Contracts,
   type ThemeStatus,
@@ -29,6 +31,27 @@ const STEPS = [
   { id: "vertragscheck", title: "Vertragscheck" },
   { id: "auswertung", title: "Auswertung" },
 ]
+
+function profilingSection(index: number): string {
+  if (index <= 3) return "Person & Gesundheit"
+  if (index <= 9) return "Familie & Haushalt"
+  if (index <= 12) return "Wohnen & Hintergrund"
+  if (index <= 14) return "Arbeit & Einkommen"
+  return "Absicherung & Ziele"
+}
+
+function adjacentVisibleQuestion(from: number, direction: 1 | -1, answers: WizardAnswers): number | null {
+  for (let index = from + direction; index >= 0 && index < QUESTIONS.length; index += direction) {
+    if (isQuestionVisible(QUESTIONS[index], answers)) return index
+  }
+  return null
+}
+
+function initialVisibleQuestion(index: number, answers: WizardAnswers): number {
+  const safe = Math.min(Math.max(index, 0), QUESTIONS.length - 1)
+  if (isQuestionVisible(QUESTIONS[safe], answers)) return safe
+  return adjacentVisibleQuestion(safe, 1, answers) ?? adjacentVisibleQuestion(safe, -1, answers) ?? 0
+}
 
 export function AnalysisWizard({
   analysisId,
@@ -58,7 +81,7 @@ export function AnalysisWizard({
   const [contracts, setContracts] = useState<Contracts>(initialContracts)
   const [themeStatus, setThemeStatus] = useState<Record<string, ThemeStatus>>(initialThemeStatus)
   const [step, setStep] = useState(Math.min(Math.max(initialStep, 1), 3))
-  const [qi, setQi] = useState(Math.min(Math.max(initialQuestion, 0), QUESTIONS.length - 1))
+  const [qi, setQi] = useState(() => initialVisibleQuestion(initialQuestion, initialAnswers))
   const [status, setStatus] = useState<SaveStatus>(isCompleted ? "saved" : "idle")
   const [completing, setCompleting] = useState(false)
 
@@ -92,6 +115,7 @@ export function AnalysisWizard({
     contracts: contractsRef.current,
     themeStatus: themeRef.current,
     need_score: needScore(answersRef.current),
+    profiling_schema_version: PROFILING_SCHEMA_VERSION,
   })
 
   const persistOnce = useCallback(
@@ -174,13 +198,39 @@ export function AnalysisWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, contracts, themeStatus, autosaveHalted])
 
-  function setAnswer(key: string, value: WizardAnswers[string]) {
-    setAnswers((prev) => ({ ...prev, [key]: value }))
+  function setQuestionAnswer(key: string, value: WizardAnswers[string]) {
+    const question = QUESTIONS.find((item) => item.id === key)
+    setAnswers((prev) => {
+      const next = { ...prev, [key]: value }
+      if (!question?.details) return next
+      const selected = Array.isArray(value) ? value : value == null ? [] : [String(value)]
+      for (const detail of question.details) {
+        if (!detail.showWhen.some((item) => selected.includes(item))) delete next[detail.id]
+      }
+      for (const dependent of QUESTIONS) {
+        if (dependent.visibleWhen?.id !== key) continue
+        if (!dependent.visibleWhen.values.some((item) => selected.includes(item))) delete next[dependent.id]
+      }
+      return next
+    })
+  }
+
+  function setDetailAnswer(key: string, value: WizardAnswers[string]) {
+    setAnswers((prev) => {
+      const next = { ...prev, [key]: value }
+      if (key === "kinder_anzahl") {
+        const count = Math.max(0, Number(value) || 0)
+        const ages = Array.isArray(prev.kinder_alter) ? prev.kinder_alter : []
+        next.kinder_alter = ages.slice(0, count)
+      }
+      return next
+    })
   }
 
   function goToStep(next: number) {
     if (next < 1 || next > 3) return
     if (timer.current) clearTimeout(timer.current)
+    stepRef.current = next
     setStep(next)
     window.scrollTo({ top: 0, behavior: "smooth" })
     // A step transition is a milestone → keep a revision snapshot.
@@ -192,16 +242,20 @@ export function AnalysisWizard({
 
   function nextQuestion() {
     if (!currentAnswered) return
-    if (qi < QUESTIONS.length - 1) {
-      setQi(qi + 1)
+    const next = adjacentVisibleQuestion(qi, 1, answers)
+    if (next != null) {
+      qiRef.current = next
+      setQi(next)
       if (!isCompleted) void persist(false)
     } else {
       goToStep(2)
     }
   }
   function prevQuestion() {
-    if (qi > 0) {
-      setQi(qi - 1)
+    const previous = adjacentVisibleQuestion(qi, -1, answers)
+    if (previous != null) {
+      qiRef.current = previous
+      setQi(previous)
       if (!isCompleted) void persist(false)
     }
   }
@@ -217,6 +271,13 @@ export function AnalysisWizard({
   const gauge = needScore(answers)
   const progress = progressPercent(answers)
   const answered = countAnswered(answers)
+  const visibleQuestions = visibleQuestionCount(answers)
+  const visibleQuestionIndices = QUESTIONS.reduce<number[]>((indices, question, index) => {
+    if (isQuestionVisible(question, answers)) indices.push(index)
+    return indices
+  }, [])
+  const visibleQuestionNumber = Math.max(1, visibleQuestionIndices.indexOf(qi) + 1)
+  const hasNextQuestion = adjacentVisibleQuestion(qi, 1, answers) != null
 
   return (
     <div className="grid grid-cols-1 gap-6">
@@ -257,25 +318,36 @@ export function AnalysisWizard({
           {/* Question card */}
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <div className="mb-2 flex justify-between text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground">
-              <span>Profiling</span>
+              <span>Profiling · {profilingSection(qi)}</span>
               <span>
-                {qi + 1}/{QUESTIONS.length}
+                {visibleQuestionNumber}/{visibleQuestions}
               </span>
             </div>
             <div className="h-[3px] overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${((qi + 1) / QUESTIONS.length) * 100}%` }}
+                style={{ width: `${(visibleQuestionNumber / Math.max(1, visibleQuestions)) * 100}%` }}
               />
             </div>
 
             <h2 className="mt-5 text-xl font-extrabold tracking-tight text-foreground">
-              {qi + 1}. {q.t}
+              {visibleQuestionNumber}. {q.t}
             </h2>
             {q.sub && <p className="mt-1 text-[13px] text-muted-foreground">{q.sub}</p>}
 
             <div className="mt-5">
-              <WizardField question={q} value={answers[q.id] ?? null} onChange={(v) => setAnswer(q.id, v)} />
+              <WizardField
+                question={q}
+                value={answers[q.id] ?? null}
+                answers={answers}
+                onChange={(v) => setQuestionAnswer(q.id, v)}
+                onDetailChange={setDetailAnswer}
+              />
+              {!currentAnswered && answers[q.id] != null ? (
+                <p className="mt-3 text-xs font-semibold text-destructive">
+                  Bitte die markierten Detailfelder ergänzen.
+                </p>
+              ) : null}
             </div>
 
             <div className="mt-7 flex items-center justify-between gap-3">
@@ -294,7 +366,7 @@ export function AnalysisWizard({
                 disabled={!currentAnswered}
                 className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-deep disabled:opacity-50"
               >
-                {qi === QUESTIONS.length - 1 ? "Zum Vertragscheck" : "Weiter"}
+                {hasNextQuestion ? "Weiter" : "Zum Vertragscheck"}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </div>
@@ -413,7 +485,7 @@ export function AnalysisWizard({
             <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
               <span>Fortschritt</span>
               <span>
-                {answered}/{TOTAL_QUESTIONS}
+                {answered}/{visibleQuestions}
               </span>
             </div>
             <div className="mt-1.5 h-2 w-28 overflow-hidden rounded-full bg-muted">

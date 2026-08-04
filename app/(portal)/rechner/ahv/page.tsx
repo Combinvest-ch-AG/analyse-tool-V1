@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import { CalcShell } from "@/components/portal/rechner/calc-shell"
 import { AhvCalc } from "@/components/portal/rechner/ahv-calc"
+import { getAnalysis, getCalculatorSnapshot } from "@/lib/data/portal"
+import type { WizardAnswers } from "@/lib/wizard/schema"
 
 export const metadata: Metadata = {
   title: "AHV-Rentenrechner · Combinvest",
@@ -14,6 +16,9 @@ export default async function AhvPage({
 }) {
   const sp = await searchParams
   const ctx = { analysisId: sp.aid, customerId: sp.cid }
+  const analysis = sp.aid ? await getAnalysis(sp.aid) : null
+  const snapshot = (analysis?.latest_snapshot ?? {}) as { answers?: WizardAnswers }
+  const income = Math.max(0, Number(snapshot.answers?.brutto) || 0)
   return (
     <CalcShell
       eyebrow="1. Säule · Planungsschätzung 2026"
@@ -26,7 +31,7 @@ export default async function AhvPage({
       explain="Die geschätzte AHV-Rente wird Ihrem Wunscheinkommen gegenübergestellt."
       source="AHV-Rentenskala 44 (Stand 2026); verbindlich sind IK-Auszug und Rentenvorausberechnung."
     >
-      <AhvCalc ctx={ctx} />
+      <AhvCalc defaults={income > 0 ? { income } : undefined} saved={getCalculatorSnapshot(analysis, "ahv-rente")} ctx={ctx} />
     </CalcShell>
   )
 }

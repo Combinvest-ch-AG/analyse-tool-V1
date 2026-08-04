@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { formatCHF } from "@/lib/format"
-import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
+import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 type FieldKey = "insuredSalary" | "capital" | "iv" | "ivChild" | "partner" | "orphan"
 
@@ -15,14 +15,14 @@ const FIELDS: { key: FieldKey; label: string; hint: string }[] = [
   { key: "orphan", label: "Waisenrente pro Kind", hint: "Rente je Kind im Todesfall" },
 ]
 
-export function PkAusweisCalc({ ctx }: { ctx?: CalcContext }) {
+export function PkAusweisCalc({ ctx, saved }: { ctx?: CalcContext; saved?: SavedCalculatorPayload }) {
   const [values, setValues] = useState<Record<FieldKey, string>>({
-    insuredSalary: "",
-    capital: "",
-    iv: "",
-    ivChild: "",
-    partner: "",
-    orphan: "",
+    insuredSalary: saved?.insuredSalary ? String(saved.insuredSalary) : "",
+    capital: saved?.capital ? String(saved.capital) : "",
+    iv: saved?.iv ? String(saved.iv) : "",
+    ivChild: saved?.ivChild ? String(saved.ivChild) : "",
+    partner: saved?.partner ? String(saved.partner) : "",
+    orphan: saved?.orphan ? String(saved.orphan) : "",
   })
 
   const set = (k: FieldKey, v: string) => setValues((s) => ({ ...s, [k]: v }))
@@ -92,7 +92,7 @@ export function PkAusweisCalc({ ctx }: { ctx?: CalcContext }) {
           <div className="mt-4 rounded-xl bg-muted/50 p-4">
             <p className="text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">{filled} von {FIELDS.length}</span> Feldern erfasst. Diese Werte
-              dienen als Grundlage für die Vorsorgeanalyse und den späteren Lückenrechner.
+              dienen als Grundlage für die Vorsorgelückenanalyse.
             </p>
           </div>
         </div>

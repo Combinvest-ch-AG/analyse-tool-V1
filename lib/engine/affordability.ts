@@ -1,5 +1,5 @@
 // Immobilien-Tragbarkeits-Engine (Schweizer Standard, deterministisch)
-// 1:1-Port aus engine/affordability-engine.mjs — Mathematik unverändert.
+// Single source of truth — Regressionstests: lib/engine/affordability.test.mts
 
 export interface AffordabilityRules {
   kalkZins: number

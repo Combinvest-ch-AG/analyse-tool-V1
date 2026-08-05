@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import fontkit from "@pdf-lib/fontkit"
+import { translateUiText, type AppLocale } from "@/lib/i18n"
 import {
   PDFDocument,
   StandardFonts,
@@ -569,7 +570,7 @@ function calculatorMeta(key: string): CalculatorMeta {
   }
 }
 
-export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array> {
+export async function buildAdvisoryReport(data: ReportData, locale: AppLocale = "de"): Promise<Uint8Array> {
   const doc = await PDFDocument.create()
   doc.registerFontkit(fontkit)
   let regular: PDFFont
@@ -601,10 +602,14 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   } catch {
     brandLogo = null
   }
-  doc.setTitle(`Combinvest Finanzanalyse - ${safe(data.customerName)}`)
+  doc.setTitle(
+    locale === "en"
+      ? `Combinvest financial analysis - ${safe(data.customerName)}`
+      : `Combinvest Finanzanalyse - ${safe(data.customerName)}`,
+  )
   doc.setAuthor("Combinvest AG")
-  doc.setSubject("Persönliche Zusammenfassung der Finanzberatung")
-  doc.setCreator("Combinvest Beratungsplattform")
+  doc.setSubject(translateUiText("Persönliche Zusammenfassung der Finanzberatung", locale))
+  doc.setCreator(translateUiText("Combinvest Beratungsplattform", locale))
   doc.setCreationDate(new Date())
 
   const pages: PDFPage[] = []
@@ -668,11 +673,11 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   }
 
   function textWidth(value: string, font: PDFFont, size: number): number {
-    return font.widthOfTextAtSize(safe(value), size)
+    return font.widthOfTextAtSize(safe(translateUiText(value, locale)), size)
   }
 
   function wrap(value: string, font: PDFFont, size: number, maxWidth: number): string[] {
-    const words = safe(value).split(" ")
+    const words = safe(translateUiText(value, locale)).split(" ")
     const lines: string[] = []
     let current = ""
     for (const word of words) {
@@ -690,7 +695,7 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
   type TextOptions = { size?: number; bold?: boolean; heavy?: boolean; color?: Col; maxWidth?: number }
 
   function drawText(value: string, x: number, baseline: number, options: TextOptions = {}) {
-    page.drawText(safe(value), {
+    page.drawText(safe(translateUiText(value, locale)), {
       x,
       y: baseline,
       size: options.size ?? 10,
@@ -1365,7 +1370,7 @@ export async function buildAdvisoryReport(data: ReportData): Promise<Uint8Array>
       color: color(LINE),
       thickness: 0.7,
     })
-    current.drawText("COMBINVEST - PERSÖNLICHE FINANZANALYSE", {
+    current.drawText(safe(translateUiText("COMBINVEST - PERSÖNLICHE FINANZANALYSE", locale)), {
       x: M,
       y: 21,
       size: 6,

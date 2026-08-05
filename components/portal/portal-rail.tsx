@@ -6,6 +6,7 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, Users, LineChart, Calculator, UserPlus, Menu, X, LogOut } from "lucide-react"
 import { signOut } from "@/app/actions/auth"
+import { LanguageSwitch } from "@/components/i18n/language-switch"
 
 type NavItem = { href: string; label: string; icon: React.ComponentType<{ className?: string }> }
 
@@ -39,17 +40,20 @@ export function PortalRail({
       {/* Mobile top bar */}
       <div className="flex items-center justify-between border-b border-border bg-[#0b1933] px-4 py-3 text-white lg:hidden">
         <Link href="/dashboard" className="flex items-center">
-          <Image src="/combinvest-logo.png" alt="Combinvest" width={120} height={26} className="h-6 w-auto brightness-0 invert" />
+          <Image src="/combinvest-logo.png" alt="Combinvest" width={117} height={53} className="h-6 w-auto brightness-0 invert" />
         </Link>
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-white"
-          aria-label={open ? "Menü schließen" : "Menü öffnen"}
-          aria-expanded={open}
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <LanguageSwitch compact />
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 text-white"
+            aria-label={open ? "Menü schließen" : "Menü öffnen"}
+            aria-expanded={open}
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Sidebar */}
@@ -63,8 +67,8 @@ export function PortalRail({
             <Image
               src="/combinvest-logo.png"
               alt="Combinvest"
-              width={150}
-              height={32}
+              width={117}
+              height={53}
               className="h-8 w-auto brightness-0 invert"
               priority
             />
@@ -92,7 +96,8 @@ export function PortalRail({
           </nav>
 
           <div className="mt-auto border-t border-white/12 pt-5">
-            <p className="text-sm font-semibold text-white">{advisorName}</p>
+            <LanguageSwitch />
+            <p className="mt-5 text-sm font-semibold text-white">{advisorName}</p>
             <p className="mt-1 text-xs capitalize text-[#97a8c1]">{advisorTitle || advisorRole}</p>
             <form action={signOut} className="mt-4">
               <button

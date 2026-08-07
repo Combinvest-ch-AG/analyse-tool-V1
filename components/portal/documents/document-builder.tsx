@@ -10,10 +10,9 @@ type DocDef = { id: string; name: string; tag: string; file: string; checked?: b
 
 const DEFINITIONS: DocDef[] = [
   { id: "protocol", name: "Beratungsprotokoll Combinvest", tag: "Standard", file: "/documents/templates/beratungsprotokoll-vorlage.pdf", checked: true },
-  { id: "generalvollmacht", name: "Generalvollmacht", tag: "Vollmacht", file: "" },
+  { id: "generalvollmacht", name: "Generalvollmacht", tag: "Vollmacht", file: "/documents/templates/vollmacht-vorsorgeinformationen.pdf" },
   { id: "vag", name: "Informationspflichten gemäss VAG", tag: "Versicherung", file: "/documents/templates/vag-informationspflicht.pdf" },
-  { id: "kk", name: "Kündigung Krankenkasse", tag: "Kündigung", file: "" },
-  { id: "sach", name: "Kündigung Sachversicherung", tag: "Kündigung", file: "" },
+  { id: "kk", name: "Kündigung Krankenkasse", tag: "Kündigung", file: "/documents/templates/kuendigung-kvg-vvg.pdf" },
   { id: "private", name: "Maklermandat Combinvest (Privatperson)", tag: "Privatkunde", file: "/documents/templates/maklermandat-privat.pdf" },
   { id: "company", name: "Maklermandat Combinvest (Firma)", tag: "Firmenkunde", file: "/documents/templates/maklermandat-firma.pdf" },
   { id: "triveso-private", name: "Maklermandat Triveso (Privatperson)", tag: "Privatkunde", file: "/documents/templates/maklermandat-triveso-privat.pdf" },
@@ -24,9 +23,6 @@ const DEFINITIONS: DocDef[] = [
 
 const KK_COMPANIES = [
   "Agrisano", "AKKB", "Aquilana", "Assura", "Atupri", "Avenir (Groupe Mutuel)", "CONCORDIA", "CSS", "Easy Sana (Groupe Mutuel)", "EGK", "Helsana", "KLuG", "KPT", "Mutuel (Groupe Mutuel)", "ÖKK", "Philos (Groupe Mutuel)", "Sanitas", "sana24", "Sumiswalder", "SWICA", "Sympany", "Visana", "Vivao Sympany", "Andere",
-]
-const SACH_COMPANIES = [
-  "Allianz Suisse", "AXA", "Baloise", "Die Mobiliar", "Generali", "Helvetia", "Smile", "Vaudoise", "Zurich", "Andere",
 ]
 
 type ProtocolGroup = { id: string; title: string; topic?: string; questions: string[] }
@@ -99,11 +95,7 @@ type Cancellation = {
   kkPolicy: string
   kkScope: string[]
   kkDate: string
-  sachCompany: string
-  sachPolicy: string
-  sachDate: string
 }
-type GeneralPower = { scope: string; note: string }
 
 export function DocumentBuilder({
   analysisId,
@@ -166,11 +158,7 @@ export function DocumentBuilder({
     kkPolicy: "",
     kkScope: ["KVG"],
     kkDate: "",
-    sachCompany: "",
-    sachPolicy: "",
-    sachDate: "",
   })
-  const [power, setPower] = useState<GeneralPower>(draft.power && typeof draft.power === "object" ? draft.power as GeneralPower : { scope: "Versicherungs- und Vorsorgeangelegenheiten", note: "" })
   const [advisorLater, setAdvisorLater] = useState(Boolean(draft.advisorLater))
   const [consent, setConsent] = useState(Boolean(draft.consent))
   const [status, setStatus] = useState<string | null>(null)
@@ -190,14 +178,14 @@ export function DocumentBuilder({
         analysisId,
         documents: {
           customerId,
-          draft: { type, form: f, selected, protocol, pk, cancel, power, advisorLater, consent },
+          draft: { type, form: f, selected, protocol, pk, cancel, advisorLater, consent },
         },
         writeRevision: false,
       })
       setStatus(result.ok ? "Entwurf automatisch gespeichert." : "Entwurf konnte nicht gespeichert werden.")
     }, 1000)
     return () => window.clearTimeout(timer)
-  }, [advisorLater, analysisId, cancel, consent, customerId, f, pk, power, protocol, selected, type])
+  }, [advisorLater, analysisId, cancel, consent, customerId, f, pk, protocol, selected, type])
 
   const customerRef = useRef<SignaturePadHandle>(null)
   const advisorRef = useRef<SignaturePadHandle>(null)
@@ -207,8 +195,6 @@ export function DocumentBuilder({
   const protocolOn = selected.includes("protocol")
   const pkOn = selected.includes("pk")
   const kkOn = selected.includes("kk")
-  const sachOn = selected.includes("sach")
-  const powerOn = selected.includes("generalvollmacht")
 
   const selectedDefs = useMemo(() => DEFINITIONS.filter((d) => selected.includes(d.id)), [selected])
 
@@ -277,131 +263,11 @@ export function DocumentBuilder({
         return false
       }
     }
-    if (n === 4 && sachOn) {
-      if (!cancel.sachCompany || !cancel.sachPolicy || !cancel.sachDate) {
-        setError("Bitte Policennummer, Gesellschaft und Kündigungsdatum der Sachversicherung angeben.")
-        return false
-      }
-    }
     return true
   }
 
-  async function createGeneratedPdf(def: DocDef, PDFLib: typeof import("pdf-lib")) {
-    const { PDFDocument, StandardFonts, rgb } = PDFLib
-    const pdf = await PDFDocument.create()
-    const page = pdf.addPage([595, 842])
-    const font = await pdf.embedFont(StandardFonts.Helvetica)
-    const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-    const ink = rgb(0.07, 0.12, 0.2)
-    const muted = rgb(0.4, 0.45, 0.52)
-    const brand = rgb(0.11, 0.16, 0.52)
-    const full = (f.company && type === "company" ? f.company + " / " : "") + f.firstName + " " + f.lastName
-    const dateText = (f.place || f.city) + ", " + f.date
-    const M = 64
-    let y = 780
-
-    const line = (t: string, opts: { size?: number; f?: typeof font; color?: typeof ink; gap?: number } = {}) => {
-      const size = opts.size ?? 10.5
-      page.drawText(t, { x: M, y, size, font: opts.f ?? font, color: opts.color ?? ink })
-      y -= opts.gap ?? size + 6
-    }
-    const para = (t: string, size = 10.5, lh = 15) => {
-      const words = t.split(/\s+/)
-      let ln = ""
-      const width = 595 - M * 2
-      for (const w of words) {
-        const test = (ln + " " + w).trim()
-        if (font.widthOfTextAtSize(test, size) > width && ln) {
-          page.drawText(ln, { x: M, y, size, font, color: ink })
-          y -= lh
-          ln = w
-        } else ln = test
-      }
-      if (ln) {
-        page.drawText(ln, { x: M, y, size, font, color: ink })
-        y -= lh
-      }
-      y -= 6
-    }
-
-    // Kopf
-    page.drawText("combinvest", { x: M, y, size: 22, font: bold, color: brand })
-    y -= 16
-    page.drawText("Hausimollstrasse 3 · 4622 Egerkingen · combinvest.swiss", { x: M, y, size: 8.5, font, color: muted })
-    y -= 40
-
-    if (def.id === "generalvollmacht") {
-      line("Generalvollmacht", { size: 18, f: bold, gap: 30 })
-      line("Vollmachtgeber / Auftraggeber", { size: 11, f: bold, gap: 20 })
-      line("Name / Vorname:  " + full)
-      line("Geburtsdatum:  " + (f.birthdate || "—"))
-      line("Adresse:  " + f.street + ", " + f.zip + " " + f.city)
-      line("Telefon / E-Mail:  " + f.phone + "  ·  " + f.email, { gap: 26 })
-      para(
-        "Der Vollmachtgeber erteilt der Combinvest AG bzw. dem/der bevollmächtigten Kundenberater/in " +
-          (f.advisorName || "—") +
-          " hiermit Vollmacht, ihn/sie in " +
-          power.scope +
-          " gegenüber Versicherern, Vorsorgeeinrichtungen, Behörden und weiteren Stellen zu vertreten.",
-      )
-      para(
-        "Die Vollmacht umfasst das Einholen von Auskünften und Unterlagen, die Korrespondenz sowie alle Handlungen, die zur sorgfältigen Erledigung des Auftrags erforderlich sind. Sie gilt bis zum schriftlichen Widerruf und ersetzt alle bisher erteilten Vollmachten.",
-      )
-      if (power.note) para("Zusatz: " + power.note)
-    } else if (def.id === "kk") {
-      line("Kündigung Grundversicherung / Zusatzversicherung", { size: 16, f: bold, gap: 28 })
-      line("An:  " + cancel.kkCompany, { size: 11, f: bold, gap: 20 })
-      line("Versicherte Person:  " + full)
-      line("Geburtsdatum:  " + (f.birthdate || "—"))
-      line("Adresse:  " + f.street + ", " + f.zip + " " + f.city)
-      if (cancel.kkPolicy) line("Policen-/Versichertennummer:  " + cancel.kkPolicy)
-      line("Gekündigt wird:  " + cancel.kkScope.join(" + "))
-      line("Kündigung per:  " + cancel.kkDate, { gap: 26 })
-      para(
-        "Sehr geehrte Damen und Herren, hiermit kündige ich die oben genannte Versicherung (" +
-          cancel.kkScope.join(" + ") +
-          ") fristgerecht per " +
-          cancel.kkDate +
-          ". Bitte bestätigen Sie mir die Kündigung sowie das Vertragsende schriftlich.",
-      )
-    } else if (def.id === "sach") {
-      line("Kündigung Sachversicherung", { size: 16, f: bold, gap: 28 })
-      line("An:  " + cancel.sachCompany, { size: 11, f: bold, gap: 20 })
-      line("Versicherungsnehmer:  " + full)
-      line("Adresse:  " + f.street + ", " + f.zip + " " + f.city)
-      line("Policennummer:  " + cancel.sachPolicy)
-      line("Kündigung per:  " + cancel.sachDate, { gap: 26 })
-      para(
-        "Sehr geehrte Damen und Herren, hiermit kündige ich die oben genannte Sachversicherung mit der Policennummer " +
-          cancel.sachPolicy +
-          " fristgerecht per " +
-          cancel.sachDate +
-          ". Bitte bestätigen Sie mir die Kündigung sowie das Vertragsende schriftlich.",
-      )
-    }
-
-    // Signaturblock
-    y = Math.min(y, 300)
-    const embedSig = async (handle: SignaturePadHandle | null) => {
-      if (!handle || handle.isEmpty()) return null
-      const raw = await fetch(handle.toDataURL()).then((r) => r.arrayBuffer())
-      return pdf.embedPng(raw)
-    }
-    const custImg = await embedSig(customerRef.current)
-    page.drawText(dateText, { x: M, y, size: 9, font, color: ink })
-    page.drawLine({ start: { x: M, y: y - 46 }, end: { x: M + 200, y: y - 46 }, thickness: 0.75, color: muted })
-    if (custImg) page.drawImage(custImg, { x: M, y: y - 44, width: 180, height: 36 })
-    page.drawText("Unterschrift " + full, { x: M, y: y - 58, size: 8, font, color: muted })
-    return pdf.save()
-  }
-
   async function createPdf(def: DocDef, PDFLib: typeof import("pdf-lib")) {
-    const { PDFDocument, StandardFonts, rgb } = PDFLib
-    // Dokumente ohne fertige Vorlage (Kündigungen, Generalvollmacht) werden
-    // programmatisch als sauberes Combinvest-Schreiben erzeugt.
-    if (!def.file) {
-      return createGeneratedPdf(def, PDFLib)
-    }
+    const { PDFDocument, StandardFonts, rgb, PDFName, PDFDict, PDFRawStream, PDFRef } = PDFLib
     const bytes = await fetch(def.file).then((r) => {
       if (!r.ok) throw new Error(def.name)
       return r.arrayBuffer()
@@ -410,9 +276,14 @@ export function DocumentBuilder({
     const full = (f.company && type === "company" ? f.company + " / " : "") + f.firstName + " " + f.lastName
     const address = f.street + ", " + f.zip + " " + f.city
 
-    const safeField = (name: string, value: string) => {
+    // Feldwert setzen und dabei eine kompakte, gut lesbare Schriftgroesse erzwingen.
+    // Ohne explizite Groesse skalieren die Vorlagen-Felder auf Auto-Groesse: der Text
+    // wird riesig, schwebt ueber den Linien und laeuft am Rand ueber (z. B. die E-Mail).
+    const safeField = (name: string, value: string, size = 10) => {
       try {
-        pdf.getForm().getTextField(name).setText(value || "")
+        const field = pdf.getForm().getTextField(name)
+        field.setText(value || "")
+        field.setFontSize(size)
       } catch {
         /* field not present */
       }
@@ -427,7 +298,8 @@ export function DocumentBuilder({
       safeField("Text1", f.place + ", " + f.date)
       safeField("Text2", f.place + ", " + f.date)
     }
-    if (def.id === "pension") {
+    // Generalvollmacht nutzt dieselbe Vorlage wie die Vollmacht Vorsorgeinformationen.
+    if (def.id === "pension" || def.id === "generalvollmacht") {
       const fields: Record<string, string> = {
         "Text Box 1": full,
         "Text Box 1_2": f.street,
@@ -467,13 +339,16 @@ export function DocumentBuilder({
       }
       Object.entries(fields).forEach(([k, v]) => safeField(k, v))
     }
+    const font = await pdf.embedFont(StandardFonts.Helvetica)
+    // Font explizit uebergeben: einige Vorlagen (z. B. Vorsorgevollmacht) haben eine
+    // Default-Appearance, die eine im Formular nicht vorhandene Schrift referenziert.
+    // Ohne Font scheitert die Neugenerierung still und die Felder bleiben leer.
     try {
-      pdf.getForm().updateFieldAppearances()
+      pdf.getForm().updateFieldAppearances(font)
     } catch {
       /* ignore */
     }
 
-    const font = await pdf.embedFont(StandardFonts.Helvetica)
     const ink = rgb(0.07, 0.12, 0.2)
     const pages = pdf.getPages()
     const dateText = (f.place || f.city) + ", " + f.date
@@ -521,10 +396,51 @@ export function DocumentBuilder({
       sign(mandate, customerImage, 300, 118, 210, 30)
       sign(mandate, advisorImage, 300, 73, 210, 30)
     }
-    if (def.id === "pension") {
+    if (def.id === "pension" || def.id === "generalvollmacht") {
       const pension = pages[0]
       sign(pension, customerImage, 72, 136, 205, 32)
       sign(pension, advisorImage, 300, 136, 205, 32)
+    }
+    if (def.id === "kk") {
+      // Krankenkassen-Kündigung (KVG/VVG) – A4-Vorlage ohne Formularfelder.
+      const kkPage = pages[0]
+      // Die Vorlage traegt eingebrannte Alt-Daten der Vorbesitzerin (Name + zwei
+      // Unterschriften) in einem Form-XObject, das der Seiteninhalt zuoberst zeichnet –
+      // deshalb liegt es ueber allem, was wir ergaenzen. Wir leeren den Inhalt dieses
+      // XObjects, sodass nur die leere Vorlage bleibt und unsere Daten sichtbar sind.
+      try {
+        const res = kkPage.node.Resources()
+        const xobj = res?.lookup(PDFName.of("XObject"), PDFDict)
+        if (xobj) {
+          for (const [, value] of xobj.entries()) {
+            if (!(value instanceof PDFRef)) continue
+            const stream = kkPage.doc.context.lookup(value) as { dict?: unknown } | undefined
+            if (stream && "dict" in stream && stream.dict) {
+              kkPage.doc.context.assign(value, PDFRawStream.of(stream.dict as never, new Uint8Array([])))
+            }
+          }
+        }
+      } catch {
+        /* kein XObject */
+      }
+      // Kleiner Rest eines Alt-Zeichens ueber der ersten Absender-Linie uebermalen.
+      kkPage.drawRectangle({ x: 250, y: 780, width: 60, height: 12, color: rgb(1, 1, 1) })
+      // Absender-Block (versicherte Person) – Text sitzt knapp ueber den Linien.
+      text(kkPage, full, 60, 780, 9)
+      text(kkPage, f.street, 60, 761, 9)
+      text(kkPage, f.zip + " " + f.city, 60, 742, 9)
+      text(kkPage, f.phone, 60, 723, 9)
+      // Empfänger-Block (Einschreiben an die Krankenkasse)
+      text(kkPage, cancel.kkCompany, 357, 629, 9)
+      // Ort/Datum auf der Poststempel-Linie
+      text(kkPage, dateText, 60, 540, 9)
+      // Personenzeile 1: Name, Geburtsdatum, Unterschrift
+      text(kkPage, full, 60, 330, 9)
+      text(kkPage, f.birthdate, 246, 330, 9)
+      sign(kkPage, customerImage, 340, 326, 92, 20)
+      // "per"-Datum je nach gekündigtem Bereich (KVG obere, VVG untere Linie)
+      if (cancel.kkScope.includes("KVG")) text(kkPage, cancel.kkDate, 505, 343, 8)
+      if (cancel.kkScope.includes("VVG")) text(kkPage, cancel.kkDate, 505, 329, 8)
     }
     if (def.id === "vag") {
       const vagFirst = pages[0]
@@ -551,28 +467,28 @@ export function DocumentBuilder({
       text(first, f.zip + " " + f.city, 369, 596, 9)
       text(first, f.phone, 171, 573, 9)
       text(first, f.email, 369, 573, 9)
-      const meetingY: Record<string, number> = { Datenerhebung: 494, Beratungsgespräch: 475, Servicetermin: 455 }
-      text(first, "X", 92, meetingY[f.meetingType] || 494, 10)
-      const topicY: Record<string, number> = { pension: 379, health: 360, investment: 340, property: 320 }
+      const meetingY: Record<string, number> = { Datenerhebung: 489, Beratungsgespräch: 470, Servicetermin: 450 }
+      text(first, "X", 92, meetingY[f.meetingType] || 489, 10)
+      const topicY: Record<string, number> = { pension: 374, health: 355, investment: 335, property: 316 }
       protocol.topics.forEach((t) => text(first, "X", 92, topicY[t], 10))
       text(first, protocol.contractCompany, 93, 230, 9)
       text(first, protocol.contractBranch, 302, 230, 9)
       const markAnswers = (page: Page, answers: string[], ys: number[]) =>
         answers.forEach((a, i) => text(page, "X", a === "yes" ? 95 : 116, ys[i], 9))
-      markAnswers(second, protocol.answers.general, [661, 637, 614, 590, 566, 535, 503, 477])
+      markAnswers(second, protocol.answers.general, [660, 637, 613, 589, 565, 534, 504, 479])
       if (protocol.topics.includes("health")) {
-        markAnswers(second, protocol.answers.health, [371, 329, 292])
+        markAnswers(second, protocol.answers.health, [369, 328, 294])
         wrap(second, protocol.motives.health, 100, 205, 395, 8, 11, 9)
       }
       if (protocol.topics.includes("investment")) {
-        markAnswers(third, protocol.answers.investment, [658, 624, 590])
+        markAnswers(third, protocol.answers.investment, [656, 621, 587])
         wrap(third, protocol.motives.investment, 100, 515, 395, 8, 11, 9)
       }
       if (protocol.topics.includes("property")) {
-        markAnswers(third, protocol.answers.property, [300])
+        markAnswers(third, protocol.answers.property, [298])
         wrap(third, protocol.motives.property, 100, 235, 395, 8, 11, 9)
       }
-      const cancellationY: Record<string, number> = { forward: 659, self: 636, none: 620 }
+      const cancellationY: Record<string, number> = { forward: 656, self: 634, none: 617 }
       text(last, "X", 116, cancellationY[protocol.cancellation], 9)
       text(last, dateText, 86, 250, 8)
       sign(last, customerImage, 300, 247, 205, 34)
@@ -587,15 +503,15 @@ export function DocumentBuilder({
       text(pkFirst, f.firstName, 132, 602, 9)
       text(pkFirst, f.birthdate, 155, 579, 9)
       text(pkFirst, pk.ahvNumber, 298, 579, 9)
-      text(pkFirst, address, 163, 553, 9)
-      text(pkFirst, f.phone, 163, 469, 9)
+      text(pkFirst, address, 163, 557, 9)
+      text(pkFirst, f.phone, 163, 466, 9)
       if (pk.death.enabled) {
-        text(pkFirst, pk.death.deathDate, 149, 386, 8)
-        text(pkFirst, pk.death.survivorLast, 117, 342, 8)
-        text(pkFirst, pk.death.survivorFirst, 326, 342, 8)
-        text(pkFirst, pk.death.survivorBirth, 160, 319, 8)
-        text(pkFirst, pk.death.relationship, 351, 319, 8)
-        text(pkFirst, pk.death.survivorAddress, 149, 296, 8)
+        text(pkFirst, pk.death.deathDate, 149, 385, 8)
+        text(pkFirst, pk.death.survivorLast, 117, 339, 8)
+        text(pkFirst, pk.death.survivorFirst, 326, 339, 8)
+        text(pkFirst, pk.death.survivorBirth, 160, 317, 8)
+        text(pkFirst, pk.death.relationship, 351, 317, 8)
+        text(pkFirst, pk.death.survivorAddress, 149, 294, 8)
       }
       const jobY = [135, 110, 85, 60]
       pk.jobs.forEach((j, i) => {
@@ -606,9 +522,9 @@ export function DocumentBuilder({
       })
       text(pkLast, pk.previousPension, 149, 725, 9)
       text(pkLast, pk.previousPensionAddress, 149, 703, 9)
-      const benefitY = [590, 579, 568, 557]
+      const benefitY = [586, 575, 564, 552]
       pk.benefits.forEach((a, i) => text(pkLast, "X", a === "yes" ? 303 : 337, benefitY[i], 9))
-      text(pkLast, dateText, 150, 312, 8)
+      text(pkLast, dateText, 150, 309, 8)
       sign(pkLast, customerImage, 285, 290, 180, 28)
       const attachmentY = [118, 107, 95, 84, 72, 61]
       pk.attachments.forEach((i) => text(pkLast, "X", 86, attachmentY[i], 9))
@@ -964,40 +880,6 @@ export function DocumentBuilder({
               </div>
             )}
 
-            {sachOn && (
-              <div className="mt-6 border-t border-border pt-6">
-                <h3 className="text-base font-bold text-foreground">Kündigung Sachversicherung</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">Für Hausrat, Privathaftpflicht, Motorfahrzeug und weitere Sachversicherungen.</p>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <Field label="Gesellschaft*">
-                    <select className={INPUT} value={cancel.sachCompany} onChange={(e) => setCancel((c) => ({ ...c, sachCompany: e.target.value }))}>
-                      <option value="">Bitte wählen</option>
-                      {SACH_COMPANIES.map((k) => <option key={k}>{k}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Policennummer*"><input className={INPUT} value={cancel.sachPolicy} onChange={(e) => setCancel((c) => ({ ...c, sachPolicy: e.target.value }))} /></Field>
-                  <Field label="Kündigung per*"><input className={INPUT} type="date" value={cancel.sachDate} onChange={(e) => setCancel((c) => ({ ...c, sachDate: e.target.value }))} /></Field>
-                </div>
-              </div>
-            )}
-
-            {powerOn && (
-              <div className="mt-6 border-t border-border pt-6">
-                <h3 className="text-base font-bold text-foreground">Generalvollmacht</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">Umfang der Bevollmächtigung; Combinvest und der Berater werden automatisch eingesetzt.</p>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <Field label="Umfang der Vollmacht">
-                    <select className={INPUT} value={power.scope} onChange={(e) => setPower((p) => ({ ...p, scope: e.target.value }))}>
-                      <option>Versicherungs- und Vorsorgeangelegenheiten</option>
-                      <option>Versicherungsangelegenheiten</option>
-                      <option>Vorsorgeangelegenheiten</option>
-                      <option>allen finanziellen Angelegenheiten</option>
-                    </select>
-                  </Field>
-                  <Field className="sm:col-span-2" label="Zusatz / Einschränkung"><textarea className={`${INPUT} min-h-16 resize-y`} value={power.note} onChange={(e) => setPower((p) => ({ ...p, note: e.target.value }))} placeholder="Optionale Präzisierung" /></Field>
-                </div>
-              </div>
-            )}
           </Panel>
         )}
 

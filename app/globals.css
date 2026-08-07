@@ -36,6 +36,14 @@
   --color-success: #16a34a;
   --color-success-foreground: #ffffff;
 
+  --color-warning: #f2a12c;
+  --color-warning-foreground: #ffffff;
+  --color-warning-deep: #9a5b00;
+
+  --color-surface-subtle: #f8faff;
+  --color-surface-tint: #f5f8fc;
+  --color-surface-muted: #e9eef6;
+
   --color-border: #e3e9f1;
   --color-input: #e3e9f1;
   --color-ring: #b9d3ff;

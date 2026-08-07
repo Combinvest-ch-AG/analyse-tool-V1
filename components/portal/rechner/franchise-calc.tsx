@@ -5,6 +5,7 @@ import useSWR from "swr"
 import { ArrowUpRight } from "lucide-react"
 import { ageGroupFromBirthYear, compareFranchises, type AgeGroup } from "@/lib/engine/franchise"
 import { formatCHF } from "@/lib/format"
+import { seriesColor } from "@/lib/data/chart-colors"
 import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 type Location = { b: number; c: string; g: string; r: number; p: number; o: string }
@@ -495,7 +496,7 @@ export function FranchiseCalc({
                     Prämie
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#f59e42]" />
+                    <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seriesColor.orange }} />
                     Kostenbeteiligung
                   </span>
                 </div>
@@ -531,8 +532,8 @@ export function FranchiseCalc({
                         style={{ width: `${(row.annualPremium / maxTotal) * 100}%` }}
                       />
                       <span
-                        className="h-full bg-[#f59e42]"
-                        style={{ width: `${(row.costSharing / maxTotal) * 100}%` }}
+                        className="h-full"
+                        style={{ width: `${(row.costSharing / maxTotal) * 100}%`, backgroundColor: seriesColor.orange }}
                       />
                     </span>
                     <span className="text-right text-[12px] font-extrabold tabular-nums text-foreground">

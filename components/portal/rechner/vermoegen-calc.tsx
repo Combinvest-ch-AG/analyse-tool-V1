@@ -3,6 +3,7 @@
 import { useId, useMemo, useState } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { formatCHF } from "@/lib/format"
+import { seriesColor, chartInk } from "@/lib/data/chart-colors"
 import {
   futureValue,
   monthsToTarget,
@@ -519,14 +520,14 @@ function LineChart({
         </div>
         <div className="mt-5 flex h-5 overflow-hidden rounded-full bg-muted">
           <span className="h-full bg-primary" style={{ width: `${(afterTax / gross) * 100}%` }} />
-          <span className="h-full bg-[#f59e42]" style={{ width: `${(tax / gross) * 100}%` }} />
+          <span className="h-full" style={{ width: `${(tax / gross) * 100}%`, backgroundColor: seriesColor.orange }} />
         </div>
         <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-2">
             <i className="h-2.5 w-2.5 rounded-full bg-primary" /> Nach Abzug {formatCHF(afterTax)}
           </span>
           <span className="inline-flex items-center gap-2">
-            <i className="h-2.5 w-2.5 rounded-full bg-[#f59e42]" /> Abgabenwirkung {formatCHF(tax)}
+            <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seriesColor.orange }} /> Abgabenwirkung {formatCHF(tax)}
           </span>
         </div>
       </div>
@@ -554,34 +555,34 @@ function LineChart({
           </span>
           {hasCompare && label2 ? (
             <span className="inline-flex items-center gap-1.5">
-              <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#f59e42]" /> {label2}
+              <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seriesColor.orange }} /> {label2}
             </span>
           ) : null}
         </div>
       </div>
 
       <div
-        className="mb-3 grid gap-2 rounded-2xl border border-[#dce5f3] bg-[#f7faff] p-3 sm:grid-cols-[100px_1fr_1fr]"
+        className="mb-3 grid gap-2 rounded-2xl border border-border bg-surface-subtle p-3 sm:grid-cols-[100px_1fr_1fr]"
         aria-live="polite"
       >
-        <div className="flex items-center rounded-xl bg-[#e8f0ff] px-3 py-2">
+        <div className="flex items-center rounded-xl bg-accent px-3 py-2">
           <div>
-            <span className="block text-[10px] font-extrabold uppercase tracking-wide text-[#587096]">Zeitpunkt</span>
-            <strong className="text-base text-[#111d36]">{formatTime(times[active] ?? active)}</strong>
+            <span className="block text-[10px] font-extrabold uppercase tracking-wide" style={{ color: chartInk.labelSoft }}>Zeitpunkt</span>
+            <strong className="text-base text-foreground">{formatTime(times[active] ?? active)}</strong>
           </div>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 shadow-sm">
-          <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#52617a]">
-            <i className="h-2.5 w-2.5 rounded-full bg-[#3978f6]" /> {label1}
+          <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: chartInk.label }}>
+            <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seriesColor.blue }} /> {label1}
           </span>
-          <strong className="whitespace-nowrap text-sm tabular-nums text-[#111d36]">{formatCHF(s1[active])}</strong>
+          <strong className="whitespace-nowrap text-sm tabular-nums text-foreground">{formatCHF(s1[active])}</strong>
         </div>
         {hasCompare && label2 ? (
           <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 shadow-sm">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#52617a]">
-              <i className="h-2.5 w-2.5 rounded-full bg-[#f59e42]" /> {label2}
+            <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: chartInk.label }}>
+              <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seriesColor.orange }} /> {label2}
             </span>
-            <strong className="whitespace-nowrap text-sm tabular-nums text-[#111d36]">{formatCHF(s2[active])}</strong>
+            <strong className="whitespace-nowrap text-sm tabular-nums text-foreground">{formatCHF(s2[active])}</strong>
           </div>
         ) : (
           <div className="hidden sm:block" />
@@ -611,8 +612,8 @@ function LineChart({
         </title>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3978f6" stopOpacity="0.24" />
-            <stop offset="100%" stopColor="#3978f6" stopOpacity="0.025" />
+            <stop offset="0%" stopColor={seriesColor.blue} stopOpacity="0.24" />
+            <stop offset="100%" stopColor={seriesColor.blue} stopOpacity="0.025" />
           </linearGradient>
         </defs>
 
@@ -620,8 +621,8 @@ function LineChart({
           const gridY = pad.t + (1 - ratio) * plotHeight
           return (
             <g key={ratio}>
-              <line x1={pad.l} x2={W - pad.r} y1={gridY} y2={gridY} stroke="#dce4ef" strokeWidth="1" />
-              <text x={pad.l - 12} y={gridY + 4} textAnchor="end" fill="#65748b" fontSize="11" fontWeight="600">
+              <line x1={pad.l} x2={W - pad.r} y1={gridY} y2={gridY} stroke={chartInk.grid} strokeWidth="1" />
+              <text x={pad.l - 12} y={gridY + 4} textAnchor="end" fill={chartInk.axis} fontSize="11" fontWeight="600">
                 {compact(max * ratio)}
               </text>
             </g>
@@ -633,7 +634,7 @@ function LineChart({
             x={xAt(tick)}
             y={H - 14}
             textAnchor="middle"
-            fill="#65748b"
+            fill={chartInk.axis}
             fontSize="11"
             fontWeight="600"
           >
@@ -646,7 +647,7 @@ function LineChart({
           <path
             d={toPath(s2)}
             fill="none"
-            stroke="#f59e42"
+            stroke={seriesColor.orange}
             strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -655,7 +656,7 @@ function LineChart({
         <path
           d={toPath(s1)}
           fill="none"
-          stroke="#3978f6"
+          stroke={seriesColor.blue}
           strokeWidth="3.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -666,13 +667,13 @@ function LineChart({
           x2={activeX}
           y1={pad.t}
           y2={H - pad.b}
-          stroke="#111d36"
+          stroke={chartInk.strong}
           strokeDasharray="4 5"
           strokeOpacity="0.28"
         />
-        <circle cx={activeX} cy={yAt(s1[active])} r="5" fill="#ffffff" stroke="#3978f6" strokeWidth="3" />
+        <circle cx={activeX} cy={yAt(s1[active])} r="5" fill={chartInk.surface} stroke={seriesColor.blue} strokeWidth="3" />
         {hasCompare ? (
-          <circle cx={activeX} cy={yAt(s2[active])} r="4.5" fill="#ffffff" stroke="#f59e42" strokeWidth="3" />
+          <circle cx={activeX} cy={yAt(s2[active])} r="4.5" fill={chartInk.surface} stroke={seriesColor.orange} strokeWidth="3" />
         ) : null}
 
         <rect x={pad.l} y={pad.t} width={plotWidth} height={plotHeight} fill="transparent" />
@@ -701,7 +702,7 @@ function LineChart({
         <summary className="cursor-pointer text-xs font-bold text-primary">Alle Jahreswerte anzeigen</summary>
         <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-border">
           <table className="w-full min-w-[440px] text-left text-xs">
-            <thead className="sticky top-0 bg-[#eef3fb] text-[#52617a]">
+            <thead className="sticky top-0 bg-secondary" style={{ color: chartInk.label }}>
               <tr>
                 <th className="px-3 py-2 font-bold">Jahr</th>
                 <th className="px-3 py-2 text-right font-bold">{label1}</th>

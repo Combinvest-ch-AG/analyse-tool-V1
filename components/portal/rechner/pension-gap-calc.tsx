@@ -16,6 +16,7 @@ import {
   type ValueKey,
 } from "@/lib/engine/pension-gap"
 import { formatCHF } from "@/lib/format"
+import { seriesColor } from "@/lib/data/chart-colors"
 import { Lock, Upload, ChevronDown } from "lucide-react"
 import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
@@ -483,7 +484,7 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
                     className="flex h-full items-center justify-center border-l-2 border-white/80"
                     style={{
                       width: `${(gap.gap / scaleMax) * 100}%`,
-                      backgroundColor: "#ef4444",
+                      backgroundColor: seriesColor.red,
                     }}
                     title={`Vorsorgelücke: ${formatCHF(per(gap.gap))} ${perSuffix}`}
                     aria-label={`Vorsorgelücke ${gapPct} Prozent: ${formatCHF(per(gap.gap))} ${perSuffix}`}
@@ -513,7 +514,7 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
             </div>
             {hasGap ? (
               <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-destructive">
-                <span className="h-3 w-3 rounded-full bg-[#ef4444]" aria-hidden="true" />
+                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: seriesColor.red }} aria-hidden="true" />
                 Rot markiert: Vorsorgelücke von {formatCHF(per(gap.gap))} {perSuffix}
               </div>
             ) : null}

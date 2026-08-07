@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { RotateCcw, ArrowRight } from "lucide-react"
+import { investorGradient } from "@/lib/data/chart-colors"
 import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 type Dimension = "risk" | "horizon" | "knowledge"
@@ -244,7 +245,7 @@ export function AnlegerprofilCalc({ ctx, saved }: { ctx?: CalcContext; saved?: S
                         className="h-full border-r border-white/50 last:border-0"
                         style={{
                           width: `${profile.range[1] - profile.range[0] + (index === 0 ? 1 : 0)}%`,
-                          background: ["#6B83A6", "#5B8FB9", "#4D9EB6", "#419E91", "#53A66B", "#D3A84D", "#E47A55"][index],
+                          background: investorGradient[index],
                         }}
                         title={`${profile.name}: ${profile.range[0]}–${profile.range[1]} Punkte`}
                       />

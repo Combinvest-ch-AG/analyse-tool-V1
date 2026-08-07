@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { Trash2, ArrowRight } from "lucide-react"
 import { formatCHF } from "@/lib/format"
+import { budgetPalette } from "@/lib/data/chart-colors"
 import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
 import { BudgetSankey } from "@/components/portal/rechner/budget-sankey"
 
@@ -17,7 +18,7 @@ export type ImportedBudgetCost = {
   group: "Versicherungen" | "Abonnemente" | "Finanzierung" | "Sparen & Vorsorge"
 }
 
-const PALETTE = ["#EE6A20", "#256ABF", "#159B8A", "#C2554E", "#3F7CC0", "#B07A1E"]
+const PALETTE = budgetPalette
 
 function defaultData(
   monthlyIncome?: number,

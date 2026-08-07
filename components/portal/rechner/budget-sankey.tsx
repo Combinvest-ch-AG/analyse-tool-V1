@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { sankey, sankeyLinkHorizontal } from "d3-sankey"
 import { formatCHF } from "@/lib/format"
+import { sankeyColor } from "@/lib/data/chart-colors"
 
 type Item = { name: string; amount: number }
 type Category = { name: string; color: string; subs: Item[] }
 
-const COL_INCOME = "#188A57"
-const COL_BUDGET = "#3A57F5"
+const COL_INCOME = sankeyColor.income
+const COL_BUDGET = sankeyColor.budget
 
 const clamp = (v: number) => (!isFinite(v) || v < 0 ? 0 : Math.min(v, 1e8))
 const catTotal = (c: Category) => c.subs.reduce((t, s) => t + clamp(s.amount), 0)
@@ -273,8 +274,8 @@ export function BudgetSankey({ income, cats }: { income: Item[]; cats: Category[
 
       {tip ? (
         <div
-          className="pointer-events-none absolute z-50 max-w-[270px] rounded-xl border border-white/10 bg-[#101B34] px-3 py-2 text-xs leading-relaxed text-white shadow-xl"
-          style={{ left: tip.x, top: tip.y }}
+          className="pointer-events-none absolute z-50 max-w-[270px] rounded-xl border border-white/10 px-3 py-2 text-xs leading-relaxed text-white shadow-xl"
+          style={{ left: tip.x, top: tip.y, background: sankeyColor.tooltip }}
           dangerouslySetInnerHTML={{ __html: tip.html }}
         />
       ) : null}

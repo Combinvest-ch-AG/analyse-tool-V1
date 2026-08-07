@@ -3,6 +3,7 @@
 import { useId, useMemo, useState } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { formatCHF } from "@/lib/format"
+import { seriesColor, chartInk } from "@/lib/data/chart-colors"
 import {
   futureValue,
   monthsToTarget,
@@ -519,14 +520,14 @@ function LineChart({
         </div>
         <div className="mt-5 flex h-5 overflow-hidden rounded-full bg-muted">
           <span className="h-full bg-primary" style={{ width: `${(afterTax / gross) * 100}%` }} />
-          <span className="h-full bg-[#f59e42]" style={{ width: `${(tax / gross) * 100}%` }} />
+          <span className="h-full" style={{ width: `${(tax / gross) * 100}%`, backgroundColor: seriesColor.orange }} />
         </div>
         <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-2">
             <i className="h-2.5 w-2.5 rounded-full bg-primary" /> Nach Abzug {formatCHF(afterTax)}
           </span>
           <span className="inline-flex items-center gap-2">
-            <i className="h-2.5 w-2.5 rounded-full bg-[#f59e42]" /> Abgabenwirkung {formatCHF(tax)}
+            <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seriesColor.orange }} /> Abgabenwirkung {formatCHF(tax)}
           </span>
         </div>
       </div>
@@ -554,34 +555,34 @@ function LineChart({
           </span>
           {hasCompare && label2 ? (
             <span className="inline-flex items-center gap-1.5">
-              <i className="inline-block h-2.5 w-2.5 rounded-full bg-[#f59e42]" /> {label2}
+              <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seriesColor.orange }} /> {label2}
             </span>
           ) : null}
         </div>
       </div>
 
       <div
-        className="mb-3 grid gap-2 rounded-2xl border border-[#dce5f3] bg-[#f7faff] p-3 sm:grid-cols-[100px_1fr_1fr]"
+        className="mb-3 grid gap-2 rounded-2xl border border-border bg-surface-subtle p-3 sm:grid-cols-[100px_1fr_1fr]"
         aria-live="polite"
       >
-        <div className="flex items-center rounded-xl bg-[#e8f0ff] px-3 py-2">
+        <div className="flex items-center rounded-xl bg-accent px-3 py-2">
           <div>
-            <span className="block text-[10px] font-extrabold uppercase tracking-wide text-[#587096]">Zeitpunkt</span>
-            <strong className="text-base text-[#111d36]">{formatTime(times[active] ?? active)}</strong>
+            <span className="block text-[10px] font-extrabold uppercase tracking-wide" style={{ color: chartInk.labelSoft }}>Zeitpunkt</span>
+            <strong className="text-base text-foreground">{formatTime(times[active] ?? active)}</strong>
           </div>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 shadow-sm">
-          <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#52617a]">
-            <i className="h-2.5 w-2.5 rounded-full bg-[#3978f6]" /> {label1}
+          <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: chartInk.label }}>
+            <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seriesColor.blue }} /> {label1}
           </span>
-          <strong className="whitespace-nowrap text-sm tabular-nums text-[#111d36]">{formatCHF(s1[active])}</strong>
+          <strong className="whitespace-nowrap text-sm tabular-nums text-foreground">{formatCHF(s1[active])}</strong>
         </div>
         {hasCompare && label2 ? (
           <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 shadow-sm">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold text-[#52617a]">
-              <i className="h-2.5 w-2.5 rounded-full bg-[#f59e42]" /> {label2}
+            <span className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: chartInk.label }}>
+              <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: seriesColor.orange }} /> {label2}
             </span>
-            <strong className="whitespace-nowrap text-sm tabular-nums text-[#111d36]">{formatCHF(s2[active])}</strong>
+            <strong className="whitespace-nowrap text-sm tabular-nums text-foreground">{formatCHF(s2[active])}</strong>
           </div>
         ) : (
           <div className="hidden sm:block" />

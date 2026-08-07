@@ -267,7 +267,7 @@ export function DocumentBuilder({
   }
 
   async function createPdf(def: DocDef, PDFLib: typeof import("pdf-lib")) {
-    const { PDFDocument, StandardFonts, rgb } = PDFLib
+    const { PDFDocument, StandardFonts, rgb, PDFName, PDFDict, PDFRawStream } = PDFLib
     const bytes = await fetch(def.file).then((r) => {
       if (!r.ok) throw new Error(def.name)
       return r.arrayBuffer()
@@ -404,7 +404,28 @@ export function DocumentBuilder({
     if (def.id === "kk") {
       // Krankenkassen-Kündigung (KVG/VVG) – A4-Vorlage ohne Formularfelder.
       const kkPage = pages[0]
-      // Absender-Block (versicherte Person)
+      // Die Vorlage traegt eingebrannte Alt-Daten der Vorbesitzerin (Name + zwei
+      // Unterschriften) in einem Form-XObject, das der Seiteninhalt zuoberst zeichnet –
+      // deshalb liegt es ueber allem, was wir ergaenzen. Wir leeren den Inhalt dieses
+      // XObjects, sodass nur die leere Vorlage bleibt und unsere Daten sichtbar sind.
+      try {
+        const res = kkPage.node.Resources()
+        const xobj = res?.lookup(PDFName.of("XObject"), PDFDict)
+        if (xobj) {
+          for (const [, value] of xobj.entries()) {
+            if (!(value instanceof PDFRef)) continue
+            const stream = kkPage.doc.context.lookup(value) as { dict?: unknown } | undefined
+            if (stream && "dict" in stream && stream.dict) {
+              kkPage.doc.context.assign(value, PDFRawStream.of(stream.dict as never, new Uint8Array([])))
+            }
+          }
+        }
+      } catch {
+        /* kein XObject */
+      }
+      // Kleiner Rest eines Alt-Zeichens ueber der ersten Absender-Linie uebermalen.
+      kkPage.drawRectangle({ x: 250, y: 780, width: 60, height: 12, color: rgb(1, 1, 1) })
+      // Absender-Block (versicherte Person) – Text sitzt knapp ueber den Linien.
       text(kkPage, full, 60, 780, 9)
       text(kkPage, f.street, 60, 761, 9)
       text(kkPage, f.zip + " " + f.city, 60, 742, 9)
@@ -418,8 +439,8 @@ export function DocumentBuilder({
       text(kkPage, f.birthdate, 246, 330, 9)
       sign(kkPage, customerImage, 340, 326, 92, 20)
       // "per"-Datum je nach gekündigtem Bereich (KVG obere, VVG untere Linie)
-      if (cancel.kkScope.includes("KVG")) text(kkPage, cancel.kkDate, 476, 343, 8)
-      if (cancel.kkScope.includes("VVG")) text(kkPage, cancel.kkDate, 476, 329, 8)
+      if (cancel.kkScope.includes("KVG")) text(kkPage, cancel.kkDate, 505, 343, 8)
+      if (cancel.kkScope.includes("VVG")) text(kkPage, cancel.kkDate, 505, 329, 8)
     }
     if (def.id === "vag") {
       const vagFirst = pages[0]

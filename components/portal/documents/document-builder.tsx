@@ -407,12 +407,21 @@ export function DocumentBuilder({
       return r.arrayBuffer()
     })
     const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true })
+    pdf.registerFontkit(fontkit)
     const full = (f.company && type === "company" ? f.company + " / " : "") + f.firstName + " " + f.lastName
     const address = f.street + ", " + f.zip + " " + f.city
 
-    const safeField = (name: string, value: string) => {
+    // Eine eingebettete Schrift fuer die Formularfeld-Darstellung. Ohne explizite
+    // Schriftgroesse skalieren die Vorlagen-Felder auf Auto-Groesse: der Text wird
+    // riesig, schwebt ueber den Linien und laeuft am Rand ueber (z. B. die E-Mail).
+    const formFont = await pdf.embedFont(StandardFonts.Helvetica)
+    // Feldwert setzen und dabei eine kompakte, gut lesbare Schriftgroesse erzwingen,
+    // damit der Text auf der Linie sitzt und in das Feld passt.
+    const safeField = (name: string, value: string, size = 10) => {
       try {
-        pdf.getForm().getTextField(name).setText(value || "")
+        const field = pdf.getForm().getTextField(name)
+        field.setText(value || "")
+        field.setFontSize(size)
       } catch {
         /* field not present */
       }

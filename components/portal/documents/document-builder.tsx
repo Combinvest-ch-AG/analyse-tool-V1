@@ -267,7 +267,7 @@ export function DocumentBuilder({
   }
 
   async function createPdf(def: DocDef, PDFLib: typeof import("pdf-lib")) {
-    const { PDFDocument, StandardFonts, rgb, PDFName, PDFDict, PDFRawStream } = PDFLib
+    const { PDFDocument, StandardFonts, rgb, PDFName, PDFDict, PDFRawStream, PDFRef } = PDFLib
     const bytes = await fetch(def.file).then((r) => {
       if (!r.ok) throw new Error(def.name)
       return r.arrayBuffer()

@@ -36,6 +36,14 @@ export const investorGradient = [
   "#e47a55",
 ] as const
 
+/** SVG-Illustration + Gauge im Tragbarkeitsrechner. */
+export const gaugeArt = {
+  shadow: "#112545",
+  houseFill: "#e9eef6",
+  houseStroke: "#14284a",
+  band: "#f4b64f",
+} as const
+
 /** Budget-Sankey-Diagramm. */
 export const sankeyColor = {
   income: "#188a57",

@@ -612,8 +612,8 @@ function LineChart({
         </title>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3978f6" stopOpacity="0.24" />
-            <stop offset="100%" stopColor="#3978f6" stopOpacity="0.025" />
+            <stop offset="0%" stopColor={seriesColor.blue} stopOpacity="0.24" />
+            <stop offset="100%" stopColor={seriesColor.blue} stopOpacity="0.025" />
           </linearGradient>
         </defs>
 
@@ -621,8 +621,8 @@ function LineChart({
           const gridY = pad.t + (1 - ratio) * plotHeight
           return (
             <g key={ratio}>
-              <line x1={pad.l} x2={W - pad.r} y1={gridY} y2={gridY} stroke="#dce4ef" strokeWidth="1" />
-              <text x={pad.l - 12} y={gridY + 4} textAnchor="end" fill="#65748b" fontSize="11" fontWeight="600">
+              <line x1={pad.l} x2={W - pad.r} y1={gridY} y2={gridY} stroke={chartInk.grid} strokeWidth="1" />
+              <text x={pad.l - 12} y={gridY + 4} textAnchor="end" fill={chartInk.axis} fontSize="11" fontWeight="600">
                 {compact(max * ratio)}
               </text>
             </g>
@@ -634,7 +634,7 @@ function LineChart({
             x={xAt(tick)}
             y={H - 14}
             textAnchor="middle"
-            fill="#65748b"
+            fill={chartInk.axis}
             fontSize="11"
             fontWeight="600"
           >
@@ -647,7 +647,7 @@ function LineChart({
           <path
             d={toPath(s2)}
             fill="none"
-            stroke="#f59e42"
+            stroke={seriesColor.orange}
             strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -656,7 +656,7 @@ function LineChart({
         <path
           d={toPath(s1)}
           fill="none"
-          stroke="#3978f6"
+          stroke={seriesColor.blue}
           strokeWidth="3.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -667,13 +667,13 @@ function LineChart({
           x2={activeX}
           y1={pad.t}
           y2={H - pad.b}
-          stroke="#111d36"
+          stroke={chartInk.strong}
           strokeDasharray="4 5"
           strokeOpacity="0.28"
         />
-        <circle cx={activeX} cy={yAt(s1[active])} r="5" fill="#ffffff" stroke="#3978f6" strokeWidth="3" />
+        <circle cx={activeX} cy={yAt(s1[active])} r="5" fill={chartInk.surface} stroke={seriesColor.blue} strokeWidth="3" />
         {hasCompare ? (
-          <circle cx={activeX} cy={yAt(s2[active])} r="4.5" fill="#ffffff" stroke="#f59e42" strokeWidth="3" />
+          <circle cx={activeX} cy={yAt(s2[active])} r="4.5" fill={chartInk.surface} stroke={seriesColor.orange} strokeWidth="3" />
         ) : null}
 
         <rect x={pad.l} y={pad.t} width={plotWidth} height={plotHeight} fill="transparent" />
@@ -702,7 +702,7 @@ function LineChart({
         <summary className="cursor-pointer text-xs font-bold text-primary">Alle Jahreswerte anzeigen</summary>
         <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-border">
           <table className="w-full min-w-[440px] text-left text-xs">
-            <thead className="sticky top-0 bg-[#eef3fb] text-[#52617a]">
+            <thead className="sticky top-0 bg-secondary" style={{ color: chartInk.label }}>
               <tr>
                 <th className="px-3 py-2 font-bold">Jahr</th>
                 <th className="px-3 py-2 text-right font-bold">{label1}</th>

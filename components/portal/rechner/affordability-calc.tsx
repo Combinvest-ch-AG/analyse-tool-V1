@@ -9,6 +9,7 @@ import {
   RULES,
 } from "@/lib/engine/affordability"
 import { formatCHF } from "@/lib/format"
+import { seriesColor, gaugeArt } from "@/lib/data/chart-colors"
 import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 type Field = "wert" | "ek" | "inc"
@@ -58,15 +59,15 @@ export function AffordabilityCalc({ defaults, saved, ctx }: { defaults?: { incom
   if (r.quote > RULES.tragbarkeitsLimit) reasons.push("Belastung über einem Drittel des Einkommens")
 
   const financingSegments: HouseSegment[] = [
-    { label: "Eigenmittel", value: Math.min(Math.max(0, ek), wert), color: "#24a66f" },
-    { label: "1. Hypothek", value: r.ersteHyp, color: "#3978f6" },
-    { label: "2. Hypothek", value: r.zweiteHyp, color: "#f2a12c" },
+    { label: "Eigenmittel", value: Math.min(Math.max(0, ek), wert), color: seriesColor.green },
+    { label: "1. Hypothek", value: r.ersteHyp, color: seriesColor.blue },
+    { label: "2. Hypothek", value: r.zweiteHyp, color: seriesColor.amber },
   ]
   const actualSegments: HouseSegment[] = [
-    { label: "Hypothekarzins", value: actual.interestAnnual, color: "#3978f6" },
-    { label: "Unterhalt / Rückstellungen", value: maintenance, color: "#f2a12c" },
-    { label: "Nebenkosten", value: utilities, color: "#8a62d3" },
-    { label: "Amortisation", value: actualAmortization, color: "#24a66f" },
+    { label: "Hypothekarzins", value: actual.interestAnnual, color: seriesColor.blue },
+    { label: "Unterhalt / Rückstellungen", value: maintenance, color: seriesColor.amber },
+    { label: "Nebenkosten", value: utilities, color: seriesColor.purple },
+    { label: "Amortisation", value: actualAmortization, color: seriesColor.green },
   ]
 
   function reset() {
@@ -190,7 +191,7 @@ export function AffordabilityCalc({ defaults, saved, ctx }: { defaults?: { incom
         </section>
 
         <section aria-live="polite" className="@container min-w-0 overflow-hidden rounded-3xl border border-border bg-card shadow-[0_18px_50px_rgba(24,49,92,0.06)]">
-          <div className="border-b border-border bg-gradient-to-r from-[#f8fbff] to-white px-5 py-4 sm:px-7">
+          <div className="border-b border-border bg-gradient-to-r from-surface-subtle to-white px-5 py-4 sm:px-7">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-primary">Beratungsansicht</p>
@@ -337,9 +338,9 @@ function BankResult({
   maxPrice: number
 }) {
   const parts = [
-    { label: "Zinslast (5 %)", value: result.zinslast, color: "#3978f6" },
-    { label: "Amortisation", value: result.amortisation, color: "#24a66f" },
-    { label: "Unterhalt / Nebenkosten", value: result.nebenkosten, color: "#f2a12c" },
+    { label: "Zinslast (5 %)", value: result.zinslast, color: seriesColor.blue },
+    { label: "Amortisation", value: result.amortisation, color: seriesColor.green },
+    { label: "Unterhalt / Nebenkosten", value: result.nebenkosten, color: seriesColor.amber },
   ]
   return (
     <div>
@@ -375,21 +376,21 @@ function ActualResult({ result }: { result: ReturnType<typeof effectiveHousingCo
   const difference = result.costDifferenceAnnual
   const cashDifference = result.cashDifferenceAnnual
   const items = [
-    { label: "Eigentümerkosten", note: "ohne Amortisation", value: result.ownershipCostAnnual, color: "#3978f6" },
-    { label: "Gesamter Cashflow", note: "inkl. Amortisation", value: result.cashOutflowAnnual, color: "#24a66f" },
-    { label: "Vergleichsmiete", note: "inkl. Nebenkosten", value: result.rentAnnual, color: "#f2a12c" },
+    { label: "Eigentümerkosten", note: "ohne Amortisation", value: result.ownershipCostAnnual, color: seriesColor.blue },
+    { label: "Gesamter Cashflow", note: "inkl. Amortisation", value: result.cashOutflowAnnual, color: seriesColor.green },
+    { label: "Vergleichsmiete", note: "inkl. Nebenkosten", value: result.rentAnnual, color: seriesColor.amber },
   ]
   return (
     <div className="min-w-0">
       <div className={`rounded-2xl border p-4 sm:p-5 ${
         difference <= 0
           ? "border-success/25 bg-gradient-to-br from-success/8 to-white"
-          : "border-[#f2a12c]/35 bg-gradient-to-br from-[#f2a12c]/10 to-white"
+          : "border-warning/35 bg-gradient-to-br from-warning/10 to-white"
       }`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted-foreground">Beratungsergebnis</p>
           <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ${
-            difference <= 0 ? "bg-success/12 text-success" : "bg-[#f2a12c]/15 text-[#9a5b00]"
+            difference <= 0 ? "bg-success/12 text-success" : "bg-warning/15 text-warning-deep"
           }`}>
             {difference <= 0 ? "Eigentum kostengünstiger" : "Miete kostengünstiger"}
           </span>
@@ -408,7 +409,7 @@ function ActualResult({ result }: { result: ReturnType<typeof effectiveHousingCo
         <Metric label="Vergleichsmiete" value={formatCHF(result.rentAnnual / 12)} period="inkl. Nebenkosten" tone="warning" />
       </div>
 
-      <div className="mt-4 rounded-2xl border border-border bg-[#f8faff] p-4 sm:p-5">
+      <div className="mt-4 rounded-2xl border border-border bg-surface-subtle p-4 sm:p-5">
         <div className="flex items-end justify-between gap-3">
           <div>
             <h3 className="text-sm font-black text-foreground">Monatlicher Vergleich</h3>
@@ -426,7 +427,7 @@ function ActualResult({ result }: { result: ReturnType<typeof effectiveHousingCo
                 </span>
                 <span className="whitespace-nowrap text-sm font-black tabular-nums text-foreground">{formatCHF(item.value / 12)}</span>
               </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-[#e9eef6]">
+              <div className="h-2.5 overflow-hidden rounded-full bg-surface-muted">
                 <div
                   className="h-full rounded-full transition-[width] duration-300"
                   style={{ width: `${(item.value / max) * 100}%`, backgroundColor: item.color }}
@@ -464,7 +465,7 @@ function HouseFill({ title, total, totalLabel, segments }: { title: string; tota
     return { ...segment, height, y: cursor }
   })
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-[#f8faff]">
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface-subtle">
       <div className="border-b border-border bg-white px-4 py-3.5">
         <p className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-primary">Visuelle Aufteilung</p>
         <h3 className="mt-1 text-sm font-black leading-snug text-foreground">{title}</h3>
@@ -477,11 +478,11 @@ function HouseFill({ title, total, totalLabel, segments }: { title: string; tota
             <path d="M38 140 160 32 282 140 248 140 248 276 72 276 72 140Z" />
           </clipPath>
           <filter id={`${id}-shadow`} x="-20%" y="-20%" width="140%" height="150%">
-            <feDropShadow dx="0" dy="7" stdDeviation="7" floodColor="#112545" floodOpacity="0.14" />
+            <feDropShadow dx="0" dy="7" stdDeviation="7" floodColor={gaugeArt.shadow} floodOpacity="0.14" />
           </filter>
         </defs>
         <g filter={`url(#${id}-shadow)`}>
-          <path d="M38 140 160 32 282 140 248 140 248 276 72 276 72 140Z" fill="#e9eef6" />
+          <path d="M38 140 160 32 282 140 248 140 248 276 72 276 72 140Z" fill={gaugeArt.houseFill} />
           <g clipPath={`url(#${id})`}>
             {rendered.map((segment) => (
               <rect
@@ -501,7 +502,7 @@ function HouseFill({ title, total, totalLabel, segments }: { title: string; tota
           <path
             d="M38 140 160 32 282 140 248 140 248 276 72 276 72 140Z"
             fill="none"
-            stroke="#14284a"
+            stroke={gaugeArt.houseStroke}
             strokeWidth="6"
             strokeLinejoin="round"
           />
@@ -537,7 +538,7 @@ function AffordabilityMeter({ quote }: { quote: number }) {
       </div>
       <div className="relative h-4 rounded-full bg-muted">
         <div className="absolute inset-y-0 left-0 rounded-l-full bg-success/70" style={{ width: "66.6%" }} />
-        <div className="absolute inset-y-0 bg-[#f4b64f]" style={{ left: "66.6%", width: "13.4%" }} />
+        <div className="absolute inset-y-0" style={{ left: "66.6%", width: "13.4%", backgroundColor: gaugeArt.band }} />
         <div className="absolute inset-y-0 right-0 rounded-r-full bg-destructive/70" style={{ width: "20%" }} />
         <span
           className="absolute -top-2 h-8 w-1 -translate-x-1/2 rounded-full bg-foreground shadow-[0_0_0_3px_var(--card)]"
@@ -597,7 +598,7 @@ function SliderField({ label, value, field, onChange, sub, last }: {
         className="mt-3 w-full accent-primary"
       />
       {sub ? (
-        <div className={`mt-1.5 text-[10.5px] font-semibold ${sub.includes("unter") ? "text-[#a86500]" : "text-muted-foreground"}`}>
+        <div className={`mt-1.5 text-[10.5px] font-semibold ${sub.includes("unter") ? "text-warning-deep" : "text-muted-foreground"}`}>
           {sub}
         </div>
       ) : null}
@@ -613,7 +614,7 @@ function PercentField({ label, value, onChange, hint }: { label: string; value: 
           <span className="block text-[12.5px] font-bold text-foreground">{label}</span>
           {hint ? <small className="mt-0.5 block text-[10px] text-muted-foreground">{hint}</small> : null}
         </span>
-        <label className="flex items-center gap-1 rounded-xl border border-border bg-[#f5f8fc] px-3 py-2">
+        <label className="flex items-center gap-1 rounded-xl border border-border bg-surface-tint px-3 py-2">
           <input
             type="number"
             min={0}
@@ -674,7 +675,7 @@ function CurrencyInput({ label, value, step, onChange }: {
   onChange: (value: number) => void
 }) {
   return (
-    <label className="flex items-center gap-2 rounded-xl border border-border bg-[#f5f8fc] px-3 py-2.5 transition-colors focus-within:border-primary focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/10">
+    <label className="flex items-center gap-2 rounded-xl border border-border bg-surface-tint px-3 py-2.5 transition-colors focus-within:border-primary focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/10">
       <span className="text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">CHF</span>
       <input
         type="text"
@@ -710,7 +711,7 @@ function Metric({ label, value, period, tone }: { label: string; value: string; 
   const classes = {
     primary: "border-primary/25 bg-primary/5 text-primary",
     success: "border-success/25 bg-success/5 text-success",
-    warning: "border-[#f2a12c]/35 bg-[#f2a12c]/10 text-foreground",
+    warning: "border-warning/35 bg-warning/10 text-foreground",
   }
   return (
     <div className={`min-w-0 rounded-xl border p-3.5 ${classes[tone]}`}>

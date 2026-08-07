@@ -36,14 +36,14 @@ async function fillProtocol(pdfDoc, font) {
   T(first, f.firstName, 171, 619); T(first, f.lastName, 369, 619)
   T(first, f.street, 171, 596); T(first, `${f.zip} ${f.city}`, 369, 596)
   T(first, f.phone, 171, 573); T(first, f.email, 369, 573)
-  T(first, "X", 92, 494, 10) // Datenerhebung
-  ;[379, 360, 340, 320].forEach((y) => T(first, "X", 92, y, 10)) // alle Themen
+  T(first, "X", 92, 489, 10) // Datenerhebung
+  ;[374, 355, 335, 316].forEach((y) => T(first, "X", 92, y, 10)) // alle Themen
   T(first, "Beispiel Versicherung AG", 93, 230); T(first, "Krankenversicherung", 302, 230)
   const mark = (pg, ys) => ys.forEach((y, i) => T(pg, "X", i % 2 ? 116 : 95, y, 9))
-  mark(second, [661, 637, 614, 590, 566, 535, 503, 477])
-  mark(second, [371, 329, 292])
-  mark(third, [658, 624, 590]); mark(third, [300])
-  T(last, "X", 116, 659); T(last, dateText, 86, 250, 8); T(last, dateText, 86, 187, 8)
+  mark(second, [660, 637, 613, 589, 565, 534, 504, 479])
+  mark(second, [369, 328, 294])
+  mark(third, [656, 621, 587]); mark(third, [298])
+  T(last, "X", 116, 656); T(last, dateText, 86, 250, 8); T(last, dateText, 86, 187, 8)
   T(last, `${f.advisorName} | FINMA ${f.finma}`, 300, 190, 7)
   markBox(last, 300, 247, "Kunde Unterschrift"); markBox(last, 440, 184, "Berater")
 }
@@ -55,12 +55,12 @@ async function fillPk(pdfDoc, font) {
   const T = (pg, v, x, y, size = 9) => v && pg.drawText(String(v), { x, y, size, font, color: INK })
   T(first, f.lastName, 118, 625); T(first, f.firstName, 132, 602)
   T(first, f.birthdate, 155, 579); T(first, "756.1234.5678.90", 298, 579)
-  T(first, address, 163, 553); T(first, f.phone, 163, 469)
+  T(first, address, 163, 557); T(first, f.phone, 163, 466)
   const jobY = [135, 110, 85, 60]
   jobY.forEach((y) => { T(first, "01.2010", 82, y, 7); T(first, "12.2020", 149, y, 7); T(first, "Muster AG", 212, y, 7); T(first, "Kadermitarbeiter", 358, y, 7) })
   T(last, "Vorherige PK", 149, 725); T(last, "PK-Strasse 1, 8000 Zürich", 149, 703)
-  ;[590, 579, 568, 557].forEach((y, i) => T(last, "X", i % 2 ? 337 : 303, y, 9))
-  T(last, dateText, 150, 312, 8); markBox(last, 285, 290, "Kunde Unterschrift")
+  ;[586, 575, 564, 552].forEach((y, i) => T(last, "X", i % 2 ? 337 : 303, y, 9))
+  T(last, dateText, 150, 309, 8); markBox(last, 285, 290, "Kunde Unterschrift")
   ;[118, 107, 95].forEach((y) => T(last, "X", 86, y, 9))
 }
 
@@ -77,10 +77,14 @@ async function fillVag(pdfDoc, font) {
 
 const full = `${f.firstName} ${f.lastName}`
 const companyFull = `${f.company} / ${f.firstName} ${f.lastName}`
-const setField = (doc, name, value) => {
-  try { doc.getForm().getTextField(name).setText(value || "") } catch { /* not present */ }
+const setField = (doc, name, value, size = 10) => {
+  try {
+    const field = doc.getForm().getTextField(name)
+    field.setText(value || "")
+    field.setFontSize(size)
+  } catch { /* not present */ }
 }
-const finalize = (doc) => { try { doc.getForm().updateFieldAppearances() } catch {} }
+const finalize = (doc, font) => { try { doc.getForm().updateFieldAppearances(font) } catch {} }
 
 async function fillCombinvest(doc, font, isCompany) {
   const name = isCompany ? companyFull : full
@@ -91,7 +95,7 @@ async function fillCombinvest(doc, font, isCompany) {
   setField(doc, "Email", f.email)
   setField(doc, "Text1", `${f.place}, ${f.date}`)
   setField(doc, "Text2", `${f.place}, ${f.date}`)
-  finalize(doc)
+  finalize(doc, font)
   const p = doc.getPages()[0]
   p.drawText(f.salutation, { x: 140, y: 646, size: 9, font, color: INK })
   markBox(p, 315, 124, "Kunde"); markBox(p, 315, 78, "Berater")
@@ -106,7 +110,7 @@ async function fillTrivesoPrivate(doc, font) {
     "Text-8tapIkXUNW": `${f.place}, ${f.date}`, "Text-qQJbfRMLiG": `${f.place}, ${f.date}`,
   }
   Object.entries(fields).forEach(([k, v]) => setField(doc, k, v))
-  finalize(doc)
+  finalize(doc, font)
   const p = doc.getPages()[0]
   markBox(p, 300, 118, "Kunde"); markBox(p, 300, 73, "Berater")
 }
@@ -119,7 +123,7 @@ async function fillTrivesoCompany(doc, font) {
     "Text-ugfUrNU5WH": `${f.place}, ${f.date}`, "Text-5Z-o08otbZ": `${f.place}, ${f.date}`,
   }
   Object.entries(fields).forEach(([k, v]) => setField(doc, k, v))
-  finalize(doc)
+  finalize(doc, font)
   const p = doc.getPages()[0]
   markBox(p, 300, 118, "Kunde"); markBox(p, 300, 73, "Berater")
 }
@@ -131,7 +135,7 @@ async function fillPension(doc, font) {
     "Text Box 1_6": `${f.place}, ${f.date}`, "Text Box 1_7": `${f.place}, ${f.date}`,
   }
   Object.entries(fields).forEach(([k, v]) => setField(doc, k, v))
-  finalize(doc)
+  finalize(doc, font)
   const p = doc.getPages()[0]
   markBox(p, 72, 136, "Kunde"); markBox(p, 300, 136, "Berater")
 }

@@ -407,16 +407,12 @@ export function DocumentBuilder({
       return r.arrayBuffer()
     })
     const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true })
-    pdf.registerFontkit(fontkit)
     const full = (f.company && type === "company" ? f.company + " / " : "") + f.firstName + " " + f.lastName
     const address = f.street + ", " + f.zip + " " + f.city
 
-    // Eine eingebettete Schrift fuer die Formularfeld-Darstellung. Ohne explizite
-    // Schriftgroesse skalieren die Vorlagen-Felder auf Auto-Groesse: der Text wird
-    // riesig, schwebt ueber den Linien und laeuft am Rand ueber (z. B. die E-Mail).
-    const formFont = await pdf.embedFont(StandardFonts.Helvetica)
-    // Feldwert setzen und dabei eine kompakte, gut lesbare Schriftgroesse erzwingen,
-    // damit der Text auf der Linie sitzt und in das Feld passt.
+    // Feldwert setzen und dabei eine kompakte, gut lesbare Schriftgroesse erzwingen.
+    // Ohne explizite Groesse skalieren die Vorlagen-Felder auf Auto-Groesse: der Text
+    // wird riesig, schwebt ueber den Linien und laeuft am Rand ueber (z. B. die E-Mail).
     const safeField = (name: string, value: string, size = 10) => {
       try {
         const field = pdf.getForm().getTextField(name)
@@ -476,13 +472,16 @@ export function DocumentBuilder({
       }
       Object.entries(fields).forEach(([k, v]) => safeField(k, v))
     }
+    const font = await pdf.embedFont(StandardFonts.Helvetica)
+    // Font explizit uebergeben: einige Vorlagen (z. B. Vorsorgevollmacht) haben eine
+    // Default-Appearance, die eine im Formular nicht vorhandene Schrift referenziert.
+    // Ohne Font scheitert die Neugenerierung still und die Felder bleiben leer.
     try {
-      pdf.getForm().updateFieldAppearances()
+      pdf.getForm().updateFieldAppearances(font)
     } catch {
       /* ignore */
     }
 
-    const font = await pdf.embedFont(StandardFonts.Helvetica)
     const ink = rgb(0.07, 0.12, 0.2)
     const pages = pdf.getPages()
     const dateText = (f.place || f.city) + ", " + f.date
@@ -560,28 +559,28 @@ export function DocumentBuilder({
       text(first, f.zip + " " + f.city, 369, 596, 9)
       text(first, f.phone, 171, 573, 9)
       text(first, f.email, 369, 573, 9)
-      const meetingY: Record<string, number> = { Datenerhebung: 494, Beratungsgespräch: 475, Servicetermin: 455 }
-      text(first, "X", 92, meetingY[f.meetingType] || 494, 10)
-      const topicY: Record<string, number> = { pension: 379, health: 360, investment: 340, property: 320 }
+      const meetingY: Record<string, number> = { Datenerhebung: 489, Beratungsgespräch: 470, Servicetermin: 450 }
+      text(first, "X", 92, meetingY[f.meetingType] || 489, 10)
+      const topicY: Record<string, number> = { pension: 374, health: 355, investment: 335, property: 316 }
       protocol.topics.forEach((t) => text(first, "X", 92, topicY[t], 10))
       text(first, protocol.contractCompany, 93, 230, 9)
       text(first, protocol.contractBranch, 302, 230, 9)
       const markAnswers = (page: Page, answers: string[], ys: number[]) =>
         answers.forEach((a, i) => text(page, "X", a === "yes" ? 95 : 116, ys[i], 9))
-      markAnswers(second, protocol.answers.general, [661, 637, 614, 590, 566, 535, 503, 477])
+      markAnswers(second, protocol.answers.general, [660, 637, 613, 589, 565, 534, 504, 479])
       if (protocol.topics.includes("health")) {
-        markAnswers(second, protocol.answers.health, [371, 329, 292])
+        markAnswers(second, protocol.answers.health, [369, 328, 294])
         wrap(second, protocol.motives.health, 100, 205, 395, 8, 11, 9)
       }
       if (protocol.topics.includes("investment")) {
-        markAnswers(third, protocol.answers.investment, [658, 624, 590])
+        markAnswers(third, protocol.answers.investment, [656, 621, 587])
         wrap(third, protocol.motives.investment, 100, 515, 395, 8, 11, 9)
       }
       if (protocol.topics.includes("property")) {
-        markAnswers(third, protocol.answers.property, [300])
+        markAnswers(third, protocol.answers.property, [298])
         wrap(third, protocol.motives.property, 100, 235, 395, 8, 11, 9)
       }
-      const cancellationY: Record<string, number> = { forward: 659, self: 636, none: 620 }
+      const cancellationY: Record<string, number> = { forward: 656, self: 634, none: 617 }
       text(last, "X", 116, cancellationY[protocol.cancellation], 9)
       text(last, dateText, 86, 250, 8)
       sign(last, customerImage, 300, 247, 205, 34)
@@ -596,15 +595,15 @@ export function DocumentBuilder({
       text(pkFirst, f.firstName, 132, 602, 9)
       text(pkFirst, f.birthdate, 155, 579, 9)
       text(pkFirst, pk.ahvNumber, 298, 579, 9)
-      text(pkFirst, address, 163, 553, 9)
-      text(pkFirst, f.phone, 163, 469, 9)
+      text(pkFirst, address, 163, 557, 9)
+      text(pkFirst, f.phone, 163, 466, 9)
       if (pk.death.enabled) {
-        text(pkFirst, pk.death.deathDate, 149, 386, 8)
-        text(pkFirst, pk.death.survivorLast, 117, 342, 8)
-        text(pkFirst, pk.death.survivorFirst, 326, 342, 8)
-        text(pkFirst, pk.death.survivorBirth, 160, 319, 8)
-        text(pkFirst, pk.death.relationship, 351, 319, 8)
-        text(pkFirst, pk.death.survivorAddress, 149, 296, 8)
+        text(pkFirst, pk.death.deathDate, 149, 385, 8)
+        text(pkFirst, pk.death.survivorLast, 117, 339, 8)
+        text(pkFirst, pk.death.survivorFirst, 326, 339, 8)
+        text(pkFirst, pk.death.survivorBirth, 160, 317, 8)
+        text(pkFirst, pk.death.relationship, 351, 317, 8)
+        text(pkFirst, pk.death.survivorAddress, 149, 294, 8)
       }
       const jobY = [135, 110, 85, 60]
       pk.jobs.forEach((j, i) => {
@@ -615,9 +614,9 @@ export function DocumentBuilder({
       })
       text(pkLast, pk.previousPension, 149, 725, 9)
       text(pkLast, pk.previousPensionAddress, 149, 703, 9)
-      const benefitY = [590, 579, 568, 557]
+      const benefitY = [586, 575, 564, 552]
       pk.benefits.forEach((a, i) => text(pkLast, "X", a === "yes" ? 303 : 337, benefitY[i], 9))
-      text(pkLast, dateText, 150, 312, 8)
+      text(pkLast, dateText, 150, 309, 8)
       sign(pkLast, customerImage, 285, 290, 180, 28)
       const attachmentY = [118, 107, 95, 84, 72, 61]
       pk.attachments.forEach((i) => text(pkLast, "X", 86, attachmentY[i], 9))

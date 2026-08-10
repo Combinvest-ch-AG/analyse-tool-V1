@@ -222,6 +222,30 @@ const CALCULATOR_META: Record<string, CalculatorMeta> = {
     meaning: "Bestehende und gewünschte Deckungen werden übersichtlich gegenübergestellt.",
     source: "Persönlich erfasste Versicherungsbedürfnisse",
   },
+  "tax-income": {
+    title: "Einkommenssteuer",
+    eyebrow: "Steueranalyse",
+    meaning: "Die persönliche Belastung wird nach Bund, Kanton, Gemeinde sowie Kirchen- und Personalsteuer aufgeschlüsselt.",
+    source: "Offizieller Steuerrechner der ESTV, Steuerjahr 2026",
+  },
+  "tax-pillar3a": {
+    title: "Steuerersparnis Säule 3a",
+    eyebrow: "Gebundene Vorsorge",
+    meaning: "Die Differenz zwischen der Steuer vor und nach der Säule-3a-Einzahlung zeigt die persönliche Ersparnis in Franken.",
+    source: "Offizieller Steuerrechner der ESTV, Steuerjahr 2026",
+  },
+  "tax-capital": {
+    title: "Kapitalleistungssteuer",
+    eyebrow: "Vorsorgebezug",
+    meaning: "Die separate Steuer auf dem geplanten Kapitalbezug wird für den gewählten Steuerort ausgewiesen.",
+    source: "Offizieller Steuerrechner der ESTV, Steuerjahr 2026",
+  },
+  "tax-property": {
+    title: "Immobilienverkauf",
+    eyebrow: "Grundstückgewinn",
+    meaning: "Verkaufspreis, Anlagekosten, Besitzdauer und eine mögliche Ersatzbeschaffung zeigen Gewinn, steuerbaren Anteil und – bei verifiziertem Kantonstarif – die Steuer in Franken.",
+    source: "Amtliche kantonale Tarifdaten; definitive Veranlagung durch die zuständige Steuerbehörde",
+  },
   "sealth-check": {
     title: "Ihre Sealth-Empfehlung",
     eyebrow: "Service und persönlicher Mehrwert",

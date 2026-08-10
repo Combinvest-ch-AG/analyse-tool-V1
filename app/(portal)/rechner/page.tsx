@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import {
   ArrowUpRight,
+  BadgeSwissFranc,
   Car,
   Coins,
   FileText,
@@ -98,6 +99,19 @@ const CATEGORIES: Category[] = [
         icon: Coins,
         title: "Budgetrechner",
         desc: "Einnahmen und Ausgaben erfassen – Geldfluss, Sparquote und Überschuss in Echtzeit.",
+      },
+    ],
+  },
+  {
+    key: "steuern",
+    label: "Steuern",
+    desc: "Persönliche Steuerbelastung mit aktuellen offiziellen Grundlagen.",
+    items: [
+      {
+        href: "/rechner/steuern",
+        icon: BadgeSwissFranc,
+        title: "Schweizer Steuerrechner",
+        desc: "Einkommenssteuer, Säule 3a, Kapitalbezug und Immobilienverkauf nach Steuerort prüfen.",
       },
     ],
   },

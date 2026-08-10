@@ -13,10 +13,13 @@ export type CustomerRow = {
   first_name: string
   last_name: string
   birthdate: string | null
+  gender: string | null
   email: string | null
   phone: string | null
   postcode: string | null
   city: string | null
+  monthly_income: number | null
+  preferred_language: string | null
   status: string | null
   created_at: string
   updated_at: string
@@ -63,7 +66,7 @@ export type ContractRow = {
 }
 
 const CUSTOMER_COLUMNS =
-  "id,first_name,last_name,birthdate,email,phone,postcode,city,status,created_at,updated_at"
+  "id,first_name,last_name,birthdate,gender,email,phone,postcode,city,monthly_income,preferred_language,status,created_at,updated_at"
 const ANALYSIS_COLUMNS =
   "id,customer_id,title,status,current_step,current_question,progress_percent,latest_snapshot,lock_version,started_at,completed_at,created_at,updated_at"
 const CONTRACT_COLUMNS =

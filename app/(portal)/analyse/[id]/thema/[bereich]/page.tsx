@@ -94,9 +94,15 @@ export default async function ThemaPage({
 
         {/* Tools */}
         <div className="mt-8">
-          <h2 className="text-xl font-extrabold text-foreground">Passende Rechner</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Ein individueller Blick auf Ihre persönliche Situation.</p>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <h2 className="text-xl font-extrabold text-foreground">
+            {bereich === "tax-advantage" ? "Steuerrechner" : "Passende Rechner"}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {bereich === "tax-advantage"
+              ? "Wählen Sie die Berechnung, die Sie in der Beratung benötigen."
+              : "Ein individueller Blick auf Ihre persönliche Situation."}
+          </p>
+          <div className={`mt-5 grid gap-4 sm:grid-cols-2 ${bereich === "tax-advantage" ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
             {tools.map((tool) => {
               const Icon = ICONS[tool.icon]
               const path = tool.href.split("?")[0]

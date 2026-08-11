@@ -223,6 +223,32 @@ export async function saveReferral(input: {
   return result.ok ? { ok: true } : result
 }
 
+export type SaveNotesResult = { ok: true; savedAt: string } | { ok: false; error: string; conflict?: boolean }
+
+/**
+ * Persists per-appointment advisor notes into the analysis snapshot under
+ * `notes`, keyed by topic (e.g. "general", "health", "pensiongap"). The full
+ * topic→text map is written on each save; empty strings are kept so a cleared
+ * field round-trips. Uses the shared optimistic-locking gateway so notes can be
+ * edited alongside the wizard without clobbering concurrent snapshot writes.
+ */
+export async function saveNotes(input: {
+  analysisId: string
+  notes: Record<string, string>
+  writeRevision?: boolean
+}): Promise<SaveNotesResult> {
+  const result = await mutateAnalysisSnapshot({
+    analysisId: input.analysisId,
+    writeRevision: input.writeRevision ?? false,
+    revalidate: [`/analyse/${input.analysisId}`],
+    mutate: (current, savedAt) => ({
+      ...current,
+      notes: { ...input.notes, updatedAt: savedAt },
+    }),
+  })
+  return result.ok ? { ok: true, savedAt: result.savedAt } : result
+}
+
 export type SaveDocumentsResult = { ok: true } | { ok: false; error: string }
 
 /**

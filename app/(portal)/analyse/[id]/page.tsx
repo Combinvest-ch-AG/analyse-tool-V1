@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { getAnalysis, getCustomerById } from "@/lib/data/portal"
 import { AnalysisWizard } from "@/components/portal/wizard/analysis-wizard"
+import { AnalysisNotes } from "@/components/portal/analysis-notes"
 import { fullName } from "@/lib/format"
 import { PROFILING_SCHEMA_VERSION, type Contracts, type ThemeStatus, type WizardAnswers } from "@/lib/wizard/schema"
 
@@ -39,6 +40,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
     contracts?: Contracts
     themeStatus?: Record<string, ThemeStatus>
     profiling_schema_version?: number
+    notes?: Record<string, string>
   }
   const stored = normalizeLegacyAnswers(snapshot.answers ?? {})
 
@@ -76,6 +78,10 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
         initialLockVersion={analysis.lock_version}
         isCompleted={analysis.status === "completed"}
       />
+
+      <div className="mt-6">
+        <AnalysisNotes analysisId={analysis.id} initialNotes={snapshot.notes} />
+      </div>
     </main>
   )
 }

@@ -188,43 +188,68 @@ Verifizierte Referenzen:
 - `DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL = 17`, `STATUS_ID.DRAFT = 1` in
   `apps/backend/packages/ci-backend/src/attachments/consts.js`
 
-### Berechtigung: dem bestehenden Muster folgen
+### Berechtigung: echte Rolle, kein Spoof
 
-`addAttachments` prueft `callerSeller` zweifach: eine Rollenregel (TC-778 —
-Sales-Rollen duerfen nur `DRAFT` und `is_public: false`, und Rollen ausserhalb
-`[ADMIN, BACKOFFICE, SALES_LEAD, SALES_FORCE]` gar nichts) und getrennt davon
-den echten Kundenzugriff ueber `rbacChecker`.
+`addAttachments` prueft `callerSeller` an zwei Stellen
+(`attachments/services/attachment-validation.ts`):
 
-Fuer genau diesen Fall gibt es bereits ein Vorbild im Repo — eine externe
-Integration, die eine Datei am Kontakt ablegt:
-`apps/backend/packages/ci-backend/src/external-integration/services/external-integration.ts:132`
+1. `validateCallerSellerRole` (Z. 122): `role_id` muss in
+   `[ADMIN=6, BACKOFFICE=12, SALES_LEAD=5, SALES_FORCE=4]` liegen.
+2. `validateAddAttachmentInput` (Z. 144): fuer die Sales-Rollen
+   (`SALES_LEAD`, `SALES_FORCE`) zusaetzlich TC-778 — erlaubt sind nur
+   `status_id: DRAFT` **und** `is_public: false`.
+3. Getrennt davon `validateClippingObject` (Z. 187): Kundenzugriff ueber
+   `rbacChecker`.
 
-```ts
-const callerSeller = { id: sellerId, role_id: COMBINVEST_ROLES.ADMIN };
-// ... status_id: 1  (= DRAFT)
-```
-
-Diesem Muster folgen, mit dem in `combinvest_analyses.seller_id` gespeicherten
-eroeffnenden Berater als `id`:
+**Die echte Rolle des Beraters uebergeben. Nichts hochstufen:**
 
 ```ts
-const callerSeller = { id: storedSellerId, role_id: COMBINVEST_ROLES.ADMIN };
+// seller_id UND role_id des eroeffnenden Beraters aus der eigenen Tabelle
+// bzw. per sellerRepository.findById() laden
+const callerSeller = { id: storedSellerId, role_id: seller.role_id };
 ```
 
-Begruendung, damit die Absicht klar ist:
-- Die `id` bleibt der **echte** Berater. Die Nachvollziehbarkeit bleibt erhalten,
-  und der Kundenzugriff wird weiterhin gegen diese Person geprueft.
-- `role_id: ADMIN` passiert allein die Rollenregel. Ohne das schlaegt die Ablage
-  fuer Sales-Berater und fuer Rollen ausserhalb der vier erlaubten fehl — das PDF
-  waere verloren.
-- `status_id: DRAFT` ist bewusst der konservative Wert und deckt sich mit dem
-  Vorbild. `DRAFT` bedeutet **nicht** unsichtbar: im Lesepfad ist `status_id`
-  ein optionaler Filter, ausgeschlossen wird nur `DELETED`
-  (`attachments/repositories/attachment.ts:149,375`).
+Mit `status_id: DRAFT` und `is_public: false` — beides oben schon so gesetzt —
+passieren **alle vier** erlaubten Rollen die Pruefung ohne jede Anhebung. Ein
+`role_id`-Spoof ist funktional nicht notwendig.
+
+Warum kein Spoof, obwohl es im Repo so vorkommt: `isAccessGranted` (Z. 205)
+leitet die `restrictions` aus dem **uebergebenen** `role_id` ab. Ein
+hochgestuftes `role_id: ADMIN` liefert damit leere bzw. unbeschraenkte
+`restrictions` — und `sellerPermissionCheck` laesst bei leeren `restrictions`
+jeden Kontakt durch (kein `throw` am Ende der Funktion,
+`rbac/rbac-checker.ts`). Der Spoof umgeht also **auch** die Kundenpruefung, nicht
+nur die Rollenregel. Mit der echten Rolle greift `onlyOwn` /`onlyOwnAndSub`
+weiterhin, und ein Berater kann nur an eigenen (bzw. unterstellten) Kontakten
+ablegen.
+
+`status_id: DRAFT` ist bewusst konservativ und bedeutet **nicht** unsichtbar:
+im Lesepfad ist `status_id` ein optionaler Filter, ausgeschlossen wird nur
+`DELETED` (`attachments/repositories/attachment.ts:149,375`).
 
 Kein technischer Sammel-User (etwa `SYSTEM_SELLER_IDS.THE_CATALYST`) als
 `callerSeller`: dann verliert der Anhang die Zuordnung zum Berater, und die
 Zugriffspruefung liefe gegen einen Seller, der den Kontakt gar nicht kennt.
+
+#### Wenn die Rolle nicht erlaubt ist
+
+`COMBINVEST_ROLES` enthaelt weitere Verkaeufer-Rollen, u. a. `PARTNER = 3` und
+`PARTNER_SELLER = 16`, die **nicht** in den vier erlaubten liegen. Fuer solche
+Berater schlaegt die Ablage fehl — das ist die korrekte Rechtelage und wird
+nicht umgangen. Behandlung:
+
+- Fehler abfangen, damit der Webhook **nicht** 5xx zurueckgibt (sonst laufen die
+  Zustellversuche der Gegenseite endlos).
+- Mit `analysisId`, `sellerId` und `role_id` protokollieren, ohne Kundendaten.
+- Ereignis trotzdem als verarbeitet markieren, aber `report_attachment_id` leer
+  lassen, damit erkennbar ist, dass kein Anhang entstand.
+- Das PDF ist nicht verloren: es bleibt ueber
+  `GET /api/integration/v1/sessions/{externalId}` beim Analyse-Tool abrufbar.
+
+**Bitte pruefen und im PR berichten:** welche Rollen koennen im Catalyst-UI
+ueberhaupt eine Analyse eroeffnen? Liegen alle in den vier erlaubten, ist die
+Luecke theoretisch. Liegen sie nicht darin, sag es — dann entscheiden wir
+bewusst (z. B. Rollenliste per Config erweitern), statt still hochzustufen.
 
 Ersetzt ein spaeteres `completed` ein vorhandenes PDF, `addOrUpdateAttachmentsByEntityId`
 statt `addAttachments` nutzen, damit keine Dubletten entstehen.
@@ -408,10 +433,20 @@ Signaturen, keine Kundendaten in die PR schreiben.
 
 ---
 
-## Zwei Befunde am Rand
+## Drei Befunde am Rand
 
 Beim Lesen des Bestandscodes aufgefallen, **nicht** Teil dieses Auftrags —
 bitte separat bewerten, nicht nebenbei mitaendern:
+
+0. `external-integration/services/external-integration.ts:132` (`uploadContactFile`)
+   setzt `role_id: COMBINVEST_ROLES.ADMIN` fuer einen beliebigen `sellerId`.
+   Weil `isAccessGranted` die `restrictions` aus diesem `role_id` ableitet und
+   `sellerPermissionCheck` bei leeren `restrictions` ohne `throw` durchlaeuft,
+   entfaellt damit die Kontaktpruefung: das vorgeschaltete
+   `validateSellerAndClient` prueft nur, dass Seller und Client **existieren**,
+   nicht dass sie zusammengehoeren. Ueber diesen Weg kann eine Datei an einen
+   fremden Kontakt gehaengt werden. Bitte als eigenen Sicherheitsbefund melden —
+   dieses Muster ausdruecklich **nicht** kopieren.
 
 1. In `getCreateNewAnalysisRedirectUrl`
    (`services/riskine-analysis.ts`) ist die Riskine-Vorbefuellung vertauscht:

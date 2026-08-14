@@ -9,6 +9,22 @@ zu tun ist.
 Repo: `Combinvest-ch-AG/catalyst`
 Alle Pfade unten sind verifiziert (Stand der Analyse), nicht geraten.
 
+### Umfang: ausschliesslich Code in diesem Repo
+
+Nicht Teil dieser Aufgabe — bereits erledigt bzw. Sache des Betriebs:
+
+- **Keine Env-Variablen setzen.** Die Werte liegen schon in den Render-Services
+  (`combinvest-backend`, `dev-catalyst-backend`). Es werden nur die
+  Config-Mappings im Code ergaenzt, die diese Variablen auslesen.
+- **Kein Deployment, kein Render-Zugriff, keine Infrastruktur.**
+- **Keine echten Tokens oder Secrets** anfordern, erzeugen, einsetzen oder
+  ausgeben — auch nicht als Standardwert oder Testfixture.
+- **Keine Aenderung am Analyse-Tool** (anderes Repo, fertig und verifiziert).
+- **Kein Aufruf der echten Gegenseite** (`analyse.combinvest.swiss`) aus Tests.
+
+Ergebnis ist ein Pull Request gegen den ueblichen Zielbranch, nicht ein
+Direktpush.
+
 ---
 
 ## Grundsatz
@@ -187,34 +203,85 @@ werden in `apps/backend/packages/ci-backend/config/*.js` gemappt und im Code mit
 `config.get('combinvest.…')` gelesen — genau wie der bestehende `riskine`-Block
 (`config/default.js:265`).
 
-Neuen Block in **allen vier** Config-Dateien ergaenzen (`default.js`,
-`dev-local.js`, `staging.js`, `prod.js`). `default.js` folgt dem
-Riskine-Vorbild und setzt `isDisabled: true` — sicher aus, bis eine Umgebung es
-bewusst aktiviert:
+### Mandantentrennung: die Konfiguration MUSS fail-closed sein
+
+Diese Integration ist nur fuer **zwei** Deployments vorgesehen: den produktiven
+Mandanten `combinvest` (Render-Service `combinvest-backend`, `NODE_ENV=prod` →
+`prod.js`) und die Testumgebung `dev-catalyst` (Service
+`dev-catalyst-backend`, `NODE_ENV=staging` → `staging.js`).
+
+Entscheidend: `prod.js` ist **dieselbe Datei fuer alle Mandanten**. Der Mandant
+ergibt sich allein daraus, welche Env-Variablen im jeweiligen Render-Service
+gesetzt sind. Ein Muster wie `isDisabled: process.env.X_DISABLE === 'true'`
+(so macht es `riskine`) waere hier deshalb **falsch**: bei jedem anderen
+Mandanten ist `X_DISABLE` nicht gesetzt, `isDisabled` wuerde `false` — die
+Integration also **aktiv**, aber ohne URL und Token. Ergebnis: fehlerhafte
+Aufrufe in fremden Mandanten.
+
+Der Schalter wird daher aus dem **Vorhandensein der Konfiguration** abgeleitet.
+Kein Mandant kann die Integration versehentlich aktiv haben:
 
 ```js
-// config/default.js
+// config/default.js — Basis, gilt fuer alle Umgebungen
 combinvest: {
   isDisabled: true,
+  baseUrl: '',
+  inboundToken: '',
+  webhookSecret: ''
+},
+```
+
+```js
+// config/prod.js UND config/staging.js — identischer Block
+combinvest: {
+  // Aktiv nur, wenn alle drei Werte vorhanden sind und nicht bewusst
+  // abgeschaltet wurde. Fehlt etwas, bleibt die Integration aus.
+  isDisabled:
+    process.env.COMBINVEST_ANALYSIS_DISABLE === 'true' ||
+    !process.env.COMBINVEST_ANALYSIS_BASE_URL ||
+    !process.env.COMBINVEST_ANALYSIS_INBOUND_TOKEN ||
+    !process.env.COMBINVEST_ANALYSIS_WEBHOOK_SECRET,
   baseUrl: process.env.COMBINVEST_ANALYSIS_BASE_URL,
   inboundToken: process.env.COMBINVEST_ANALYSIS_INBOUND_TOKEN,
   webhookSecret: process.env.COMBINVEST_ANALYSIS_WEBHOOK_SECRET
 },
-
-// config/prod.js und staging.js: gleicher Block, aber
-  isDisabled: process.env.COMBINVEST_ANALYSIS_DISABLE === 'true',
 ```
+
+In `dev-local.js` und `dev-docker.js` denselben Block mit `isDisabled: true` und
+leeren Werten ergaenzen, damit `config.get('combinvest.…')` in allen Umgebungen
+existiert und lokale Laeufe nie nach aussen telefonieren.
+
+Bei `isDisabled === true` verhaelt sich Catalyst so, als gaebe es die
+Integration nicht: kein Umschalten in `analysisCreate`, der bestehende
+Riskine-Pfad laeuft unveraendert weiter.
 
 | Env-Variable | Config-Key | Inhalt |
 | --- | --- | --- |
 | `COMBINVEST_ANALYSIS_BASE_URL` | `combinvest.baseUrl` | Basis-URL des Analyse-Tools, ohne Slash am Ende |
 | `COMBINVEST_ANALYSIS_INBOUND_TOKEN` | `combinvest.inboundToken` | Bearer-Token fuer ausgehende Aufrufe |
 | `COMBINVEST_ANALYSIS_WEBHOOK_SECRET` | `combinvest.webhookSecret` | HMAC-Secret zur Pruefung eingehender Ereignisse |
-| `COMBINVEST_ANALYSIS_DISABLE` | `combinvest.isDisabled` | `'true'` schaltet die Integration aus |
+| `COMBINVEST_ANALYSIS_DISABLE` | `combinvest.isDisabled` | Optionaler Not-Aus: `'true'` schaltet ab, auch wenn alles gesetzt ist |
 
 Die drei Werte muessen **zeichengleich** mit der Gegenseite sein: `inboundToken`
 == `CATALYST_INBOUND_TOKEN`, `webhookSecret` == `CATALYST_WEBHOOK_SECRET` im
 Analyse-Tool. Ein Tippfehler ergibt 401 beim Oeffnen bzw. verworfene Ereignisse.
+
+### Secrets und Devin
+
+Die echten Werte sind bereits in den Render-Services hinterlegt und gehoeren
+**nicht** in diese Aufgabe. Zum Schreiben und Testen des Codes werden sie nicht
+gebraucht:
+
+- Niemals echte Tokens oder Secrets in Devin, ins Repo, in Tests oder in Logs.
+- Fuer lokale Laeufe und Unit-Tests Platzhalter verwenden (z. B.
+  `COMBINVEST_ANALYSIS_INBOUND_TOKEN=dummy-token`) oder das Modul mocken.
+- Es wird **kein** `COMBINVEST_ANALYSIS_*`-Wert im Code hart hinterlegt, auch
+  kein Standardwert.
+- Das Deep-Link-Secret des Analyse-Tools (`CATALYST_DEEPLINK_SECRET`) wird auf
+  Catalyst-Seite nicht benoetigt und darf dort nicht gesetzt werden.
+
+Wenn Tests eine laufende Gegenseite brauchen: die Antworten des Analyse-Tools
+mocken. Kein Test darf gegen `analyse.combinvest.swiss` laufen.
 
 Token und Secret sind Geheimnisse: nur ueber die bestehende Secret-Verwaltung,
 nie ins Repo, nie in Logs. In Fehlermeldungen weder Token noch Signaturen

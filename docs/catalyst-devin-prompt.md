@@ -182,12 +182,39 @@ statt `addAttachments` nutzen, damit keine Dubletten entstehen.
 
 ## Konfiguration in Catalyst
 
-| Variable | Inhalt |
-| --- | --- |
-| `COMBINVEST_ANALYSIS_BASE_URL` | Basis-URL des Analyse-Tools |
-| `COMBINVEST_ANALYSIS_INBOUND_TOKEN` | Bearer-Token fuer ausgehende Aufrufe |
-| `COMBINVEST_ANALYSIS_WEBHOOK_SECRET` | HMAC-Secret zur Pruefung eingehender Ereignisse |
-| `COMBINVEST_ANALYSIS_ENABLED` | Feature-Flag, pro Mandant/Brand |
+Nicht `process.env` direkt im Code lesen. Dieses Repo nutzt `node-config`: Werte
+werden in `apps/backend/packages/ci-backend/config/*.js` gemappt und im Code mit
+`config.get('combinvest.…')` gelesen — genau wie der bestehende `riskine`-Block
+(`config/default.js:265`).
+
+Neuen Block in **allen vier** Config-Dateien ergaenzen (`default.js`,
+`dev-local.js`, `staging.js`, `prod.js`). `default.js` folgt dem
+Riskine-Vorbild und setzt `isDisabled: true` — sicher aus, bis eine Umgebung es
+bewusst aktiviert:
+
+```js
+// config/default.js
+combinvest: {
+  isDisabled: true,
+  baseUrl: process.env.COMBINVEST_ANALYSIS_BASE_URL,
+  inboundToken: process.env.COMBINVEST_ANALYSIS_INBOUND_TOKEN,
+  webhookSecret: process.env.COMBINVEST_ANALYSIS_WEBHOOK_SECRET
+},
+
+// config/prod.js und staging.js: gleicher Block, aber
+  isDisabled: process.env.COMBINVEST_ANALYSIS_DISABLE === 'true',
+```
+
+| Env-Variable | Config-Key | Inhalt |
+| --- | --- | --- |
+| `COMBINVEST_ANALYSIS_BASE_URL` | `combinvest.baseUrl` | Basis-URL des Analyse-Tools, ohne Slash am Ende |
+| `COMBINVEST_ANALYSIS_INBOUND_TOKEN` | `combinvest.inboundToken` | Bearer-Token fuer ausgehende Aufrufe |
+| `COMBINVEST_ANALYSIS_WEBHOOK_SECRET` | `combinvest.webhookSecret` | HMAC-Secret zur Pruefung eingehender Ereignisse |
+| `COMBINVEST_ANALYSIS_DISABLE` | `combinvest.isDisabled` | `'true'` schaltet die Integration aus |
+
+Die drei Werte muessen **zeichengleich** mit der Gegenseite sein: `inboundToken`
+== `CATALYST_INBOUND_TOKEN`, `webhookSecret` == `CATALYST_WEBHOOK_SECRET` im
+Analyse-Tool. Ein Tippfehler ergibt 401 beim Oeffnen bzw. verworfene Ereignisse.
 
 Token und Secret sind Geheimnisse: nur ueber die bestehende Secret-Verwaltung,
 nie ins Repo, nie in Logs. In Fehlermeldungen weder Token noch Signaturen

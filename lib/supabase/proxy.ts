@@ -8,7 +8,17 @@ const PROTECTED_PREFIXES = ["/dashboard", "/team"]
 // Auth routes an already-authenticated advisor should be bounced away from.
 const AUTH_PREFIXES = ["/login", "/register"]
 
+// Maschine-zu-Maschine-Endpunkte der Catalyst-Integration. Sie authentifizieren
+// per Bearer-Token statt per Cookie, daher waere ein Session-Refresh hier nur
+// unnoetige Latenz. Der Deep-Link (/api/integration/enter) ist bewusst NICHT
+// ausgenommen: der muss Session-Cookies setzen duerfen.
+const SESSIONLESS_PREFIXES = ["/api/integration/v1"]
+
 export async function updateSession(request: NextRequest) {
+  if (SESSIONLESS_PREFIXES.some((p) => request.nextUrl.pathname.startsWith(p))) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(

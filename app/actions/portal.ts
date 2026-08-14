@@ -1,8 +1,26 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { getCurrentAdvisor } from "@/lib/auth/advisor"
+import { notifyCatalyst } from "@/lib/integration/catalyst/notify"
+
+/**
+ * Meldet einen Meilenstein an Catalyst, ohne die Antwort an den Berater zu
+ * verzoegern. Bewusst nur bei Meilensteinen (Abschluss / Revisions-Punkt):
+ * hochfrequente Autosaves wuerden Catalyst sonst mit Pings ueberfluten.
+ * Ist die Analyse nicht mit Catalyst verknuepft, verpufft der Aufruf still.
+ */
+function notifyCatalystMilestone(
+  analysisId: string,
+  opts: { complete?: boolean; writeRevision?: boolean },
+) {
+  if (!opts.complete && !opts.writeRevision) return
+  after(async () => {
+    await notifyCatalyst(analysisId, opts.complete ? "completed" : "saved")
+  })
+}
 
 export type CreateCustomerResult =
   | { ok: true; customerId: string; analysisId: string }
@@ -153,6 +171,10 @@ async function mutateAnalysisSnapshot(input: {
       const savedRow = (Array.isArray(saved) ? saved[0] : saved) as { lock_version?: number | string } | null
       if (savedRow) {
         for (const path of input.revalidate ?? []) revalidatePath(path)
+        notifyCatalystMilestone(input.analysisId, {
+          complete: input.complete,
+          writeRevision: input.writeRevision,
+        })
         return {
           ok: true,
           lockVersion: Number(savedRow.lock_version ?? Number(row.lock_version) + 1),
@@ -361,6 +383,10 @@ export async function saveAnalysisSnapshot(input: {
     const nextVersion = Number(row.lock_version ?? input.expectedLockVersion + 1)
 
     if (input.complete) revalidatePath(`/analyse/${input.analysisId}`)
+    notifyCatalystMilestone(input.analysisId, {
+      complete: input.complete,
+      writeRevision: input.writeRevision,
+    })
     return { ok: true, lockVersion: nextVersion, completed: input.complete ?? false }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Speichern fehlgeschlagen." }

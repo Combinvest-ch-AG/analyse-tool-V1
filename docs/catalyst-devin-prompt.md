@@ -223,9 +223,25 @@ nur die Rollenregel. Mit der echten Rolle greift `onlyOwn` /`onlyOwnAndSub`
 weiterhin, und ein Berater kann nur an eigenen (bzw. unterstellten) Kontakten
 ablegen.
 
-`status_id: DRAFT` ist bewusst konservativ und bedeutet **nicht** unsichtbar:
-im Lesepfad ist `status_id` ein optionaler Filter, ausgeschlossen wird nur
-`DELETED` (`attachments/repositories/attachment.ts:149,375`).
+#### `DRAFT` ist hier der richtige Status — verifiziert, nicht nur konservativ
+
+`DRAFT` ist **nicht** unsichtbar, und `ACTIVE` waere fuer den Berater sogar
+schlechter. Beides am Code belegt:
+
+- Backend: `status_id` ist im Lesepfad nur ein optionaler Filter, ausgeschlossen
+  wird allein `DELETED` (`attachments/repositories/attachment.ts:149,375`).
+- Frontend: die Anhangliste fordert beide Status explizit an —
+  `?amount=100&offset=0&status_id=1&status_id=2` in
+  `angular-legacy/.../multi-files-form/multi-files-form.component.ts:98`.
+  Ein `DRAFT`-PDF ist also sichtbar.
+- `file-menu/file-menu.ts:96-133`: fuer Nicht-Admin/BO sind `canEdit`,
+  `canDelete` und `canArchive` **an `DRAFT` gebunden**. Bei `ACTIVE` verliert der
+  normale Berater diese Rechte an seinem eigenen Dokument.
+- `canVerify` (Z. 104) setzt `DRAFT` voraus: `DRAFT` ist der Zustand, aus dem
+  Backoffice ein Dokument freigibt. `ACTIVE` uebersprang diesen Schritt.
+
+`DRAFT` ist damit die Vorgabe: sichtbar, vom Berater bearbeitbar und loeschbar,
+und vom Backoffice regulaer freigebbar.
 
 Kein technischer Sammel-User (etwa `SYSTEM_SELLER_IDS.THE_CATALYST`) als
 `callerSeller`: dann verliert der Anhang die Zuordnung zum Berater, und die

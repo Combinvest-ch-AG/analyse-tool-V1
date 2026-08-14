@@ -7,6 +7,7 @@ import { formatCHF } from "@/lib/format"
 import { budgetPalette } from "@/lib/data/chart-colors"
 import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
 import { BudgetSankey } from "@/components/portal/rechner/budget-sankey"
+import { BudgetDonut } from "@/components/portal/rechner/budget-donut"
 
 export type BudgetItem = { name: string; amount: number; sourceKey?: string }
 export type BudgetCategory = { name: string; color: string; subs: BudgetItem[] }
@@ -95,6 +96,7 @@ export function BudgetCalc({
   const [data, setData] = useState(() =>
     defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData),
   )
+  const [flowView, setFlowView] = useState<"flow" | "split">("flow")
 
   const totals = useMemo(() => {
     const inc = data.income.reduce((t, x) => t + clamp(x.amount), 0)
@@ -171,19 +173,46 @@ export function BudgetCalc({
       <div className="mt-4 rounded-2xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-extrabold text-foreground">Ihr monatlicher Geldfluss</h3>
+            <h3 className="text-sm font-extrabold text-foreground">
+              {flowView === "flow" ? "Ihr monatlicher Geldfluss" : "Ihre Budget-Aufteilung"}
+            </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Fahren Sie über eine Verbindung, um Betrag und Anteil exakt zu sehen.
+              {flowView === "flow"
+                ? "Fahren Sie über eine Verbindung, um Betrag und Anteil exakt zu sehen."
+                : "Wechseln Sie zwischen Ausgaben und Einnahmen oder tippen Sie eine Kategorie an."}
             </p>
           </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${
-            totals.bal >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
-          }`}>
-            {totals.bal >= 0 ? "Überschuss" : "Defizit"} {formatCHF(Math.abs(totals.bal))}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-extrabold ${
+                totals.bal >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+              }`}
+            >
+              {totals.bal >= 0 ? "Überschuss" : "Defizit"} {formatCHF(Math.abs(totals.bal))}
+            </span>
+            <div className="flex flex-none rounded-lg border border-border bg-secondary/40 p-0.5">
+              {(["flow", "split"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setFlowView(v)}
+                  aria-pressed={flowView === v}
+                  className={`rounded-md px-3 py-1 text-xs font-bold transition-colors ${
+                    flowView === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {v === "flow" ? "Fluss" : "Aufteilung"}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="mt-4">
-          <BudgetSankey income={data.income} cats={data.cats} />
+          {flowView === "flow" ? (
+            <BudgetSankey income={data.income} cats={data.cats} />
+          ) : (
+            <BudgetDonut income={data.income} cats={data.cats} />
+          )}
         </div>
       </div>
 

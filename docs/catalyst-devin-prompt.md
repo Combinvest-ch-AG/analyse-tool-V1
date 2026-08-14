@@ -24,6 +24,12 @@ Nicht Teil dieser Aufgabe — bereits erledigt bzw. Sache des Betriebs:
   kommen ausschliesslich aus der Umgebung.
 - **Keine Aenderung am Analyse-Tool** (anderes Repo, fertig und verifiziert).
 
+Ausdruecklich **doch** Teil der Aufgabe, obwohl es geteilten Code beruehrt: die
+`trustedSource`-Erweiterung in `attachments/services/attachment-validation.ts`
+und im `Options`-Typ (siehe „Vorgabe: `ACTIVE`"). Das ist die einzige Stelle
+ausserhalb der Integration, die geaendert wird — bewusst minimal, additiv und
+mit Standardwert `false`, damit bestehendes Verhalten unveraendert bleibt.
+
 Ergebnis ist ein Pull Request gegen den ueblichen Zielbranch, nicht ein
 Direktpush.
 
@@ -119,8 +125,8 @@ Damit `getAnalysisOpenUrl` und die Liste einen Wiedereinstieg finden.
 Neuer REST-Endpunkt, passend zum bestehenden Muster in
 `apps/backend/packages/ci-backend/src/analyses-riskine/controller/rest-controller.ts`.
 
-Empfaengt die Ereignisse `analysis.opened` / `analysis.saved` /
-`analysis.completed`. Reihenfolge zwingend:
+Empfaengt die Ereignisse `opened` / `saved` / `completed` — so, ohne Praefix, im
+Header `X-Combinvest-Event` und im Body-Feld `event`. Reihenfolge zwingend:
 
 1. **Signatur zuerst pruefen, ueber den Rohkoerper.** HMAC-SHA256 ueber
    `` `${timestamp}.${rawBody}` ``, Secret = gemeinsames Webhook-Secret.
@@ -132,7 +138,7 @@ Empfaengt die Ereignisse `analysis.opened` / `analysis.saved` /
 3. `external_id` in `combinvest_analyses` auflösen. Unbekannt → 404, nicht 500.
 4. `status`/`last_event_at` fortschreiben. **Idempotent**: dasselbe Ereignis
    zweimal darf keinen zweiten Datensatz und keine zweite Datei erzeugen.
-5. Bei `analysis.completed` das PDF ablegen (unten).
+5. Bei `completed` das PDF ablegen (unten).
 6. Immer schnell mit 2xx antworten. Schwere Arbeit asynchron — das Analyse-Tool
    hat ein kurzes Timeout und wiederholt bei Fehlern.
 
@@ -152,7 +158,7 @@ beide Bausteine existieren bereits.
    Diese URL ist **kurzlebig signiert (10 Minuten)** — sofort laden, nicht
    speichern und spaeter verwenden.
    Quelle: `GET /api/integration/v1/sessions/{externalId}` → `report.downloadUrl`.
-   Sie steht auch im `analysis.completed`-Ereignis.
+   Sie steht auch im `completed`-Ereignis.
 
 2. Hochladen und anhaengen:
 
@@ -172,9 +178,10 @@ await attachmentService.addAttachments(
     is_public: false,
     document_type_id: DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL, // 17
     document_date: new Date(),
-    status_id: STATUS_ID.ACTIVE,                              // 2
+    status_id: STATUS_ID.ACTIVE,                              // 2 — Vorgabe
   }],
-  callerSeller
+  callerSeller,
+  { returning: 'id', trustedSource: true }                    // siehe unten
 );
 ```
 
@@ -185,13 +192,164 @@ Verifizierte Referenzen:
   `apps/backend/packages/ci-backend/src/attachments/services/attachment.ts`
 - `ClippingObject` / `NewAttachmentInput` in
   `apps/backend/packages/ci-backend/src/attachments/services/attachment-validation.ts`
-- `DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL = 17`, `STATUS_ID.ACTIVE = 2` in
+- `DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL = 17`, `STATUS_ID.ACTIVE = 2`,
+  `STATUS_ID.DRAFT = 1` in
   `apps/backend/packages/ci-backend/src/attachments/consts.js`
 
-Hinweis zur Berechtigung: `addAttachments` validiert gegen einen `callerSeller`.
-Im Webhook gibt es keine Session, also den in `combinvest_analyses.seller_id`
-gespeicherten eroeffnenden Berater laden und als `callerSeller` uebergeben.
-Keinen Admin-Bypass einbauen — sonst umgeht die Ablage die Rollenpruefung.
+### Berechtigung: echte Rolle, kein Spoof
+
+`addAttachments` prueft `callerSeller` an zwei Stellen
+(`attachments/services/attachment-validation.ts`):
+
+1. `validateCallerSellerRole` (Z. 122): `role_id` muss in
+   `[ADMIN=6, BACKOFFICE=12, SALES_LEAD=5, SALES_FORCE=4]` liegen.
+2. `validateAddAttachmentInput` (Z. 144): fuer die Sales-Rollen
+   (`SALES_LEAD`, `SALES_FORCE`) zusaetzlich TC-778 — erlaubt sind nur
+   `status_id: DRAFT` **und** `is_public: false`.
+3. Getrennt davon `validateClippingObject` (Z. 187): Kundenzugriff ueber
+   `rbacChecker`.
+
+**Die echte Rolle des Beraters uebergeben. Nichts hochstufen:**
+
+```ts
+// seller_id UND role_id des eroeffnenden Beraters aus der eigenen Tabelle
+// bzw. per sellerRepository.findById() laden
+const callerSeller = { id: storedSellerId, role_id: seller.role_id };
+```
+
+Warum kein Spoof: `isAccessGranted` (Z. 205) leitet die `restrictions` aus dem
+**uebergebenen** `role_id` ab. Ein hochgestuftes `role_id: ADMIN` liefert damit
+leere bzw. unbeschraenkte `restrictions` — und `sellerPermissionCheck` laesst bei
+leeren `restrictions` jeden Kontakt durch (kein `throw` am Ende der Funktion,
+`rbac/rbac-checker.ts`). Der Spoof umgeht also **auch** die Kundenpruefung, nicht
+nur die Statusregel. Mit der echten Rolle greift `onlyOwn` / `onlyOwnAndSub`
+weiterhin, und ein Berater kann nur an eigenen (bzw. unterstellten) Kontakten
+ablegen.
+
+Kein technischer Sammel-User (etwa `SYSTEM_SELLER_IDS.THE_CATALYST`) als
+`callerSeller`: dann verliert der Anhang die Zuordnung zum Berater, und die
+Zugriffspruefung liefe gegen einen Seller, der den Kontakt gar nicht kennt.
+
+### Vorgabe: `ACTIVE` — Statusregel per `trustedSource` erweitern
+
+Das PDF wird als `STATUS_ID.ACTIVE` (2) abgelegt. Es ist ein vom System
+erzeugtes, fertiges Beratungsprotokoll und kein Entwurf.
+
+TC-778 (`attachment-validation.ts:77-84`) verbietet den Sales-Rollen
+(`SALES_LEAD`, `SALES_FORCE`) aber genau das:
+
+```ts
+const newAttachmentsInputForSalesRolesValidator = Joi.array().items(
+  Joi.object({ status_id: Joi.any().valid(STATUS_ID.DRAFT),
+               is_public: Joi.any().valid(false) })
+).min(1);
+```
+
+Die Regel adressiert **manuelle Uploads durch Berater**. Sie wird daher nicht
+umgangen, sondern um einen ausdruecklichen Fall erweitert: Uploads aus einer
+serverseitig authentifizierten Schnittstelle. Umsetzung in drei kleinen
+Schritten:
+
+**1. `Options` um ein Flag erweitern.** Den `Options`-Typ suchen (wird in
+`services/attachment.ts` importiert, nicht dort definiert) und ergaenzen:
+
+```ts
+/**
+ * Nur fuer serverseitig authentifizierte Schnittstellen (Signatur-geprueft).
+ * Hebt ausschliesslich die TC-778-Statusregel auf. Rollen-Allowlist und
+ * rbacChecker-Kundenpruefung bleiben unberuehrt.
+ * Darf NIE aus HTTP-Eingaben gesetzt werden.
+ */
+trustedSource?: boolean;
+```
+
+**2. Flag in die Validierung durchreichen.** `addAttachments` (Z. 129) ruft
+`validateAddAttachmentInput(callerSeller, newAttachmentsInput)` bisher ohne
+`options` auf. Dritten Parameter ergaenzen und die Sales-Sonderregel
+ueberspringen, wenn er gesetzt ist:
+
+```ts
+validateAddAttachmentInput(
+  callerSeller: CallerSeller,
+  newAttachmentsInput: NewAttachmentInput[],
+  trustedSource = false
+): ValidationResult {
+  const callerSellerValidationResult = this.validateCallerSellerRole(callerSeller);
+  if (callerSellerValidationResult.error) return callerSellerValidationResult;
+
+  if (!trustedSource && this.salesRoles.includes(callerSeller.role_id)) {
+    return newAttachmentsInputForSalesRolesValidator.validate(...);
+  }
+  return { value: newAttachmentsInput };
+}
+```
+
+`validateCallerSellerRole` bleibt **vor** der Abfrage: die Rollen-Allowlist gilt
+weiter. `validateClippingObject` (Z. 187) wird nicht angetastet: die
+Kundenpruefung greift unveraendert.
+
+**3. Update-Pfad ebenfalls beruecksichtigen** — sonst bricht ein zweites
+`completed`. `validateUpdateAttachmentsInput` (Z. 154) erlaubt Sales-Rollen als
+Ziel nur `DRAFT | ARCHIVED | DELETED` und verlangt zusaetzlich, dass der
+**bestehende** Anhang `DRAFT` ist (Z. 174). Nach dem ersten `ACTIVE`-PDF wuerde
+eine Ersetzung also doppelt scheitern. `trustedSource` daher auch dort
+auswerten und ueber `addOrUpdateAttachmentsByEntityId` (Z. 598) an beide
+Teilpfade weitergeben.
+
+#### Warum das sicher ist — und was nachzuweisen ist
+
+Beide oeffentlichen Aufrufer uebergeben `options` als **festes Literal**, nicht
+aus dem Request:
+
+- REST `controllers/controller.js:255` → `{ returning: 'id' }`
+- GraphQL `controllers/graphql-controller.ts:103` → `{ returning: true }`
+
+Ein Angreifer kann `trustedSource` also nicht ueber die HTTP-Schnittstelle
+einschleusen. Das ist die tragende Annahme — sie ist per Test abzusichern:
+
+1. Ein Test, der `trustedSource` in einer REST-/GraphQL-Nutzlast mitschickt und
+   nachweist, dass eine Sales-Rolle damit **kein** `ACTIVE` erzeugen kann.
+2. Ein Test, dass eine Sales-Rolle ohne Flag weiterhin auf `DRAFT` +
+   `is_public: false` beschraenkt bleibt (TC-778 unveraendert).
+3. Ein Test, dass mit Flag die Kundenpruefung weiter greift: fremder Kontakt →
+   `EntityForbiddenError`.
+4. Ein Test fuer das zweite `completed` (Ersetzung eines `ACTIVE`-Anhangs).
+
+`is_public` bleibt in **allen** Faellen `false`. Das Flag lockert nur den Status.
+
+#### Bewusste Folge im UI
+
+`file-menu/file-menu.ts:96-133` bindet `canEdit`, `canDelete` und `canArchive`
+fuer Nicht-Admin/BO an `DRAFT`; `canVerify` (Z. 104) ebenfalls. Ein
+`ACTIVE`-Dokument kann ein normaler Berater daher nicht mehr aendern oder
+loeschen, und es durchlaeuft keine Backoffice-Freigabe. Fuer ein maschinell
+erzeugtes Protokoll ist das gewollt: es soll nicht von Hand editierbar sein.
+Sichtbar ist es in jedem Fall — die Anhangliste fordert `status_id=1&status_id=2`
+an (`multi-files-form.component.ts:98`), und im Lesepfad wird nur `DELETED`
+ausgeschlossen (`repositories/attachment.ts:149,375`).
+
+#### Wenn die Rolle nicht erlaubt ist
+
+`COMBINVEST_ROLES` enthaelt weitere Verkaeufer-Rollen, u. a. `PARTNER = 3` und
+`PARTNER_SELLER = 16`, die **nicht** in den vier erlaubten liegen. Fuer solche
+Berater schlaegt die Ablage fehl — das ist die korrekte Rechtelage und wird
+nicht umgangen. Behandlung:
+
+- Fehler abfangen, damit der Webhook **nicht** 5xx zurueckgibt (sonst laufen die
+  Zustellversuche der Gegenseite endlos).
+- Mit `analysisId`, `sellerId` und `role_id` protokollieren, ohne Kundendaten.
+- Ereignis trotzdem als verarbeitet markieren, aber `report_attachment_id` leer
+  lassen, damit erkennbar ist, dass kein Anhang entstand.
+- Das PDF ist nicht verloren: es bleibt ueber
+  `GET /api/integration/v1/sessions/{externalId}` beim Analyse-Tool abrufbar.
+
+**Bitte pruefen und im PR berichten:** welche Rollen koennen im Catalyst-UI
+ueberhaupt eine Analyse eroeffnen? Liegen alle in den vier erlaubten, ist die
+Luecke theoretisch. Liegen sie nicht darin, sag es — dann entscheiden wir
+bewusst (z. B. Rollenliste per Config erweitern), statt still hochzustufen.
+
+Ersetzt ein spaeteres `completed` ein vorhandenes PDF, `addOrUpdateAttachmentsByEntityId`
+statt `addAttachments` nutzen, damit keine Dubletten entstehen.
 
 Ersetzt ein spaeteres `completed` ein vorhandenes PDF, `addOrUpdateAttachmentsByEntityId`
 statt `addAttachments` nutzen, damit keine Dubletten entstehen.
@@ -329,14 +487,14 @@ Gegen die echte Instanz sinnvoll:
 - Fehlerfaelle: falscher Token → 401, unbekannte `externalId` → 404
 
 Der **Rueckkanal wird nicht gegen Produktion getestet**, sondern lokal: die
-Ereignisse `analysis.opened/saved/completed` werden mit dem Webhook-Secret
+Ereignisse `opened` / `saved` / `completed` werden mit dem Webhook-Secret
 selbst signiert und an den eigenen Endpunkt geschickt. So sind Signaturpruefung,
 Replay-Fenster, Idempotenz und PDF-Ablage vollstaendig pruefbar, ohne auf ein
 echtes Ereignis zu warten. Signatur-Erzeugung fuer Tests:
 
 ```ts
 const raw = JSON.stringify(payload);
-const timestamp = Math.floor(Date.now() / 1000).toString();
+const timestamp = Date.now().toString(); // MILLISEKUNDEN, wie die Gegenseite
 const signature = crypto
   .createHmac('sha256', process.env.COMBINVEST_ANALYSIS_WEBHOOK_SECRET)
   .update(`${timestamp}.${raw}`)
@@ -361,8 +519,9 @@ Signaturen, keine Kundendaten in die PR schreiben.
 1. Flag aus → Verhalten unveraendert, Riskine wie bisher. Keine Regression.
 2. Flag an, "Analyse erstellen" in Angular → Analyse-Tool oeffnet, Berater ist
    angemeldet, Kontaktdaten sind vorbefuellt.
-3. Analyse abschliessen → `analysis.completed` kommt an, PDF liegt als
-   Beratungsprotokoll am Kontakt.
+3. Analyse abschliessen → `completed` kommt an, PDF liegt als
+   Beratungsprotokoll am Kontakt, Status `ACTIVE`, und ist in der Anhangliste
+   des Kontakts sichtbar (mit einer Sales-Rolle geprueft, nicht als Admin).
 4. Dasselbe Ereignis zweimal zugestellt → genau ein Anhang, kein Duplikat.
 5. Ereignis mit falscher Signatur → 401, keine Datenaenderung.
 6. Ereignis mit Zeitstempel aelter als 5 Minuten → abgewiesen.
@@ -372,10 +531,20 @@ Signaturen, keine Kundendaten in die PR schreiben.
 
 ---
 
-## Zwei Befunde am Rand
+## Drei Befunde am Rand
 
 Beim Lesen des Bestandscodes aufgefallen, **nicht** Teil dieses Auftrags —
 bitte separat bewerten, nicht nebenbei mitaendern:
+
+0. `external-integration/services/external-integration.ts:132` (`uploadContactFile`)
+   setzt `role_id: COMBINVEST_ROLES.ADMIN` fuer einen beliebigen `sellerId`.
+   Weil `isAccessGranted` die `restrictions` aus diesem `role_id` ableitet und
+   `sellerPermissionCheck` bei leeren `restrictions` ohne `throw` durchlaeuft,
+   entfaellt damit die Kontaktpruefung: das vorgeschaltete
+   `validateSellerAndClient` prueft nur, dass Seller und Client **existieren**,
+   nicht dass sie zusammengehoeren. Ueber diesen Weg kann eine Datei an einen
+   fremden Kontakt gehaengt werden. Bitte als eigenen Sicherheitsbefund melden —
+   dieses Muster ausdruecklich **nicht** kopieren.
 
 1. In `getCreateNewAnalysisRedirectUrl`
    (`services/riskine-analysis.ts`) ist die Riskine-Vorbefuellung vertauscht:

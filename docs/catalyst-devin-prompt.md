@@ -13,14 +13,16 @@ Alle Pfade unten sind verifiziert (Stand der Analyse), nicht geraten.
 
 Nicht Teil dieser Aufgabe — bereits erledigt bzw. Sache des Betriebs:
 
-- **Keine Env-Variablen setzen.** Die Werte liegen schon in den Render-Services
-  (`combinvest-backend`, `dev-catalyst-backend`). Es werden nur die
-  Config-Mappings im Code ergaenzt, die diese Variablen auslesen.
+- **Keine Env-Variablen in Render setzen.** Die Werte liegen dort bereits
+  (`combinvest-backend`, `dev-catalyst-backend`). Im Code werden nur die
+  Config-Mappings ergaenzt, die diese Variablen auslesen. In der **eigenen**
+  Arbeitsumgebung werden Variablen dagegen gesetzt — siehe „Testen gegen
+  Produktion".
 - **Kein Deployment, kein Render-Zugriff, keine Infrastruktur.**
-- **Keine echten Tokens oder Secrets** anfordern, erzeugen, einsetzen oder
-  ausgeben — auch nicht als Standardwert oder Testfixture.
+- **Keine Secrets im Repo, in Tests, in Commits, in Logs oder in der
+  PR-Beschreibung** — auch nicht als Standardwert oder Testfixture. Werte
+  kommen ausschliesslich aus der Umgebung.
 - **Keine Aenderung am Analyse-Tool** (anderes Repo, fertig und verifiziert).
-- **Kein Aufruf der echten Gegenseite** (`analyse.combinvest.swiss`) aus Tests.
 
 Ergebnis ist ein Pull Request gegen den ueblichen Zielbranch, nicht ein
 Direktpush.
@@ -266,26 +268,91 @@ Die drei Werte muessen **zeichengleich** mit der Gegenseite sein: `inboundToken`
 == `CATALYST_INBOUND_TOKEN`, `webhookSecret` == `CATALYST_WEBHOOK_SECRET` im
 Analyse-Tool. Ein Tippfehler ergibt 401 beim Oeffnen bzw. verworfene Ereignisse.
 
-### Secrets und Devin
+---
 
-Die echten Werte sind bereits in den Render-Services hinterlegt und gehoeren
-**nicht** in diese Aufgabe. Zum Schreiben und Testen des Codes werden sie nicht
-gebraucht:
+## Testen gegen Produktion
 
-- Niemals echte Tokens oder Secrets in Devin, ins Repo, in Tests oder in Logs.
-- Fuer lokale Laeufe und Unit-Tests Platzhalter verwenden (z. B.
-  `COMBINVEST_ANALYSIS_INBOUND_TOKEN=dummy-token`) oder das Modul mocken.
-- Es wird **kein** `COMBINVEST_ANALYSIS_*`-Wert im Code hart hinterlegt, auch
-  kein Standardwert.
-- Das Deep-Link-Secret des Analyse-Tools (`CATALYST_DEEPLINK_SECRET`) wird auf
-  Catalyst-Seite nicht benoetigt und darf dort nicht gesetzt werden.
+Das Analyse-Tool ist unter `https://analyse.combinvest.swiss` **live und
+erreichbar**. Gegen diese Instanz darf getestet werden. Die drei Werte werden in
+der Devin-Arbeitsumgebung als Umgebungsvariablen gesetzt (Secrets-Verwaltung von
+Devin, nicht als Klartext in Dateien):
 
-Wenn Tests eine laufende Gegenseite brauchen: die Antworten des Analyse-Tools
-mocken. Kein Test darf gegen `analyse.combinvest.swiss` laufen.
+```
+COMBINVEST_ANALYSIS_BASE_URL     = https://analyse.combinvest.swiss
+COMBINVEST_ANALYSIS_INBOUND_TOKEN  → wird bereitgestellt
+COMBINVEST_ANALYSIS_WEBHOOK_SECRET → wird bereitgestellt
+```
 
-Token und Secret sind Geheimnisse: nur ueber die bestehende Secret-Verwaltung,
-nie ins Repo, nie in Logs. In Fehlermeldungen weder Token noch Signaturen
-ausgeben.
+Ohne Slash am Ende der URL. Es wird **kein** Wert im Code hart hinterlegt, auch
+kein Standardwert; `CATALYST_DEEPLINK_SECRET` wird auf Catalyst-Seite nicht
+gebraucht.
+
+### Erreichbarkeit pruefen, bevor irgendetwas gebaut wird
+
+Erwartet: **422** (Route erreichbar, Token akzeptiert, Nutzlast unvollstaendig).
+Dieser Aufruf schreibt nichts.
+
+```bash
+curl -i -X POST "$COMBINVEST_ANALYSIS_BASE_URL/api/integration/v1/sessions" \
+  -H "Authorization: Bearer $COMBINVEST_ANALYSIS_INBOUND_TOKEN" \
+  -H "Content-Type: application/json" -d '{}'
+```
+
+Deutung anderer Antworten — hier nicht weiterbauen, sondern melden:
+`401` = Token stimmt nicht. `404` = Integration dort nicht aktiv.
+Alles andere = Fehler auf der Gegenseite.
+
+### Regeln fuer Laeufe gegen Produktion
+
+Jeder erfolgreiche `POST /sessions` erzeugt in der Produktionsdatenbank des
+Analyse-Tools eine **echte Analyse**. Deshalb:
+
+1. **`externalId` immer mit `devin-test-` beginnen**, z. B.
+   `devin-test-<uuid>`. Damit sind Testdaten erkennbar und entfernbar.
+   (Mindestens 8, maximal 200 Zeichen.)
+2. **Nur eigene Testkontakte** verwenden, niemals echte Kundendatensaetze.
+3. **Sparsam**: die Erreichbarkeitspruefung und einige gezielte Laeufe, keine
+   Schleifen und keine Lasttests.
+4. **`callbackUrl` muss eine gueltige absolute URL sein.** Aus Devin heraus ist
+   kein oeffentlicher Empfaenger erreichbar, darum eine bewusst nicht
+   existierende URL angeben, z. B.
+   `https://dev-catalyst.example.invalid/webhooks/combinvest`. Das Analyse-Tool
+   protokolliert den fehlgeschlagenen Zustellversuch und bricht nichts ab.
+
+### Was gegen Produktion getestet wird — und was nicht
+
+Gegen die echte Instanz sinnvoll:
+- Erreichbarkeit und Token (siehe oben)
+- `POST /sessions` mit vollstaendiger Nutzlast → Antwortform, `url`, `analysisId`
+- Idempotenz: zweimal dieselbe `externalId` → gleiche `analysisId`
+- `GET /sessions/{externalId}` → Statusabfrage
+- Fehlerfaelle: falscher Token → 401, unbekannte `externalId` → 404
+
+Der **Rueckkanal wird nicht gegen Produktion getestet**, sondern lokal: die
+Ereignisse `analysis.opened/saved/completed` werden mit dem Webhook-Secret
+selbst signiert und an den eigenen Endpunkt geschickt. So sind Signaturpruefung,
+Replay-Fenster, Idempotenz und PDF-Ablage vollstaendig pruefbar, ohne auf ein
+echtes Ereignis zu warten. Signatur-Erzeugung fuer Tests:
+
+```ts
+const raw = JSON.stringify(payload);
+const timestamp = Math.floor(Date.now() / 1000).toString();
+const signature = crypto
+  .createHmac('sha256', process.env.COMBINVEST_ANALYSIS_WEBHOOK_SECRET)
+  .update(`${timestamp}.${raw}`)
+  .digest('hex');
+// Header: X-Combinvest-Signature, X-Combinvest-Timestamp, X-Combinvest-Event
+```
+
+Unit-Tests laufen ohne Netz mit Platzhaltern (z. B.
+`COMBINVEST_ANALYSIS_WEBHOOK_SECRET=test-secret`) und gemockten Antworten —
+CI darf nicht von einer externen Instanz abhaengen.
+
+### Am Ende: Testdaten melden
+
+Die verwendeten `devin-test-*`-`externalId`s in der PR-Beschreibung auflisten,
+damit sie im Analyse-Tool entfernt werden koennen. Keine Tokens, keine
+Signaturen, keine Kundendaten in die PR schreiben.
 
 ---
 

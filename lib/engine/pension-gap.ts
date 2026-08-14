@@ -8,8 +8,6 @@ export { ahvScale44 } from "./ahv-retirement.ts"
 export type Risk = "iv" | "retirement" | "death"
 export type ValueKey = "ahv" | "ahvChild" | "bvg" | "bvgChild" | "uvg" | "third" | "other"
 export type Cause = "illness" | "accident"
-export type AhvMode = "scale44" | "manual"
-export type BvgMode = "statement" | "minimum"
 
 export type RiskValues = Partial<Record<ValueKey, number>>
 export type ValuesByRisk = Record<Risk, RiskValues>
@@ -76,11 +74,9 @@ export interface GapInputs {
   targetPct: number
   cause: Cause
   degree: number
-  ahvMode: AhvMode
   averageIncome: number
   contributionGaps: number
   children: number
-  bvgMode: BvgMode
   age: number
   startAge: number
 }
@@ -193,68 +189,82 @@ export function estimateBvg(inp: GapInputs): BvgEstimate {
 }
 
 export interface ResolveResult {
+  /** Effective values used for the gap: manual override where set, otherwise the auto value. */
   values: ValuesByRisk
-  locked: Partial<Record<ValueKey, boolean>>
+  /** Deterministic engine values (from average income / scale). */
+  auto: ValuesByRisk
+  /** Which keys the engine derives automatically (per risk) — these show an "Auto" badge and reset. */
+  autoKeys: Record<Risk, Partial<Record<ValueKey, boolean>>>
   ahvCalc: AhvCalc | null
   childCapped: boolean
   bvgEstimate: BvgEstimate | null
 }
 
+const ALL_RISKS: Risk[] = ["iv", "retirement", "death"]
+
 /**
- * Resolves the effective value map by overlaying the deterministic engine
- * (auto AHV/IV, IV child pensions, estimated BVG minimum) onto the manual inputs.
- * Locked keys are computed and should be shown read-only in the UI.
+ * Resolves the effective value map. The deterministic engine (AHV/IV & AHV
+ * retirement from average income, IV child pensions, BVG minimum) is ALWAYS
+ * computed as the auto baseline. Manual inputs override it per key
+ * (`manual ?? auto`) — auto and override are no longer mutually exclusive, so
+ * every field stays editable while defaulting to the income-derived value.
+ * Survivor AHV cannot be inferred from salary and therefore has no auto value.
  */
 export function resolveValues(inp: GapInputs, manual: ValuesByRisk): ResolveResult {
-  // deep copy of manual as the base
-  const values: ValuesByRisk = {
-    iv: { ...manual.iv },
-    retirement: { ...manual.retirement },
-    death: { ...manual.death },
+  const auto: ValuesByRisk = { iv: {}, retirement: {}, death: {} }
+  const autoKeys: Record<Risk, Partial<Record<ValueKey, boolean>>> = { iv: {}, retirement: {}, death: {} }
+
+  // AHV/IV and AHV retirement — always deterministic from average income + scale.
+  const ivCalc = calculateAhvIv(inp)
+  const retirementCalc = calculateAhvRetirementGap(inp)
+  auto.iv.ahv = ivCalc.annual
+  auto.retirement.ahv = retirementCalc.annual
+  autoKeys.iv.ahv = true
+  autoKeys.retirement.ahv = true
+  const ahvCalc = inp.risk === "retirement" ? retirementCalc : inp.risk === "iv" ? ivCalc : null
+
+  // IV child pensions derive from the EFFECTIVE iv.ahv (manual override wins).
+  const effIvAhv = manual.iv.ahv ?? auto.iv.ahv ?? 0
+  const child = syncIvChildPensions(inp, effIvAhv)
+  auto.iv.ahvChild = child.value
+  autoKeys.iv.ahvChild = true
+  const childCapped = child.capped
+
+  // BVG minimum — always estimated as the auto baseline.
+  const m = estimateBvg(inp)
+  const effIvAhvChild = manual.iv.ahvChild ?? auto.iv.ahvChild ?? 0
+  if (inp.cause !== "accident") {
+    let room = Math.max(0, (inp.salary || 0) * 0.9 - effIvAhv - effIvAhvChild)
+    m.iv = Math.min(m.iv, room)
+    room = Math.max(0, room - m.iv)
+    m.ivChild = Math.min(m.ivChild, room)
   }
-  const locked: Partial<Record<ValueKey, boolean>> = {}
-  let ahvCalc: AhvCalc | null = null
-  let childCapped = false
-  let bvgEstimate: BvgEstimate | null = null
+  auto.iv.bvg = inp.cause === "accident" ? 0 : Math.round(m.iv)
+  auto.iv.bvgChild = inp.cause === "accident" ? 0 : Math.round(m.ivChild)
+  auto.retirement.bvg = Math.round(m.retirement)
+  auto.death.bvg = Math.round(m.death)
+  auto.death.bvgChild = Math.round(m.deathChild)
+  autoKeys.iv.bvg = true
+  autoKeys.iv.bvgChild = true
+  autoKeys.retirement.bvg = true
+  autoKeys.death.bvg = true
+  autoKeys.death.bvgChild = true
+  const bvgEstimate = m
 
-  // AHV/IV and AHV retirement are both deterministically available from
-  // average income and contribution scale. Survivor eligibility cannot be
-  // inferred from salary alone and therefore remains a manual value.
-  if (inp.ahvMode === "scale44") {
-    const ivCalc = calculateAhvIv(inp)
-    const retirementCalc = calculateAhvRetirementGap(inp)
-    values.iv.ahv = ivCalc.annual
-    values.retirement.ahv = retirementCalc.annual
-    ahvCalc = inp.risk === "retirement" ? retirementCalc : inp.risk === "iv" ? ivCalc : null
-    if (inp.risk === "iv" || inp.risk === "retirement") locked.ahv = true
-  }
-
-  // IV child pensions always synced from the current iv.ahv
-  const child = syncIvChildPensions(inp, values.iv.ahv || 0)
-  values.iv.ahvChild = child.value
-  childCapped = child.capped
-  if (inp.risk === "iv") locked.ahvChild = true
-
-  // BVG minimum estimation
-  if (inp.bvgMode === "minimum") {
-    const m = estimateBvg(inp)
-    if (inp.cause !== "accident") {
-      let room = Math.max(0, (inp.salary || 0) * 0.9 - (values.iv.ahv || 0) - (values.iv.ahvChild || 0))
-      m.iv = Math.min(m.iv, room)
-      room = Math.max(0, room - m.iv)
-      m.ivChild = Math.min(m.ivChild, room)
+  // Effective values: manual override wins, otherwise the auto value.
+  const values: ValuesByRisk = { iv: {}, retirement: {}, death: {} }
+  for (const r of ALL_RISKS) {
+    const keys = new Set<ValueKey>([
+      ...(Object.keys(auto[r]) as ValueKey[]),
+      ...(Object.keys(manual[r]) as ValueKey[]),
+    ])
+    for (const k of keys) {
+      const mv = manual[r][k]
+      values[r][k] = mv !== undefined ? mv : auto[r][k] ?? 0
     }
-    values.iv.bvg = inp.cause === "accident" ? 0 : Math.round(m.iv)
-    values.iv.bvgChild = inp.cause === "accident" ? 0 : Math.round(m.ivChild)
-    values.retirement.bvg = Math.round(m.retirement)
-    values.death.bvg = Math.round(m.death)
-    values.death.bvgChild = Math.round(m.deathChild)
-    bvgEstimate = m
-    locked.bvg = true
-    locked.bvgChild = true
   }
 
-  return { values, locked, ahvCalc, childCapped, bvgEstimate }
+  return { values, auto, autoKeys, ahvCalc, childCapped, bvgEstimate }
 }
 
 export interface GapItem {

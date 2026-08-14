@@ -10,14 +10,12 @@ import {
   resolveValues,
   type Risk,
   type Cause,
-  type AhvMode,
-  type BvgMode,
   type ValuesByRisk,
   type ValueKey,
 } from "@/lib/engine/pension-gap"
 import { formatCHF } from "@/lib/format"
 import { seriesColor } from "@/lib/data/chart-colors"
-import { Lock, Upload, ChevronDown } from "lucide-react"
+import { Upload, RotateCcw } from "lucide-react"
 import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 const RISKS: Risk[] = ["iv", "retirement", "death"]
@@ -52,15 +50,12 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
   const [cause, setCause] = useState<Cause>(stored?.cause === "accident" ? "accident" : "illness")
   const [degree, setDegree] = useState(Number(stored?.degree) || 100)
   const [children, setChildren] = useState(Number(stored?.children) || defaults?.children || 0)
-  const [ahvMode, setAhvMode] = useState<AhvMode>(stored?.ahvMode === "manual" ? "manual" : "scale44")
   const [averageIncome, setAverageIncome] = useState(Number(stored?.averageIncome) || 0)
   const [contributionGaps, setContributionGaps] = useState(Number(stored?.contributionGaps) || 0)
-  const [bvgMode, setBvgMode] = useState<BvgMode>(stored?.bvgMode === "statement" ? "statement" : "minimum")
   const [manual, setManual] = useState<ValuesByRisk>(
     stored?.manual && typeof stored.manual === "object" ? stored.manual as ValuesByRisk : emptyValues(),
   )
   const [period, setPeriod] = useState<"year" | "month">(stored?.period === "month" ? "month" : "year")
-  const [expert, setExpert] = useState(false)
   const [pkFileName, setPkFileName] = useState("")
 
   const inputs = {
@@ -69,22 +64,32 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
     targetPct,
     cause,
     degree,
-    ahvMode,
     averageIncome,
     contributionGaps,
     children,
-    bvgMode,
     age,
     startAge,
   }
 
   const resolved = useMemo(() => resolveValues(inputs, manual), [
-    risk, salary, targetPct, cause, degree, ahvMode, averageIncome, contributionGaps, children, bvgMode, age, startAge, manual,
+    risk, salary, targetPct, cause, degree, averageIncome, contributionGaps, children, age, startAge, manual,
   ])
   const gap = useMemo(() => computeGap(inputs, resolved.values), [inputs, resolved.values])
 
+  // Effektiv verwendetes Ø-Einkommen für die AHV (leer = Jahreslohn).
+  const usedIncome = averageIncome > 0 ? averageIncome : salary
+
   function setValue(key: ValueKey, value: number) {
     setManual((prev) => ({ ...prev, [risk]: { ...prev[risk], [key]: value } }))
+  }
+
+  // Override zurücknehmen: Schlüssel aus manual entfernen → Feld folgt wieder dem Auto-Wert.
+  function resetValue(key: ValueKey) {
+    setManual((prev) => {
+      const next = { ...prev[risk] }
+      delete next[key]
+      return { ...prev, [risk]: next }
+    })
   }
 
   const coverPct = Math.round(gap.cover)
@@ -113,10 +118,8 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
           cause,
           degree,
           children,
-          ahvMode,
           averageIncome,
           contributionGaps,
-          bvgMode,
           manual,
           period,
         },
@@ -137,13 +140,10 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
         setCause("illness")
         setDegree(100)
         setChildren(defaults?.children ?? 0)
-        setAhvMode("scale44")
         setAverageIncome(0)
         setContributionGaps(0)
-        setBvgMode("minimum")
         setManual(emptyValues())
         setPeriod("year")
-        setExpert(false)
         setPkFileName("")
       }}
     />
@@ -195,6 +195,19 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
                 className="mt-3 w-full accent-[var(--color-primary)]"
               />
             </div>
+            <div>
+              <MoneyInput label="Ø Jahreseinkommen (AHV-Basis)" value={averageIncome} onChange={setAverageIncome} />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                Grundlage der AHV-Renten. Leer = Jahreslohn. Verwendet: {formatCHF(usedIncome)}.
+              </p>
+            </div>
+            <NumberInput
+              label="AHV-Beitragslücken (Jahre)"
+              value={contributionGaps}
+              onChange={setContributionGaps}
+              min={0}
+              max={43}
+            />
             <NumberInput label="Alter" value={age} onChange={setAge} min={18} max={65} />
             <NumberInput label="BVG-Eintrittsalter" value={startAge} onChange={setStartAge} min={18} max={age} />
           </div>
@@ -250,11 +263,15 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
           </div>
         )}
 
-        {/* Automatic engine toggles */}
+        {/* Automatisch berechnete Grundlagen */}
         <div className="rounded-2xl border border-border bg-card p-5">
-          <SectionHeading n={3} title="Pensionskasse & automatische Berechnung" />
+          <SectionHeading n={3} title="Automatisch berechnete Grundlagen" />
+          <p className="mt-3 text-[11.5px] leading-relaxed text-muted-foreground">
+            AHV und BVG-Minimum werden laufend aus Einkommen und Grunddaten berechnet. Jeder Wert lässt sich unten
+            jederzeit überschreiben – das Rücksetz-Symbol stellt den automatischen Wert wieder her.
+          </p>
 
-          {/* PK-Ausweis: switch to statement mode + reveal manual BVG fields */}
+          {/* PK-Ausweis: nur als Erfassungshilfe – die BVG-Felder unten sind ohnehin editierbar. */}
           <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background px-4 py-3 transition-colors hover:border-primary/50">
             <span className="flex items-center gap-2.5">
               <Upload className="h-4 w-4 text-primary" aria-hidden="true" />
@@ -263,7 +280,7 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
               </span>
             </span>
             <span className="text-[11px] font-semibold text-muted-foreground">
-              {pkFileName ? "Werte manuell übertragen" : "PDF/Bild wählen"}
+              {pkFileName ? "Werte unten übertragen" : "PDF/Bild wählen"}
             </span>
             <input
               type="file"
@@ -273,45 +290,12 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
                 const f = e.target.files?.[0]
                 if (!f) return
                 setPkFileName(f.name)
-                setBvgMode("statement")
-                setExpert(true)
               }}
             />
           </label>
           <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
-            Übertragen Sie die Renten aus dem Vorsorgeausweis unten in die Expertenfelder. Ohne Ausweis rechnen wir mit
-            dem BVG-Minimum.
+            Mit Vorsorgeausweis die Renten unten direkt eintragen. Ohne Ausweis rechnen wir mit dem BVG-Minimum.
           </p>
-
-          <div className="mt-4 flex flex-col gap-3">
-            <ToggleRow
-              label="AHV/IV-Rente nach Skala 44"
-              on={ahvMode === "scale44"}
-              onToggle={() => setAhvMode(ahvMode === "scale44" ? "manual" : "scale44")}
-            />
-            {ahvMode === "scale44" && risk !== "death" && (
-              <div className="grid gap-4 rounded-lg bg-background p-3 sm:grid-cols-2">
-                <div>
-                  <MoneyInput label="Ø Jahreseinkommen (optional)" value={averageIncome} onChange={setAverageIncome} />
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                    Leer = Jahreslohn von {formatCHF(salary)} verwenden.
-                  </p>
-                </div>
-                <NumberInput
-                  label="Beitragslücken (Jahre)"
-                  value={contributionGaps}
-                  onChange={setContributionGaps}
-                  min={0}
-                  max={43}
-                />
-              </div>
-            )}
-            <ToggleRow
-              label="BVG-Leistungen (Minimum) schätzen"
-              on={bvgMode === "minimum"}
-              onToggle={() => setBvgMode(bvgMode === "minimum" ? "statement" : "minimum")}
-            />
-          </div>
 
           {(resolved.ahvCalc || resolved.bvgEstimate) && (
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -319,7 +303,7 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
                 <div className="rounded-xl border border-success/20 bg-success/5 px-3 py-2.5">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-success">AHV automatisch</p>
                   <p className="mt-1 text-sm font-bold tabular-nums text-foreground">
-                    {formatCHF(resolved.values[risk].ahv || 0)} / Jahr
+                    {formatCHF(resolved.auto[risk].ahv || 0)} / Jahr
                   </p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     Skala {resolved.ahvCalc.scale}, Einkommen {formatCHF(resolved.ahvCalc.income)}
@@ -341,31 +325,16 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
           )}
         </div>
 
-        {/* Manual / resolved values — expert overrides */}
+        {/* Leistungen – automatisch berechnet, jederzeit überschreibbar */}
         <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between gap-3">
-            <SectionHeading n={4} title={`${RISK_HEADINGS[risk]} (Jahresbeträge)`} />
-            <button
-              type="button"
-              onClick={() => setExpert((v) => !v)}
-              aria-expanded={expert}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[11px] font-bold text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-            >
-              Expertenfelder
-              <ChevronDown
-                className={`h-3.5 w-3.5 transition-transform ${expert ? "rotate-180" : ""}`}
-                aria-hidden="true"
-              />
-            </button>
-          </div>
+          <SectionHeading n={4} title={`${RISK_HEADINGS[risk]} (Jahresbeträge)`} />
           <div className="mt-4 flex flex-col gap-3">
             {CONFIGS[risk]
               .filter(([key]) => !(risk === "iv" && key === "uvg" && cause !== "accident"))
               .map(([key, name]) => {
-                const locked = !!resolved.locked[key]
+                const isAuto = !!resolved.autoKeys[risk][key]
+                const overridden = manual[risk][key] !== undefined
                 const value = resolved.values[risk][key] || 0
-                // Editable only in expert mode; otherwise show the resolved value read-only.
-                const editable = expert && !locked
                 return (
                   <div key={key} className="flex items-center gap-3">
                     <span
@@ -373,32 +342,46 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
                       style={{ backgroundColor: COLORS[key] }}
                       aria-hidden="true"
                     />
-                    <label className="flex-1 text-sm text-foreground">{name}</label>
-                    {editable ? (
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={value || ""}
-                        onChange={(e) => setValue(key, Number(e.target.value) || 0)}
-                        className="w-36 rounded-md border border-border bg-background px-3 py-1.5 text-right text-sm tabular-nums text-foreground focus:border-primary focus:outline-none"
-                        placeholder="0"
-                      />
+                    <label className="flex-1 text-sm text-foreground">
+                      {name}
+                      {isAuto && (
+                        <span
+                          className={`ml-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                            overridden ? "bg-primary/10 text-primary" : "bg-success/10 text-success"
+                          }`}
+                        >
+                          {overridden ? "Überschrieben" : "Auto"}
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={value || ""}
+                      onChange={(e) => setValue(key, Number(e.target.value) || 0)}
+                      className="w-32 rounded-md border border-border bg-background px-3 py-1.5 text-right text-sm tabular-nums text-foreground focus:border-primary focus:outline-none"
+                      placeholder="0"
+                    />
+                    {isAuto && overridden ? (
+                      <button
+                        type="button"
+                        onClick={() => resetValue(key)}
+                        title="Automatischen Wert wiederherstellen"
+                        aria-label={`${name}: automatisch berechneten Wert wiederherstellen`}
+                        className="shrink-0 rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-sm font-semibold tabular-nums text-foreground">
-                        {locked ? <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> : null}
-                        {formatCHF(value)}
-                      </span>
+                      <span className="w-7 shrink-0" aria-hidden="true" />
                     )}
                   </div>
                 )
               })}
           </div>
-          {!expert && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Werte automatisch berechnet. Über „Expertenfelder" können Sie einzelne Renten aus dem Vorsorgeausweis
-              überschreiben.
-            </p>
-          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Automatisch aus Einkommen und Grunddaten berechnet. Tippen Sie einen Betrag ein, um ihn zu überschreiben.
+          </p>
           {resolved.childCapped && (
             <p className="mt-3 text-xs text-muted-foreground">
               Kinderrenten wurden auf die 90 %-Überentschädigungsgrenze gekürzt.
@@ -623,24 +606,4 @@ function NumberInput({
   )
 }
 
-function ToggleRow({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center justify-between gap-3 text-left"
-      aria-pressed={on}
-    >
-      <span className="text-sm text-foreground">{label}</span>
-      <span
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? "bg-primary" : "bg-muted"}`}
-      >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-            on ? "translate-x-[22px]" : "translate-x-0.5"
-          }`}
-        />
-      </span>
-    </button>
-  )
-}
+

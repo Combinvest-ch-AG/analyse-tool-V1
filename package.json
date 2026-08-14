@@ -28,7 +28,8 @@
     "pdf-lib": "^1.17.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "swr": "^2.4.2"
+    "swr": "^2.4.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",

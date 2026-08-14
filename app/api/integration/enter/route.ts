@@ -23,8 +23,14 @@ import { notifyCatalyst } from "@/lib/integration/catalyst/notify"
 
 export const dynamic = "force-dynamic"
 
-function fail(appUrl: string, reason: string) {
-  const url = new URL("/login", appUrl)
+/**
+ * Redirects werden relativ zur eingehenden Anfrage gebildet, nicht aus der
+ * konfigurierten App-URL. So funktioniert der Einstieg auch hinter Proxies,
+ * auf Preview-Domains und in der lokalen Entwicklung, wo die konfigurierte
+ * Host-Adresse vom tatsaechlich aufgerufenen Host abweichen kann.
+ */
+function fail(request: Request, reason: string) {
+  const url = new URL("/login", request.url)
   url.searchParams.set("integration_error", reason)
   return NextResponse.redirect(url)
 }
@@ -37,10 +43,10 @@ export async function GET(request: Request) {
   }
 
   const token = new URL(request.url).searchParams.get("token")
-  if (!token) return fail(config.appUrl, "token_fehlt")
+  if (!token) return fail(request, "token_fehlt")
 
   const read = readDeeplinkToken(token, config.deeplinkSecret)
-  if (!read) return fail(config.appUrl, "token_ungueltig")
+  if (!read) return fail(request, "token_ungueltig")
 
   const admin = createAdminClient()
 
@@ -50,17 +56,17 @@ export async function GET(request: Request) {
     .eq("external_id", read.externalId)
     .maybeSingle()
 
-  if (session.error || !session.data) return fail(config.appUrl, "sitzung_unbekannt")
+  if (session.error || !session.data) return fail(request, "sitzung_unbekannt")
 
   const row = session.data
   if (!row.token_hash || row.token_hash !== hashDeeplinkToken(token)) {
-    return fail(config.appUrl, "token_ersetzt")
+    return fail(request, "token_ersetzt")
   }
-  if (row.token_consumed_at) return fail(config.appUrl, "token_verbraucht")
+  if (row.token_consumed_at) return fail(request, "token_verbraucht")
   if (new Date(row.expires_at as string).getTime() < Date.now()) {
-    return fail(config.appUrl, "token_abgelaufen")
+    return fail(request, "token_abgelaufen")
   }
-  if (!row.analysis_id) return fail(config.appUrl, "analyse_fehlt")
+  if (!row.analysis_id) return fail(request, "analyse_fehlt")
 
   const advisorEmail = row.advisor_email as string
 
@@ -73,7 +79,7 @@ export async function GET(request: Request) {
   const hashedToken = link.data?.properties?.hashed_token
   if (link.error || !hashedToken) {
     console.log("[v0] catalyst enter: generateLink fehlgeschlagen:", link.error?.message)
-    return fail(config.appUrl, "berater_unbekannt")
+    return fail(request, "berater_unbekannt")
   }
 
   const supabase = await createClient()
@@ -83,7 +89,7 @@ export async function GET(request: Request) {
   })
   if (verified.error) {
     console.log("[v0] catalyst enter: verifyOtp fehlgeschlagen:", verified.error.message)
-    return fail(config.appUrl, "anmeldung_fehlgeschlagen")
+    return fail(request, "anmeldung_fehlgeschlagen")
   }
 
   // Token entwerten (Einmal-Verwendung) und Sitzung als geoeffnet markieren.
@@ -100,5 +106,5 @@ export async function GET(request: Request) {
     await notifyCatalyst(analysisId, "opened")
   })
 
-  return NextResponse.redirect(new URL(`/analyse/${analysisId}`, config.appUrl))
+  return NextResponse.redirect(new URL(`/analyse/${analysisId}`, request.url))
 }

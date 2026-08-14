@@ -50,6 +50,8 @@ function ageFromBirthdate(value: unknown): number | null {
  * protokolliert statt uebernommen.
  */
 const OPAQUE_ENUM_KEYS = new Set([
+  "person.gender",
+  "person.religion",
   "person.sport.habit",
   "person.health.smoke.habit.one",
   "person.family.partner",

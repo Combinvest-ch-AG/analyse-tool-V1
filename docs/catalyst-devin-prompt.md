@@ -24,6 +24,12 @@ Nicht Teil dieser Aufgabe — bereits erledigt bzw. Sache des Betriebs:
   kommen ausschliesslich aus der Umgebung.
 - **Keine Aenderung am Analyse-Tool** (anderes Repo, fertig und verifiziert).
 
+Ausdruecklich **doch** Teil der Aufgabe, obwohl es geteilten Code beruehrt: die
+`trustedSource`-Erweiterung in `attachments/services/attachment-validation.ts`
+und im `Options`-Typ (siehe „Vorgabe: `ACTIVE`"). Das ist die einzige Stelle
+ausserhalb der Integration, die geaendert wird — bewusst minimal, additiv und
+mit Standardwert `false`, damit bestehendes Verhalten unveraendert bleibt.
+
 Ergebnis ist ein Pull Request gegen den ueblichen Zielbranch, nicht ein
 Direktpush.
 
@@ -172,9 +178,10 @@ await attachmentService.addAttachments(
     is_public: false,
     document_type_id: DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL, // 17
     document_date: new Date(),
-    status_id: STATUS_ID.DRAFT,                               // 1 — siehe unten
+    status_id: STATUS_ID.ACTIVE,                              // 2 — Vorgabe
   }],
-  callerSeller
+  callerSeller,
+  { returning: 'id', trustedSource: true }                    // siehe unten
 );
 ```
 
@@ -185,7 +192,8 @@ Verifizierte Referenzen:
   `apps/backend/packages/ci-backend/src/attachments/services/attachment.ts`
 - `ClippingObject` / `NewAttachmentInput` in
   `apps/backend/packages/ci-backend/src/attachments/services/attachment-validation.ts`
-- `DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL = 17`, `STATUS_ID.DRAFT = 1` in
+- `DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL = 17`, `STATUS_ID.ACTIVE = 2`,
+  `STATUS_ID.DRAFT = 1` in
   `apps/backend/packages/ci-backend/src/attachments/consts.js`
 
 ### Berechtigung: echte Rolle, kein Spoof
@@ -209,43 +217,116 @@ Verifizierte Referenzen:
 const callerSeller = { id: storedSellerId, role_id: seller.role_id };
 ```
 
-Mit `status_id: DRAFT` und `is_public: false` — beides oben schon so gesetzt —
-passieren **alle vier** erlaubten Rollen die Pruefung ohne jede Anhebung. Ein
-`role_id`-Spoof ist funktional nicht notwendig.
-
-Warum kein Spoof, obwohl es im Repo so vorkommt: `isAccessGranted` (Z. 205)
-leitet die `restrictions` aus dem **uebergebenen** `role_id` ab. Ein
-hochgestuftes `role_id: ADMIN` liefert damit leere bzw. unbeschraenkte
-`restrictions` — und `sellerPermissionCheck` laesst bei leeren `restrictions`
-jeden Kontakt durch (kein `throw` am Ende der Funktion,
+Warum kein Spoof: `isAccessGranted` (Z. 205) leitet die `restrictions` aus dem
+**uebergebenen** `role_id` ab. Ein hochgestuftes `role_id: ADMIN` liefert damit
+leere bzw. unbeschraenkte `restrictions` — und `sellerPermissionCheck` laesst bei
+leeren `restrictions` jeden Kontakt durch (kein `throw` am Ende der Funktion,
 `rbac/rbac-checker.ts`). Der Spoof umgeht also **auch** die Kundenpruefung, nicht
-nur die Rollenregel. Mit der echten Rolle greift `onlyOwn` /`onlyOwnAndSub`
+nur die Statusregel. Mit der echten Rolle greift `onlyOwn` / `onlyOwnAndSub`
 weiterhin, und ein Berater kann nur an eigenen (bzw. unterstellten) Kontakten
 ablegen.
-
-#### `DRAFT` ist hier der richtige Status — verifiziert, nicht nur konservativ
-
-`DRAFT` ist **nicht** unsichtbar, und `ACTIVE` waere fuer den Berater sogar
-schlechter. Beides am Code belegt:
-
-- Backend: `status_id` ist im Lesepfad nur ein optionaler Filter, ausgeschlossen
-  wird allein `DELETED` (`attachments/repositories/attachment.ts:149,375`).
-- Frontend: die Anhangliste fordert beide Status explizit an —
-  `?amount=100&offset=0&status_id=1&status_id=2` in
-  `angular-legacy/.../multi-files-form/multi-files-form.component.ts:98`.
-  Ein `DRAFT`-PDF ist also sichtbar.
-- `file-menu/file-menu.ts:96-133`: fuer Nicht-Admin/BO sind `canEdit`,
-  `canDelete` und `canArchive` **an `DRAFT` gebunden**. Bei `ACTIVE` verliert der
-  normale Berater diese Rechte an seinem eigenen Dokument.
-- `canVerify` (Z. 104) setzt `DRAFT` voraus: `DRAFT` ist der Zustand, aus dem
-  Backoffice ein Dokument freigibt. `ACTIVE` uebersprang diesen Schritt.
-
-`DRAFT` ist damit die Vorgabe: sichtbar, vom Berater bearbeitbar und loeschbar,
-und vom Backoffice regulaer freigebbar.
 
 Kein technischer Sammel-User (etwa `SYSTEM_SELLER_IDS.THE_CATALYST`) als
 `callerSeller`: dann verliert der Anhang die Zuordnung zum Berater, und die
 Zugriffspruefung liefe gegen einen Seller, der den Kontakt gar nicht kennt.
+
+### Vorgabe: `ACTIVE` — Statusregel per `trustedSource` erweitern
+
+Das PDF wird als `STATUS_ID.ACTIVE` (2) abgelegt. Es ist ein vom System
+erzeugtes, fertiges Beratungsprotokoll und kein Entwurf.
+
+TC-778 (`attachment-validation.ts:77-84`) verbietet den Sales-Rollen
+(`SALES_LEAD`, `SALES_FORCE`) aber genau das:
+
+```ts
+const newAttachmentsInputForSalesRolesValidator = Joi.array().items(
+  Joi.object({ status_id: Joi.any().valid(STATUS_ID.DRAFT),
+               is_public: Joi.any().valid(false) })
+).min(1);
+```
+
+Die Regel adressiert **manuelle Uploads durch Berater**. Sie wird daher nicht
+umgangen, sondern um einen ausdruecklichen Fall erweitert: Uploads aus einer
+serverseitig authentifizierten Schnittstelle. Umsetzung in drei kleinen
+Schritten:
+
+**1. `Options` um ein Flag erweitern.** Den `Options`-Typ suchen (wird in
+`services/attachment.ts` importiert, nicht dort definiert) und ergaenzen:
+
+```ts
+/**
+ * Nur fuer serverseitig authentifizierte Schnittstellen (Signatur-geprueft).
+ * Hebt ausschliesslich die TC-778-Statusregel auf. Rollen-Allowlist und
+ * rbacChecker-Kundenpruefung bleiben unberuehrt.
+ * Darf NIE aus HTTP-Eingaben gesetzt werden.
+ */
+trustedSource?: boolean;
+```
+
+**2. Flag in die Validierung durchreichen.** `addAttachments` (Z. 129) ruft
+`validateAddAttachmentInput(callerSeller, newAttachmentsInput)` bisher ohne
+`options` auf. Dritten Parameter ergaenzen und die Sales-Sonderregel
+ueberspringen, wenn er gesetzt ist:
+
+```ts
+validateAddAttachmentInput(
+  callerSeller: CallerSeller,
+  newAttachmentsInput: NewAttachmentInput[],
+  trustedSource = false
+): ValidationResult {
+  const callerSellerValidationResult = this.validateCallerSellerRole(callerSeller);
+  if (callerSellerValidationResult.error) return callerSellerValidationResult;
+
+  if (!trustedSource && this.salesRoles.includes(callerSeller.role_id)) {
+    return newAttachmentsInputForSalesRolesValidator.validate(...);
+  }
+  return { value: newAttachmentsInput };
+}
+```
+
+`validateCallerSellerRole` bleibt **vor** der Abfrage: die Rollen-Allowlist gilt
+weiter. `validateClippingObject` (Z. 187) wird nicht angetastet: die
+Kundenpruefung greift unveraendert.
+
+**3. Update-Pfad ebenfalls beruecksichtigen** — sonst bricht ein zweites
+`completed`. `validateUpdateAttachmentsInput` (Z. 154) erlaubt Sales-Rollen als
+Ziel nur `DRAFT | ARCHIVED | DELETED` und verlangt zusaetzlich, dass der
+**bestehende** Anhang `DRAFT` ist (Z. 174). Nach dem ersten `ACTIVE`-PDF wuerde
+eine Ersetzung also doppelt scheitern. `trustedSource` daher auch dort
+auswerten und ueber `addOrUpdateAttachmentsByEntityId` (Z. 598) an beide
+Teilpfade weitergeben.
+
+#### Warum das sicher ist — und was nachzuweisen ist
+
+Beide oeffentlichen Aufrufer uebergeben `options` als **festes Literal**, nicht
+aus dem Request:
+
+- REST `controllers/controller.js:255` → `{ returning: 'id' }`
+- GraphQL `controllers/graphql-controller.ts:103` → `{ returning: true }`
+
+Ein Angreifer kann `trustedSource` also nicht ueber die HTTP-Schnittstelle
+einschleusen. Das ist die tragende Annahme — sie ist per Test abzusichern:
+
+1. Ein Test, der `trustedSource` in einer REST-/GraphQL-Nutzlast mitschickt und
+   nachweist, dass eine Sales-Rolle damit **kein** `ACTIVE` erzeugen kann.
+2. Ein Test, dass eine Sales-Rolle ohne Flag weiterhin auf `DRAFT` +
+   `is_public: false` beschraenkt bleibt (TC-778 unveraendert).
+3. Ein Test, dass mit Flag die Kundenpruefung weiter greift: fremder Kontakt →
+   `EntityForbiddenError`.
+4. Ein Test fuer das zweite `completed` (Ersetzung eines `ACTIVE`-Anhangs).
+
+`is_public` bleibt in **allen** Faellen `false`. Das Flag lockert nur den Status.
+
+#### Bewusste Folge im UI
+
+`file-menu/file-menu.ts:96-133` bindet `canEdit`, `canDelete` und `canArchive`
+fuer Nicht-Admin/BO an `DRAFT`; `canVerify` (Z. 104) ebenfalls. Ein
+`ACTIVE`-Dokument kann ein normaler Berater daher nicht mehr aendern oder
+loeschen, und es durchlaeuft keine Backoffice-Freigabe. Fuer ein maschinell
+erzeugtes Protokoll ist das gewollt: es soll nicht von Hand editierbar sein.
+Sichtbar ist es in jedem Fall — die Anhangliste fordert `status_id=1&status_id=2`
+an (`multi-files-form.component.ts:98`), und im Lesepfad wird nur `DELETED`
+ausgeschlossen (`repositories/attachment.ts:149,375`).
 
 #### Wenn die Rolle nicht erlaubt ist
 
@@ -439,7 +520,8 @@ Signaturen, keine Kundendaten in die PR schreiben.
 2. Flag an, "Analyse erstellen" in Angular → Analyse-Tool oeffnet, Berater ist
    angemeldet, Kontaktdaten sind vorbefuellt.
 3. Analyse abschliessen → `completed` kommt an, PDF liegt als
-   Beratungsprotokoll am Kontakt.
+   Beratungsprotokoll am Kontakt, Status `ACTIVE`, und ist in der Anhangliste
+   des Kontakts sichtbar (mit einer Sales-Rolle geprueft, nicht als Admin).
 4. Dasselbe Ereignis zweimal zugestellt → genau ein Anhang, kein Duplikat.
 5. Ereignis mit falscher Signatur → 401, keine Datenaenderung.
 6. Ereignis mit Zeitstempel aelter als 5 Minuten → abgewiesen.

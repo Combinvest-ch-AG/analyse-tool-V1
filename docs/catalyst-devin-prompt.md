@@ -119,8 +119,8 @@ Damit `getAnalysisOpenUrl` und die Liste einen Wiedereinstieg finden.
 Neuer REST-Endpunkt, passend zum bestehenden Muster in
 `apps/backend/packages/ci-backend/src/analyses-riskine/controller/rest-controller.ts`.
 
-Empfaengt die Ereignisse `analysis.opened` / `analysis.saved` /
-`analysis.completed`. Reihenfolge zwingend:
+Empfaengt die Ereignisse `opened` / `saved` / `completed` — so, ohne Praefix, im
+Header `X-Combinvest-Event` und im Body-Feld `event`. Reihenfolge zwingend:
 
 1. **Signatur zuerst pruefen, ueber den Rohkoerper.** HMAC-SHA256 ueber
    `` `${timestamp}.${rawBody}` ``, Secret = gemeinsames Webhook-Secret.
@@ -132,7 +132,7 @@ Empfaengt die Ereignisse `analysis.opened` / `analysis.saved` /
 3. `external_id` in `combinvest_analyses` auflösen. Unbekannt → 404, nicht 500.
 4. `status`/`last_event_at` fortschreiben. **Idempotent**: dasselbe Ereignis
    zweimal darf keinen zweiten Datensatz und keine zweite Datei erzeugen.
-5. Bei `analysis.completed` das PDF ablegen (unten).
+5. Bei `completed` das PDF ablegen (unten).
 6. Immer schnell mit 2xx antworten. Schwere Arbeit asynchron — das Analyse-Tool
    hat ein kurzes Timeout und wiederholt bei Fehlern.
 
@@ -152,7 +152,7 @@ beide Bausteine existieren bereits.
    Diese URL ist **kurzlebig signiert (10 Minuten)** — sofort laden, nicht
    speichern und spaeter verwenden.
    Quelle: `GET /api/integration/v1/sessions/{externalId}` → `report.downloadUrl`.
-   Sie steht auch im `analysis.completed`-Ereignis.
+   Sie steht auch im `completed`-Ereignis.
 
 2. Hochladen und anhaengen:
 
@@ -172,7 +172,7 @@ await attachmentService.addAttachments(
     is_public: false,
     document_type_id: DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL, // 17
     document_date: new Date(),
-    status_id: STATUS_ID.ACTIVE,                              // 2
+    status_id: STATUS_ID.DRAFT,                               // 1 — siehe unten
   }],
   callerSeller
 );
@@ -185,13 +185,49 @@ Verifizierte Referenzen:
   `apps/backend/packages/ci-backend/src/attachments/services/attachment.ts`
 - `ClippingObject` / `NewAttachmentInput` in
   `apps/backend/packages/ci-backend/src/attachments/services/attachment-validation.ts`
-- `DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL = 17`, `STATUS_ID.ACTIVE = 2` in
+- `DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL = 17`, `STATUS_ID.DRAFT = 1` in
   `apps/backend/packages/ci-backend/src/attachments/consts.js`
 
-Hinweis zur Berechtigung: `addAttachments` validiert gegen einen `callerSeller`.
-Im Webhook gibt es keine Session, also den in `combinvest_analyses.seller_id`
-gespeicherten eroeffnenden Berater laden und als `callerSeller` uebergeben.
-Keinen Admin-Bypass einbauen — sonst umgeht die Ablage die Rollenpruefung.
+### Berechtigung: dem bestehenden Muster folgen
+
+`addAttachments` prueft `callerSeller` zweifach: eine Rollenregel (TC-778 —
+Sales-Rollen duerfen nur `DRAFT` und `is_public: false`, und Rollen ausserhalb
+`[ADMIN, BACKOFFICE, SALES_LEAD, SALES_FORCE]` gar nichts) und getrennt davon
+den echten Kundenzugriff ueber `rbacChecker`.
+
+Fuer genau diesen Fall gibt es bereits ein Vorbild im Repo — eine externe
+Integration, die eine Datei am Kontakt ablegt:
+`apps/backend/packages/ci-backend/src/external-integration/services/external-integration.ts:132`
+
+```ts
+const callerSeller = { id: sellerId, role_id: COMBINVEST_ROLES.ADMIN };
+// ... status_id: 1  (= DRAFT)
+```
+
+Diesem Muster folgen, mit dem in `combinvest_analyses.seller_id` gespeicherten
+eroeffnenden Berater als `id`:
+
+```ts
+const callerSeller = { id: storedSellerId, role_id: COMBINVEST_ROLES.ADMIN };
+```
+
+Begruendung, damit die Absicht klar ist:
+- Die `id` bleibt der **echte** Berater. Die Nachvollziehbarkeit bleibt erhalten,
+  und der Kundenzugriff wird weiterhin gegen diese Person geprueft.
+- `role_id: ADMIN` passiert allein die Rollenregel. Ohne das schlaegt die Ablage
+  fuer Sales-Berater und fuer Rollen ausserhalb der vier erlaubten fehl — das PDF
+  waere verloren.
+- `status_id: DRAFT` ist bewusst der konservative Wert und deckt sich mit dem
+  Vorbild. `DRAFT` bedeutet **nicht** unsichtbar: im Lesepfad ist `status_id`
+  ein optionaler Filter, ausgeschlossen wird nur `DELETED`
+  (`attachments/repositories/attachment.ts:149,375`).
+
+Kein technischer Sammel-User (etwa `SYSTEM_SELLER_IDS.THE_CATALYST`) als
+`callerSeller`: dann verliert der Anhang die Zuordnung zum Berater, und die
+Zugriffspruefung liefe gegen einen Seller, der den Kontakt gar nicht kennt.
+
+Ersetzt ein spaeteres `completed` ein vorhandenes PDF, `addOrUpdateAttachmentsByEntityId`
+statt `addAttachments` nutzen, damit keine Dubletten entstehen.
 
 Ersetzt ein spaeteres `completed` ein vorhandenes PDF, `addOrUpdateAttachmentsByEntityId`
 statt `addAttachments` nutzen, damit keine Dubletten entstehen.
@@ -329,14 +365,14 @@ Gegen die echte Instanz sinnvoll:
 - Fehlerfaelle: falscher Token → 401, unbekannte `externalId` → 404
 
 Der **Rueckkanal wird nicht gegen Produktion getestet**, sondern lokal: die
-Ereignisse `analysis.opened/saved/completed` werden mit dem Webhook-Secret
+Ereignisse `opened` / `saved` / `completed` werden mit dem Webhook-Secret
 selbst signiert und an den eigenen Endpunkt geschickt. So sind Signaturpruefung,
 Replay-Fenster, Idempotenz und PDF-Ablage vollstaendig pruefbar, ohne auf ein
 echtes Ereignis zu warten. Signatur-Erzeugung fuer Tests:
 
 ```ts
 const raw = JSON.stringify(payload);
-const timestamp = Math.floor(Date.now() / 1000).toString();
+const timestamp = Date.now().toString(); // MILLISEKUNDEN, wie die Gegenseite
 const signature = crypto
   .createHmac('sha256', process.env.COMBINVEST_ANALYSIS_WEBHOOK_SECRET)
   .update(`${timestamp}.${raw}`)
@@ -361,7 +397,7 @@ Signaturen, keine Kundendaten in die PR schreiben.
 1. Flag aus → Verhalten unveraendert, Riskine wie bisher. Keine Regression.
 2. Flag an, "Analyse erstellen" in Angular → Analyse-Tool oeffnet, Berater ist
    angemeldet, Kontaktdaten sind vorbefuellt.
-3. Analyse abschliessen → `analysis.completed` kommt an, PDF liegt als
+3. Analyse abschliessen → `completed` kommt an, PDF liegt als
    Beratungsprotokoll am Kontakt.
 4. Dasselbe Ereignis zweimal zugestellt → genau ein Anhang, kein Duplikat.
 5. Ereignis mit falscher Signatur → 401, keine Datenaenderung.

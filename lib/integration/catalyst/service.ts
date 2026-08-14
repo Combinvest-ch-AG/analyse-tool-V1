@@ -11,6 +11,7 @@ import { CONTRACT_VERSION, type SessionCreateInput, type SessionResult } from ".
 import { createDeeplinkToken } from "./auth"
 import { getCatalystConfig } from "./config"
 import { mapLegacyRiskineContact, mapLegacyRiskineInput } from "./legacy-riskine"
+import { buildReportHandoff } from "./report-pdf"
 import { AREAS, needScore, progressPercent, scores, type WizardAnswers } from "@/lib/wizard/schema"
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -102,11 +103,24 @@ async function resolveCustomer(
     }
   }
 
+  // DB-Constraint: private Kunden brauchen einen Namen, Firmen einen Firmennamen.
+  // Lieber hier klar scheitern als eine unlesbare Constraint-Meldung liefern.
+  const customerType = contact.companyName ? "company" : "private"
+  const hasName =
+    customerType === "company"
+      ? Boolean(cleaned.company_name)
+      : Boolean(cleaned.first_name || cleaned.last_name)
+  if (!hasName) {
+    throw new Error(
+      "Kontakt ohne Namen: firstName/lastName (oder companyName) sind fuer die Anlage erforderlich.",
+    )
+  }
+
   const { data, error } = await admin
     .from("customers")
     .insert({
       organization_id: organizationId,
-      customer_type: contact.companyName ? "company" : "private",
+      customer_type: customerType,
       status: "active",
       source: "catalyst",
       ...cleaned,
@@ -165,7 +179,8 @@ export async function createCatalystSession(
       .select("id")
       .eq("organization_id", organizationId)
       .eq("customer_id", customerId)
-      .eq("status", "in_progress")
+      // "draft" und "in_progress" gelten in der App beide als offen.
+      .in("status", ["draft", "in_progress"])
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -326,6 +341,7 @@ export async function buildSessionResult(externalId: string): Promise<SessionRes
     notes: snapshot.notes ?? {},
     contracts: snapshot.contracts ?? {},
     closing: snapshot.closing ?? null,
+    report: await buildReportHandoff(analysis.data.id as string),
     documents,
   }
 }

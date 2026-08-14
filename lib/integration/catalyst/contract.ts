@@ -166,6 +166,19 @@ export const sessionResultSchema = z
     notes: z.record(z.string(), z.string()),
     contracts: z.record(z.string(), z.unknown()),
     closing: z.record(z.string(), z.unknown()).nullable(),
+    /**
+     * Zusammenfassungs-PDF der Analyse (Beratungsprotokoll). Catalyst legt es
+     * als Datei am Kontakt ab (DOCUMENT_TYPE_ID.CONSULTATION_PROTOCOL).
+     */
+    report: z
+      .object({
+        title: z.string(),
+        /** Kurzlebige signierte URL. */
+        downloadUrl: z.string().nullable(),
+        mimeType: z.string(),
+        generatedAt: z.string().nullable(),
+      })
+      .nullable(),
     documents: z.array(
       z.object({
         id: z.string(),

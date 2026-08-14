@@ -14,8 +14,7 @@
  * gleichen Link fuehrt zur Login-Seite statt zu einer stillen Uebernahme.
  */
 
-import { NextResponse } from "next/server"
-import { after } from "next/server"
+import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { getCatalystConfig, isCatalystReady } from "@/lib/integration/catalyst/config"

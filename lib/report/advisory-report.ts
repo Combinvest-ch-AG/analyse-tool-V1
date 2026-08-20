@@ -305,8 +305,6 @@ const INPUT_LABELS: Record<string, string> = {
   cause: "Ursache",
   degree: "IV-Grad",
   children: "Kinder",
-  ahvMode: "AHV-Grundlage",
-  bvgMode: "BVG-Grundlage",
   insuredSalary: "Versicherter Lohn",
   capital: "Altersguthaben",
   iv: "IV-Rente pro Jahr",
@@ -330,15 +328,6 @@ const INPUT_VALUE_LABELS: Record<string, Record<string, string>> = {
   cause: {
     illness: "Krankheit",
     accident: "Unfall",
-  },
-  ahvMode: {
-    scale44: "AHV-Skala 44",
-    manual: "Manuelle Angabe",
-  },
-  bvgMode: {
-    minimum: "Gesetzliches Minimum",
-    certificate: "PK-Ausweis",
-    manual: "Manuelle Angabe",
   },
 }
 

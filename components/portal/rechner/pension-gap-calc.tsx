@@ -10,14 +10,12 @@ import {
   resolveValues,
   type Risk,
   type Cause,
-  type AhvMode,
-  type BvgMode,
   type ValuesByRisk,
   type ValueKey,
 } from "@/lib/engine/pension-gap"
 import { formatCHF } from "@/lib/format"
 import { seriesColor } from "@/lib/data/chart-colors"
-import { Lock, Upload, ChevronDown } from "lucide-react"
+import { Upload, RotateCcw, ChevronDown, Check } from "lucide-react"
 import { CalcActionBar, type CalcContext, type SavedCalculatorPayload } from "@/components/portal/rechner/calc-action-bar"
 
 const RISKS: Risk[] = ["iv", "retirement", "death"]
@@ -42,6 +40,17 @@ interface Props {
   ctx?: CalcContext
 }
 
+// PK-Ausweis-Erfasser: Felder aus dem Abschnitt "Versicherungsleistungen".
+type PkField = "altersrente65" | "invalidenrente" | "kinderrente" | "partnerrente" | "todesfallkapital"
+
+const PK_FIELDS: { key: PkField; label: string; target: string }[] = [
+  { key: "altersrente65", label: "Altersrente im Alter 65", target: "Pensionierung · BVG-Altersrente" },
+  { key: "invalidenrente", label: "Invalidenrente", target: "Invalidität · BVG-Invalidenrente" },
+  { key: "kinderrente", label: "Kinderrente (pro Kind)", target: "IV- & Waisen-Kinderrenten × Kinderzahl" },
+  { key: "partnerrente", label: "Hinterlassenen-/Partnerrente", target: "Todesfall · BVG Partnerrente" },
+  { key: "todesfallkapital", label: "Todesfallkapital", target: "Todesfall · 3a/Todesfallleistung (Jahr)" },
+]
+
 export function PensionGapCalc({ defaults, saved, ctx }: Props) {
   const stored = saved?.inputs as Record<string, unknown> | undefined
   const [risk, setRisk] = useState<Risk>(RISKS.includes(stored?.risk as Risk) ? stored?.risk as Risk : "iv")
@@ -52,16 +61,25 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
   const [cause, setCause] = useState<Cause>(stored?.cause === "accident" ? "accident" : "illness")
   const [degree, setDegree] = useState(Number(stored?.degree) || 100)
   const [children, setChildren] = useState(Number(stored?.children) || defaults?.children || 0)
-  const [ahvMode, setAhvMode] = useState<AhvMode>(stored?.ahvMode === "manual" ? "manual" : "scale44")
   const [averageIncome, setAverageIncome] = useState(Number(stored?.averageIncome) || 0)
   const [contributionGaps, setContributionGaps] = useState(Number(stored?.contributionGaps) || 0)
-  const [bvgMode, setBvgMode] = useState<BvgMode>(stored?.bvgMode === "statement" ? "statement" : "minimum")
   const [manual, setManual] = useState<ValuesByRisk>(
     stored?.manual && typeof stored.manual === "object" ? stored.manual as ValuesByRisk : emptyValues(),
   )
   const [period, setPeriod] = useState<"year" | "month">(stored?.period === "month" ? "month" : "year")
-  const [expert, setExpert] = useState(false)
   const [pkFileName, setPkFileName] = useState("")
+  const [pkOpen, setPkOpen] = useState(false)
+  const [pk, setPk] = useState<Record<PkField, string>>(() => {
+    const s = stored?.pkAusweis as Partial<Record<PkField, number>> | undefined
+    return {
+      altersrente65: s?.altersrente65 ? String(s.altersrente65) : "",
+      invalidenrente: s?.invalidenrente ? String(s.invalidenrente) : "",
+      kinderrente: s?.kinderrente ? String(s.kinderrente) : "",
+      partnerrente: s?.partnerrente ? String(s.partnerrente) : "",
+      todesfallkapital: s?.todesfallkapital ? String(s.todesfallkapital) : "",
+    }
+  })
+  const [pkApplied, setPkApplied] = useState(false)
 
   const inputs = {
     risk,
@@ -69,22 +87,65 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
     targetPct,
     cause,
     degree,
-    ahvMode,
     averageIncome,
     contributionGaps,
     children,
-    bvgMode,
     age,
     startAge,
   }
 
   const resolved = useMemo(() => resolveValues(inputs, manual), [
-    risk, salary, targetPct, cause, degree, ahvMode, averageIncome, contributionGaps, children, bvgMode, age, startAge, manual,
+    risk, salary, targetPct, cause, degree, averageIncome, contributionGaps, children, age, startAge, manual,
   ])
   const gap = useMemo(() => computeGap(inputs, resolved.values), [inputs, resolved.values])
 
+  // Effektiv verwendetes Ø-Einkommen für die AHV (leer = Jahreslohn).
+  const usedIncome = averageIncome > 0 ? averageIncome : salary
+
   function setValue(key: ValueKey, value: number) {
     setManual((prev) => ({ ...prev, [risk]: { ...prev[risk], [key]: value } }))
+  }
+
+  // Override zurücknehmen: Schlüssel aus manual entfernen → Feld folgt wieder dem Auto-Wert.
+  function resetValue(key: ValueKey) {
+    setManual((prev) => {
+      const next = { ...prev[risk] }
+      delete next[key]
+      return { ...prev, [risk]: next }
+    })
+  }
+
+  // PK-Ausweis-Erfasser: Rohwerte → Zuordnung auf die Override-Felder (alle drei Risiken).
+  const pkNum = (k: PkField) => Number(pk[k]) || 0
+  const pkKids = Math.max(0, children)
+
+  // Review: welche Overrides würden aus den erfassten Werten gesetzt.
+  const pkMapping = useMemo(() => {
+    const rows: { label: string; value: number }[] = []
+    if (pkNum("altersrente65") > 0) rows.push({ label: "Pensionierung · BVG-Altersrente", value: pkNum("altersrente65") })
+    if (pkNum("invalidenrente") > 0) rows.push({ label: "Invalidität · BVG-Invalidenrente", value: pkNum("invalidenrente") })
+    if (pkNum("kinderrente") > 0) {
+      rows.push({ label: `Invalidität · IV-Kinderrenten (${pkNum("kinderrente").toLocaleString("de-CH")} × ${pkKids})`, value: pkNum("kinderrente") * pkKids })
+      rows.push({ label: `Todesfall · Waisenrenten (${pkNum("kinderrente").toLocaleString("de-CH")} × ${pkKids})`, value: pkNum("kinderrente") * pkKids })
+    }
+    if (pkNum("partnerrente") > 0) rows.push({ label: "Todesfall · BVG Partnerrente", value: pkNum("partnerrente") })
+    if (pkNum("todesfallkapital") > 0) rows.push({ label: "Todesfall · 3a/Todesfallleistung (Jahr)", value: pkNum("todesfallkapital") })
+    return rows
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pk, pkKids])
+
+  function applyPkAusweis() {
+    setManual((prev) => {
+      const next: ValuesByRisk = { iv: { ...prev.iv }, retirement: { ...prev.retirement }, death: { ...prev.death } }
+      if (pkNum("invalidenrente") > 0) next.iv.bvg = pkNum("invalidenrente")
+      if (pkNum("kinderrente") > 0) next.iv.bvgChild = pkNum("kinderrente") * pkKids
+      if (pkNum("altersrente65") > 0) next.retirement.bvg = pkNum("altersrente65")
+      if (pkNum("partnerrente") > 0) next.death.bvg = pkNum("partnerrente")
+      if (pkNum("kinderrente") > 0) next.death.bvgChild = pkNum("kinderrente") * pkKids
+      if (pkNum("todesfallkapital") > 0) next.death.third = pkNum("todesfallkapital")
+      return next
+    })
+    setPkApplied(true)
   }
 
   const coverPct = Math.round(gap.cover)
@@ -113,12 +174,11 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
           cause,
           degree,
           children,
-          ahvMode,
           averageIncome,
           contributionGaps,
-          bvgMode,
           manual,
           period,
+          pkAusweis: Object.fromEntries(PK_FIELDS.map((f) => [f.key, pkNum(f.key)])),
         },
         results: [
           `Risiko ${RISK_LABELS[risk]}`,
@@ -137,14 +197,14 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
         setCause("illness")
         setDegree(100)
         setChildren(defaults?.children ?? 0)
-        setAhvMode("scale44")
         setAverageIncome(0)
         setContributionGaps(0)
-        setBvgMode("minimum")
         setManual(emptyValues())
         setPeriod("year")
-        setExpert(false)
         setPkFileName("")
+        setPkOpen(false)
+        setPkApplied(false)
+        setPk({ altersrente65: "", invalidenrente: "", kinderrente: "", partnerrente: "", todesfallkapital: "" })
       }}
     />
     <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
@@ -195,6 +255,19 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
                 className="mt-3 w-full accent-[var(--color-primary)]"
               />
             </div>
+            <div>
+              <MoneyInput label="Ø Jahreseinkommen (AHV-Basis)" value={averageIncome} onChange={setAverageIncome} />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                Grundlage der AHV-Renten. Leer = Jahreslohn. Verwendet: {formatCHF(usedIncome)}.
+              </p>
+            </div>
+            <NumberInput
+              label="AHV-Beitragslücken (Jahre)"
+              value={contributionGaps}
+              onChange={setContributionGaps}
+              min={0}
+              max={43}
+            />
             <NumberInput label="Alter" value={age} onChange={setAge} min={18} max={65} />
             <NumberInput label="BVG-Eintrittsalter" value={startAge} onChange={setStartAge} min={18} max={age} />
           </div>
@@ -250,67 +323,122 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
           </div>
         )}
 
-        {/* Automatic engine toggles */}
+        {/* Automatisch berechnete Grundlagen */}
         <div className="rounded-2xl border border-border bg-card p-5">
-          <SectionHeading n={3} title="Pensionskasse & automatische Berechnung" />
-
-          {/* PK-Ausweis: switch to statement mode + reveal manual BVG fields */}
-          <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background px-4 py-3 transition-colors hover:border-primary/50">
-            <span className="flex items-center gap-2.5">
-              <Upload className="h-4 w-4 text-primary" aria-hidden="true" />
-              <span className="text-sm font-semibold text-foreground">
-                {pkFileName ? pkFileName : "PK-Ausweis erfassen"}
-              </span>
-            </span>
-            <span className="text-[11px] font-semibold text-muted-foreground">
-              {pkFileName ? "Werte manuell übertragen" : "PDF/Bild wählen"}
-            </span>
-            <input
-              type="file"
-              accept="application/pdf,image/*"
-              className="sr-only"
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (!f) return
-                setPkFileName(f.name)
-                setBvgMode("statement")
-                setExpert(true)
-              }}
-            />
-          </label>
-          <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
-            Übertragen Sie die Renten aus dem Vorsorgeausweis unten in die Expertenfelder. Ohne Ausweis rechnen wir mit
-            dem BVG-Minimum.
+          <SectionHeading n={3} title="Automatisch berechnete Grundlagen" />
+          <p className="mt-3 text-[11.5px] leading-relaxed text-muted-foreground">
+            AHV und BVG-Minimum werden laufend aus Einkommen und Grunddaten berechnet. Jeder Wert lässt sich unten
+            jederzeit überschreiben – das Rücksetz-Symbol stellt den automatischen Wert wieder her.
           </p>
 
-          <div className="mt-4 flex flex-col gap-3">
-            <ToggleRow
-              label="AHV/IV-Rente nach Skala 44"
-              on={ahvMode === "scale44"}
-              onToggle={() => setAhvMode(ahvMode === "scale44" ? "manual" : "scale44")}
-            />
-            {ahvMode === "scale44" && risk !== "death" && (
-              <div className="grid gap-4 rounded-lg bg-background p-3 sm:grid-cols-2">
-                <div>
-                  <MoneyInput label="Ø Jahreseinkommen (optional)" value={averageIncome} onChange={setAverageIncome} />
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                    Leer = Jahreslohn von {formatCHF(salary)} verwenden.
-                  </p>
+          {/* PK-Ausweis-Erfasser: Ausweis als Referenz + strukturierte Erfassung → Overrides. */}
+          <div className="mt-4 rounded-xl border border-dashed border-border bg-background">
+            <label className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition-colors hover:border-primary/50">
+              <span className="flex items-center gap-2.5">
+                <Upload className="h-4 w-4 text-primary" aria-hidden="true" />
+                <span className="text-sm font-semibold text-foreground">
+                  {pkFileName ? pkFileName : "PK-Ausweis hochladen (Referenz)"}
+                </span>
+              </span>
+              <span className="text-[11px] font-semibold text-muted-foreground">
+                {pkFileName ? "ersetzen" : "PDF/Bild wählen"}
+              </span>
+              <input
+                type="file"
+                accept="application/pdf,image/*"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (!f) return
+                  setPkFileName(f.name)
+                  setPkOpen(true)
+                }}
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => setPkOpen((v) => !v)}
+              aria-expanded={pkOpen}
+              className="flex w-full items-center justify-between gap-2 border-t border-border px-4 py-2.5 text-left"
+            >
+              <span className="text-[13px] font-bold text-foreground">Werte aus Ausweis erfassen</span>
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground transition-transform ${pkOpen ? "rotate-180" : ""}`}
+                aria-hidden="true"
+              />
+            </button>
+
+            {pkOpen && (
+              <div className="border-t border-border px-4 py-4">
+                <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+                  Aus dem Abschnitt „Versicherungsleistungen" des Ausweises übertragen. Die Werte werden geprüft und dann
+                  als Overrides in die Leistungsfelder übernommen (alle drei Risiken).
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {PK_FIELDS.map((f) => (
+                    <label key={f.key} className="block">
+                      <span className="text-[13px] font-semibold text-foreground">{f.label}</span>
+                      <div className="mt-1 flex items-center rounded-md border border-border bg-card focus-within:border-primary">
+                        <span className="pl-2.5 text-xs text-muted-foreground">CHF</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={pk[f.key]}
+                          onChange={(e) => {
+                            setPk((s) => ({ ...s, [f.key]: e.target.value }))
+                            setPkApplied(false)
+                          }}
+                          placeholder="0"
+                          className="w-full bg-transparent px-2 py-2 text-right text-sm tabular-nums text-foreground outline-none"
+                        />
+                      </div>
+                      <span className="mt-0.5 block text-[10.5px] text-muted-foreground">→ {f.target}</span>
+                    </label>
+                  ))}
                 </div>
-                <NumberInput
-                  label="Beitragslücken (Jahre)"
-                  value={contributionGaps}
-                  onChange={setContributionGaps}
-                  min={0}
-                  max={43}
-                />
+
+                {pkMapping.length > 0 && (
+                  <div className="mt-4 rounded-lg bg-muted/50 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                      Vorschau: diese Overrides werden gesetzt
+                    </p>
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {pkMapping.map((row) => (
+                        <li key={row.label} className="flex items-center justify-between gap-3 text-[12.5px]">
+                          <span className="text-muted-foreground">{row.label}</span>
+                          <span className="font-semibold tabular-nums text-foreground">{formatCHF(row.value)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {pkKids === 0 && (pkNum("kinderrente") > 0) && (
+                      <p className="mt-2 text-[11px] font-semibold text-destructive">
+                        Kinderzahl ist 0 – Kinderrenten ergeben CHF 0. Kinderzahl oben in Sektion 2 erfassen.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-4 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={applyPkAusweis}
+                    disabled={pkMapping.length === 0}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    <Check className="h-4 w-4" aria-hidden="true" />
+                    Werte übernehmen
+                  </button>
+                  {pkApplied && (
+                    <span className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-success">
+                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                      Übernommen – unten als „Überschrieben" markiert
+                    </span>
+                  )}
+                </div>
               </div>
             )}
-            <ToggleRow
-              label="BVG-Leistungen (Minimum) schätzen"
-              on={bvgMode === "minimum"}
-              onToggle={() => setBvgMode(bvgMode === "minimum" ? "statement" : "minimum")}
-            />
           </div>
 
           {(resolved.ahvCalc || resolved.bvgEstimate) && (
@@ -319,7 +447,7 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
                 <div className="rounded-xl border border-success/20 bg-success/5 px-3 py-2.5">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-success">AHV automatisch</p>
                   <p className="mt-1 text-sm font-bold tabular-nums text-foreground">
-                    {formatCHF(resolved.values[risk].ahv || 0)} / Jahr
+                    {formatCHF(resolved.auto[risk].ahv || 0)} / Jahr
                   </p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     Skala {resolved.ahvCalc.scale}, Einkommen {formatCHF(resolved.ahvCalc.income)}
@@ -341,31 +469,16 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
           )}
         </div>
 
-        {/* Manual / resolved values — expert overrides */}
+        {/* Leistungen – automatisch berechnet, jederzeit überschreibbar */}
         <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center justify-between gap-3">
-            <SectionHeading n={4} title={`${RISK_HEADINGS[risk]} (Jahresbeträge)`} />
-            <button
-              type="button"
-              onClick={() => setExpert((v) => !v)}
-              aria-expanded={expert}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[11px] font-bold text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-            >
-              Expertenfelder
-              <ChevronDown
-                className={`h-3.5 w-3.5 transition-transform ${expert ? "rotate-180" : ""}`}
-                aria-hidden="true"
-              />
-            </button>
-          </div>
+          <SectionHeading n={4} title={`${RISK_HEADINGS[risk]} (Jahresbeträge)`} />
           <div className="mt-4 flex flex-col gap-3">
             {CONFIGS[risk]
               .filter(([key]) => !(risk === "iv" && key === "uvg" && cause !== "accident"))
               .map(([key, name]) => {
-                const locked = !!resolved.locked[key]
+                const isAuto = !!resolved.autoKeys[risk][key]
+                const overridden = manual[risk][key] !== undefined
                 const value = resolved.values[risk][key] || 0
-                // Editable only in expert mode; otherwise show the resolved value read-only.
-                const editable = expert && !locked
                 return (
                   <div key={key} className="flex items-center gap-3">
                     <span
@@ -373,32 +486,46 @@ export function PensionGapCalc({ defaults, saved, ctx }: Props) {
                       style={{ backgroundColor: COLORS[key] }}
                       aria-hidden="true"
                     />
-                    <label className="flex-1 text-sm text-foreground">{name}</label>
-                    {editable ? (
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        value={value || ""}
-                        onChange={(e) => setValue(key, Number(e.target.value) || 0)}
-                        className="w-36 rounded-md border border-border bg-background px-3 py-1.5 text-right text-sm tabular-nums text-foreground focus:border-primary focus:outline-none"
-                        placeholder="0"
-                      />
+                    <label className="flex-1 text-sm text-foreground">
+                      {name}
+                      {isAuto && (
+                        <span
+                          className={`ml-2 inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                            overridden ? "bg-primary/10 text-primary" : "bg-success/10 text-success"
+                          }`}
+                        >
+                          {overridden ? "Überschrieben" : "Auto"}
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      value={value || ""}
+                      onChange={(e) => setValue(key, Number(e.target.value) || 0)}
+                      className="w-32 rounded-md border border-border bg-background px-3 py-1.5 text-right text-sm tabular-nums text-foreground focus:border-primary focus:outline-none"
+                      placeholder="0"
+                    />
+                    {isAuto && overridden ? (
+                      <button
+                        type="button"
+                        onClick={() => resetValue(key)}
+                        title="Automatischen Wert wiederherstellen"
+                        aria-label={`${name}: automatisch berechneten Wert wiederherstellen`}
+                        className="shrink-0 rounded-md border border-border bg-background p-1.5 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1.5 text-sm font-semibold tabular-nums text-foreground">
-                        {locked ? <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /> : null}
-                        {formatCHF(value)}
-                      </span>
+                      <span className="w-7 shrink-0" aria-hidden="true" />
                     )}
                   </div>
                 )
               })}
           </div>
-          {!expert && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Werte automatisch berechnet. Über „Expertenfelder" können Sie einzelne Renten aus dem Vorsorgeausweis
-              überschreiben.
-            </p>
-          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            Automatisch aus Einkommen und Grunddaten berechnet. Tippen Sie einen Betrag ein, um ihn zu überschreiben.
+          </p>
           {resolved.childCapped && (
             <p className="mt-3 text-xs text-muted-foreground">
               Kinderrenten wurden auf die 90 %-Überentschädigungsgrenze gekürzt.
@@ -623,24 +750,4 @@ function NumberInput({
   )
 }
 
-function ToggleRow({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex items-center justify-between gap-3 text-left"
-      aria-pressed={on}
-    >
-      <span className="text-sm text-foreground">{label}</span>
-      <span
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? "bg-primary" : "bg-muted"}`}
-      >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-            on ? "translate-x-[22px]" : "translate-x-0.5"
-          }`}
-        />
-      </span>
-    </button>
-  )
-}
+

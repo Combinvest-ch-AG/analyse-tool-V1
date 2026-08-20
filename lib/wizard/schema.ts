@@ -44,7 +44,7 @@ const chf = (v: number) => "CHF " + Number(v).toLocaleString("de-CH")
 
 /* =============== Fragenkatalog =============== */
 export const QUESTIONS: Question[] = [
-  { id: "geschlecht", t: "Geschlecht", type: "single", opts: [["M", "Männlich"], ["W", "Weiblich"], ["divers", "Divers"]] },
+  { id: "geschlecht", t: "Geschlecht", type: "single", opts: [["M", "Männlich"], ["W", "Weiblich"]] },
   { id: "alter", t: "Wann sind Sie geboren?", sub: "Ihr Alter in Jahren", type: "slider", min: 18, max: 80, def: 35, fmt: (v) => v + " Jahre" },
   {
     id: "sport",
@@ -169,22 +169,22 @@ export const QUESTIONS: Question[] = [
     directInput: true,
   },
   {
-    id: "kk_prio", t: "Was ist Ihnen bei der Krankenversicherung wichtig?", sub: "Mehrfachauswahl möglich", type: "multi",
-    opts: [["arztwahl", "Freie Arztwahl"], ["spitalwahl", "Freie Spitalwahl (CH)"], ["privat", "Privat / Halbprivat"], ["preis", "Bestes Preis-Leistungs-Verhältnis"], ["deckung", "Umfassende Deckung"]],
+    id: "kk_prio", t: "Was ist Ihnen bei der Gesundheitsvorsorge wichtig?", sub: "Mehrfachauswahl möglich", type: "multi",
+    opts: [["deckung", "Optimale Deckung"], ["preis", "Bestes Preis-Leistungs-Verhältnis"], ["wartezeiten", "Kurze Wartezeiten"], ["arztwahl", "Freie Arztwahl"], ["rueckerstattung", "Hohe Rückerstattungen"]],
   },
   {
     id: "invaliditaet_ziel",
     t: "Was ist Ihnen bei Invalidität wichtig?",
     sub: "Mehrfachauswahl möglich",
     type: "multi",
-    opts: [["ahv_bvg_pruefen", "Leistungen aus AHV/IV und BVG kennen"], ["lebensstandard", "Lebensstandard sichern"], ["unabhaengig_ahv_bvg", "Zusätzlich unabhängig von AHV/BVG absichern"], ["familie", "Familie finanziell entlasten"]],
+    opts: [["kapital", "Einmalige Kapitalleistung bei Invalidität (Unfall und Krankheit)"], ["ahv_bvg_pruefen", "Leistungen bei Invalidität kennen"], ["lohn", "Lohn absichern bei Invalidität"], ["lebensstandard", "Lebensstandard beibehalten trotz Invalidität"]],
   },
   {
     id: "pension_ziel",
     t: "Was ist Ihnen für die Pensionierung wichtig?",
     sub: "Mehrfachauswahl möglich",
     type: "multi",
-    opts: [["ahv_bvg_ergaenzen", "AHV und BVG gezielt ergänzen"], ["lebensstandard", "Lebensstandard erhalten"], ["fruehpension", "Frühpensionierung ermöglichen"], ["flexibilitaet", "Finanziell flexibel bleiben"]],
+    opts: [["fruehpension", "Frühpensionierung ermöglichen"], ["staatsunabhaengig", "Unabhängigkeit von staatlichen Rentenleistungen"], ["lebensstandard", "Lebensstandard beibehalten"], ["vorsorgeluecke", "Vorsorgelücke in Pension schliessen"]],
   },
   {
     id: "tod_ziel",
@@ -195,15 +195,15 @@ export const QUESTIONS: Question[] = [
     exclusive: "kein_bedarf",
   },
   {
-    id: "ziele", t: "Welche finanziellen Ziele verfolgen Sie?", sub: "Mehrfachauswahl möglich", type: "multi",
-    opts: [["vermoegensaufbau", "Vermögensaufbau"], ["eigenheim", "Eigenheim"], ["rendite", "Renditeobjekt"], ["fruehpension", "Frühpensionierung"], ["selbstaendigkeit", "Selbständigkeit planen"], ["steuer", "Steueroptimierung"], ["freiheit", "Finanzielle Freiheit"]],
-  },
-  {
     id: "liquiditaet",
     t: "Wie hoch ist Ihr aktuell frei verfügbares Vermögen?",
     sub: "Kontoguthaben und kurzfristig verfügbare Anlagen – ohne gebundene Vorsorge und selbstbewohntes Wohneigentum.",
     type: "single",
     opts: [["bis20", "Bis CHF 20’000"], ["20bis50", "CHF 20’001–50’000"], ["50bis100", "CHF 50’001–100’000"], ["100bis250", "CHF 100’001–250’000"], ["ueber250", "Mehr als CHF 250’000"]],
+  },
+  {
+    id: "ziele", t: "Welche finanziellen Ziele verfolgen Sie?", sub: "Mehrfachauswahl möglich", type: "multi",
+    opts: [["vermoegensaufbau", "Vermögensaufbau"], ["eigenheim", "Eigenheim"], ["rendite", "Renditeobjekt"], ["fruehpension", "Frühpensionierung"], ["selbstaendigkeit", "Selbständigkeit planen"], ["freiheit", "Finanzielle Freiheit"]],
   },
 ]
 
@@ -281,12 +281,12 @@ export function scores(answers: WizardAnswers): Record<AreaKey, number> {
   return {
     health: clamp(2 + (age > 50 ? 1 : 0) + (age > 65 ? 1 : 0) + (usesTobacco(answers) ? 1 : 0)
       + (answers.sport === "nein" ? 1 : 0) - (answers.sport === "regelmaessig" ? 1 : 0)
-      + (has(answers, "kk_prio", "privat") || has(answers, "kk_prio", "deckung") ? 1 : 0)),
+      + (has(answers, "kk_prio", "deckung") || has(answers, "kk_prio", "rueckerstattung") ? 1 : 0)),
 
     pensiongap: clamp(2 + (age >= 30 ? 1 : 0) + (age >= 48 ? 1 : 0)
       + (answers.erwerb === "selbstaendig" ? 1 : 0)
-      + (hasAny(answers, "invaliditaet_ziel", ["ahv_bvg_pruefen", "unabhaengig_ahv_bvg", "lebensstandard"])
-        || hasAny(answers, "pension_ziel", ["ahv_bvg_ergaenzen", "fruehpension", "lebensstandard"])
+      + (hasAny(answers, "invaliditaet_ziel", ["ahv_bvg_pruefen", "lebensstandard", "lohn", "kapital"])
+        || hasAny(answers, "pension_ziel", ["fruehpension", "lebensstandard", "vorsorgeluecke", "staatsunabhaengig"])
         || has(answers, "ziele", "fruehpension")
         || has(answers, "zukunft", "staat") ? 1 : 0)),
 
@@ -313,11 +313,11 @@ export function scores(answers: WizardAnswers): Record<AreaKey, number> {
       : 0),
 
     "property-creation": clamp(1 + (answers.liquiditaet === "bis20" ? 2 : answers.liquiditaet === "20bis50" ? 1 : 0)
-      + (has(answers, "invaliditaet_ziel", "lebensstandard") || has(answers, "zukunft", "lebensstandard") ? 1 : 0)
+      + (has(answers, "invaliditaet_ziel", "lebensstandard") || has(answers, "invaliditaet_ziel", "lohn") || has(answers, "zukunft", "lebensstandard") ? 1 : 0)
       + (answers.erwerb === "selbstaendig" ? 1 : 0) + (famVerantwortung ? 1 : 0)),
 
     "tax-advantage": clamp((brutto >= 80000 ? 1 : 0) + (brutto >= 130000 ? 2 : brutto >= 100000 ? 1 : 0)
-      + (has(answers, "ziele", "steuer") ? 2 : 0) + (answers.wohnen === "eigentum" ? 1 : 0)
+      + (answers.wohnen === "eigentum" ? 1 : 0)
       + (answers.konfession && answers.konfession !== "keine" && answers.konfession !== "andere" ? 1 : 0)),
   }
 }

@@ -32,8 +32,19 @@ export function deriveSealth(answers: WizardAnswers | undefined, contracts: Cont
   const sport = typeof answers?.sport === "string" ? answers.sport : ""
   const sportLevel: 0 | 2 | 4 = sport === "regelmaessig" ? 4 : sport === "gelegentlich" ? 2 : 0
 
-  const taxRaw = typeof answers?.steuererklaerung === "string" ? answers.steuererklaerung : ""
-  const taxPref = taxRaw === "sparen" || taxRaw === "profi" || taxRaw === "selbst" ? taxRaw : null
+  // Mehrfachauswahl: höchste Service-Stufe gewinnt (profi > sparen > selbst/eigenständig).
+  const taxSel = Array.isArray(answers?.steuererklaerung)
+    ? (answers?.steuererklaerung as string[])
+    : typeof answers?.steuererklaerung === "string" && answers.steuererklaerung
+      ? [answers.steuererklaerung]
+      : []
+  const taxPref: "sparen" | "profi" | "selbst" | null = taxSel.includes("profi")
+    ? "profi"
+    : taxSel.includes("sparen")
+      ? "sparen"
+      : taxSel.includes("selbst") || taxSel.includes("eigenstaendig")
+        ? "selbst"
+        : null
 
   const rechtsschutz = findContract(contracts, "Rechtsschutz")
   const hasRechtsschutz = Boolean(rechtsschutz)

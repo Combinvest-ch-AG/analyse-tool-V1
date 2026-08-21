@@ -180,7 +180,7 @@ export function RiskCockpit({
                   role="img"
                   aria-label={`Bild zum Thema ${a.name}`}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-[rgba(15,27,54,0.72)] via-[rgba(58,87,245,0.36)] to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[rgba(10,15,30,0.85)] via-[rgba(10,15,30,0.28)] to-[rgba(10,15,30,0.12)]" />
                   <div className="relative flex items-start justify-between">
                     <span className="rounded-md bg-black/35 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
                       Priorität {rank}
@@ -250,17 +250,23 @@ export function RiskCockpit({
 
           {/* Sealth-Empfehlung – füllt den freien Board-Platz, live aus Profiling & Vertragscheck abgeleitet. */}
           <article className="flex flex-col overflow-hidden rounded-2xl border border-primary/30 bg-card ring-1 ring-primary/20">
-            <div className="relative flex h-36 flex-col justify-between bg-gradient-to-br from-[rgba(58,87,245,0.95)] via-[rgba(58,87,245,0.7)] to-[rgba(15,27,54,0.9)] p-3">
-              <div className="flex items-start justify-between">
-                <span className="inline-flex items-center gap-1 rounded-md bg-white/90 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-primary">
+            <div
+              className="relative flex h-36 flex-col justify-between bg-cover bg-center p-3"
+              style={{ backgroundImage: `url("/assets/risk/sealth.png")` }}
+              role="img"
+              aria-label="Sealth App"
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-[rgba(3,18,18,0.9)] via-[rgba(3,20,20,0.4)] to-[rgba(3,20,20,0.25)]" />
+              <div className="relative flex items-start justify-between">
+                <span className="inline-flex items-center gap-1 rounded-md bg-[rgba(20,184,166,0.95)] px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
                   <Sparkles className="h-3 w-3" aria-hidden="true" />
                   Service-Vorteil
                 </span>
-                <span className="rounded-md bg-black/25 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                <span className="rounded-md bg-black/35 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
                   Optional
                 </span>
               </div>
-              <div className="text-white">
+              <div className="relative text-white">
                 <b className="block text-sm font-extrabold uppercase tracking-wide">Empfohlen</b>
                 <small className="text-[11px] opacity-90">{sealthPlanName[sealth.recommended]}</small>
               </div>

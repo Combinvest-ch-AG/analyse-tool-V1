@@ -204,12 +204,13 @@ export const QUESTIONS: Question[] = [
   {
     id: "steuererklaerung",
     t: "Wie möchten Sie Ihre Steuererklärung erledigen?",
-    sub: "Bestimmt mit, welches Sealth-Paket am besten passt.",
-    type: "single",
+    sub: "Mehrfachauswahl möglich – bestimmt mit, welches Sealth-Paket am besten passt.",
+    type: "multi",
     opts: [
-      ["sparen", "Steuern sparen: Optimierungstipps nutzen und das Maximum herausholen"],
-      ["profi", "Professionell & digital: Komplett abgeben und von Experten ausfüllen lassen"],
-      ["selbst", "Schnell & einfach: Selbst ausfüllen mit Schritt-für-Schritt-Anleitung"],
+      ["sparen", "Steuern sparen – Maximum herausholen"],
+      ["profi", "Professionell & digital – Experten übernehmen"],
+      ["selbst", "Selbst ausfüllen – mit Anleitung"],
+      ["eigenstaendig", "Ich erledige sie selber"],
     ],
   },
   {
@@ -234,14 +235,14 @@ export type Area = {
 }
 
 export const AREAS: Area[] = [
-  { key: "health", name: "Gesundheit", image: "/assets/risk/health.webp", recommendation: "Franchise, Versicherungsmodell und Gesundheitskosten gemeinsam prüfen." },
-  { key: "pensiongap", name: "Vorsorge", image: "/assets/risk/pension.webp", recommendation: "Leistungen bei Invalidität, Pensionierung und Tod der gewünschten Absicherung gegenüberstellen." },
-  { key: "investment", name: "Vermögen aufbauen", image: "/assets/risk/investment.webp", recommendation: "Liquiditätsreserve, Anlagehorizont und geeignetes Risikoprofil bestimmen." },
-  { key: "real-estate", name: "Immobilien", image: "/assets/risk/real-estate.webp", recommendation: "Eigenkapital, Tragbarkeit und langfristige Finanzierung beurteilen." },
-  { key: "values-protection", name: "Versicherungen", image: "/assets/risk/insurance.webp", recommendation: "Bestehende Sach- und Haftpflichtrisiken auf Lücken und Doppelversicherungen prüfen." },
-  { key: "children", name: "Kinder absichern", image: "/assets/risk/children.webp", recommendation: "Versorgung der Kinder bei Erwerbsunfähigkeit und Todesfall kontrollieren." },
-  { key: "property-creation", name: "Lebensstandard beibehalten", image: "/assets/risk/living-standard.webp", recommendation: "Einkommensausfall und notwendigen Lebensstandard als Jahresbedarf berechnen." },
-  { key: "tax-advantage", name: "Steuervorteile nutzen", image: "/assets/risk/tax.webp", recommendation: "Steuerpotenzial von Vorsorge, Vermögen und Wohneigentum strukturiert prüfen." },
+  { key: "health", name: "Gesundheit", image: "/assets/risk/health.png", recommendation: "Franchise, Versicherungsmodell und Gesundheitskosten gemeinsam prüfen." },
+  { key: "pensiongap", name: "Vorsorge", image: "/assets/risk/pension.png", recommendation: "Leistungen bei Invalidität, Pensionierung und Tod der gewünschten Absicherung gegenüberstellen." },
+  { key: "investment", name: "Vermögen aufbauen", image: "/assets/risk/investment.png", recommendation: "Liquiditätsreserve, Anlagehorizont und geeignetes Risikoprofil bestimmen." },
+  { key: "real-estate", name: "Immobilien", image: "/assets/risk/real-estate.png", recommendation: "Eigenkapital, Tragbarkeit und langfristige Finanzierung beurteilen." },
+  { key: "values-protection", name: "Versicherungen", image: "/assets/risk/insurance.png", recommendation: "Bestehende Sach- und Haftpflichtrisiken auf Lücken und Doppelversicherungen prüfen." },
+  { key: "children", name: "Kinder absichern", image: "/assets/risk/children.png", recommendation: "Versorgung der Kinder bei Erwerbsunfähigkeit und Todesfall kontrollieren." },
+  { key: "property-creation", name: "Lebensstandard beibehalten", image: "/assets/risk/living-standard.png", recommendation: "Einkommensausfall und notwendigen Lebensstandard als Jahresbedarf berechnen." },
+  { key: "tax-advantage", name: "Steuervorteile nutzen", image: "/assets/risk/tax.png", recommendation: "Steuerpotenzial von Vorsorge, Vermögen und Wohneigentum strukturiert prüfen." },
 ]
 
 // index 0–5 → label + color (yellow = low relevance, red = high relevance)

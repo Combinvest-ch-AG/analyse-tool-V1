@@ -204,12 +204,13 @@ export const QUESTIONS: Question[] = [
   {
     id: "steuererklaerung",
     t: "Wie möchten Sie Ihre Steuererklärung erledigen?",
-    sub: "Bestimmt mit, welches Sealth-Paket am besten passt.",
-    type: "single",
+    sub: "Mehrfachauswahl möglich – bestimmt mit, welches Sealth-Paket am besten passt.",
+    type: "multi",
     opts: [
-      ["sparen", "Steuern sparen: Optimierungstipps nutzen und das Maximum herausholen"],
-      ["profi", "Professionell & digital: Komplett abgeben und von Experten ausfüllen lassen"],
-      ["selbst", "Schnell & einfach: Selbst ausfüllen mit Schritt-für-Schritt-Anleitung"],
+      ["sparen", "Steuern sparen – Maximum herausholen"],
+      ["profi", "Professionell & digital – Experten übernehmen"],
+      ["selbst", "Selbst ausfüllen – mit Anleitung"],
+      ["eigenstaendig", "Ich erledige sie selber"],
     ],
   },
   {

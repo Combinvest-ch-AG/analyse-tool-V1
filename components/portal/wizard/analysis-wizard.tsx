@@ -430,6 +430,7 @@ export function AnalysisWizard({
           <div className="mt-6">
             <RiskCockpit
               answers={answers}
+              contracts={contracts}
               themeStatus={themeStatus}
               onStatusChange={(key: AreaKey, s) => setThemeStatus((prev) => ({ ...prev, [key]: s }))}
               analysisId={analysisId}

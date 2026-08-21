@@ -202,6 +202,17 @@ export const QUESTIONS: Question[] = [
     opts: [["bis20", "Bis CHF 20’000"], ["20bis50", "CHF 20’001–50’000"], ["50bis100", "CHF 50’001–100’000"], ["100bis250", "CHF 100’001–250’000"], ["ueber250", "Mehr als CHF 250’000"]],
   },
   {
+    id: "steuererklaerung",
+    t: "Wie möchten Sie Ihre Steuererklärung erledigen?",
+    sub: "Bestimmt mit, welches Sealth-Paket am besten passt.",
+    type: "single",
+    opts: [
+      ["sparen", "Steuern sparen: Optimierungstipps nutzen und das Maximum herausholen"],
+      ["profi", "Professionell & digital: Komplett abgeben und von Experten ausfüllen lassen"],
+      ["selbst", "Schnell & einfach: Selbst ausfüllen mit Schritt-für-Schritt-Anleitung"],
+    ],
+  },
+  {
     id: "ziele", t: "Welche finanziellen Ziele verfolgen Sie?", sub: "Mehrfachauswahl möglich", type: "multi",
     opts: [["vermoegensaufbau", "Vermögensaufbau"], ["eigenheim", "Eigenheim"], ["rendite", "Renditeobjekt"], ["fruehpension", "Frühpensionierung"], ["selbstaendigkeit", "Selbständigkeit planen"], ["freiheit", "Finanzielle Freiheit"]],
   },

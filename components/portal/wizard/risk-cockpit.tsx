@@ -2,15 +2,17 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowUpRight, Download } from "lucide-react"
+import { ArrowUpRight, Download, Sparkles } from "lucide-react"
 import {
   AREAS,
   RELEVANCE_LABELS,
   scores,
   type AreaKey,
+  type Contracts,
   type ThemeStatus,
   type WizardAnswers,
 } from "@/lib/wizard/schema"
+import { deriveSealth } from "@/lib/sealth/derive"
 
 type Filter = "all" | ThemeStatus
 
@@ -67,12 +69,14 @@ const FILTERS: { key: Filter; label: string }[] = [
 
 export function RiskCockpit({
   answers,
+  contracts,
   themeStatus,
   onStatusChange,
   analysisId,
   customerId,
 }: {
   answers: WizardAnswers
+  contracts?: Contracts
   themeStatus: Record<string, ThemeStatus>
   onStatusChange: (key: AreaKey, status: ThemeStatus) => void
   analysisId?: string
@@ -80,6 +84,21 @@ export function RiskCockpit({
 }) {
   const [filter, setFilter] = useState<Filter>("all")
   const s = useMemo(() => scores(answers), [answers])
+  const sealth = useMemo(() => deriveSealth(answers, contracts), [answers, contracts])
+  const sealthHref = (() => {
+    const params = new URLSearchParams()
+    if (analysisId) params.set("aid", analysisId)
+    if (customerId) params.set("cid", customerId)
+    const qs = params.toString()
+    return qs ? `/sealth?${qs}` : "/sealth"
+  })()
+  const sealthPlanName: Record<string, string> = {
+    coach: "Sealth Coach",
+    tax: "Sealth Tax Assist",
+    protect: "Sealth Protect",
+    sealth: "Sealth",
+    premium: "Sealth Premium",
+  }
   const statusOf = (key: string): ThemeStatus => themeStatus[key] ?? "open"
 
   const ranked = useMemo(() => {
@@ -150,12 +169,7 @@ export function RiskCockpit({
       </div>
 
       {/* Cards */}
-      {visible.length === 0 ? (
-        <div className="mt-5 rounded-2xl border border-dashed border-border bg-secondary/50 px-4 py-8 text-center text-sm text-muted-foreground">
-          In dieser Ansicht sind aktuell keine Bereiche vorhanden.
-        </div>
-      ) : (
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map(({ a, v, rank }) => {
             const st = statusOf(a.key)
             return (
@@ -233,8 +247,42 @@ export function RiskCockpit({
               </article>
             )
           })}
+
+          {/* Sealth-Empfehlung – füllt den freien Board-Platz, live aus Profiling & Vertragscheck abgeleitet. */}
+          <article className="flex flex-col overflow-hidden rounded-2xl border border-primary/30 bg-card ring-1 ring-primary/20">
+            <div className="relative flex h-36 flex-col justify-between bg-gradient-to-br from-[rgba(58,87,245,0.95)] via-[rgba(58,87,245,0.7)] to-[rgba(15,27,54,0.9)] p-3">
+              <div className="flex items-start justify-between">
+                <span className="inline-flex items-center gap-1 rounded-md bg-white/90 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-primary">
+                  <Sparkles className="h-3 w-3" aria-hidden="true" />
+                  Service-Vorteil
+                </span>
+                <span className="rounded-md bg-black/25 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                  Optional
+                </span>
+              </div>
+              <div className="text-white">
+                <b className="block text-sm font-extrabold uppercase tracking-wide">Empfohlen</b>
+                <small className="text-[11px] opacity-90">{sealthPlanName[sealth.recommended]}</small>
+              </div>
+            </div>
+            <div className="flex flex-1 flex-col p-4">
+              <h3 className="text-base font-extrabold text-foreground">Sealth Bedarfscheck</h3>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+                {sealth.reasons[0] ?? "Passendes Sealth-Paket für Finanzen, Steuern, Gesundheit und Rechtsschutz."}
+              </p>
+              <small className="mt-2 block text-[11px] text-muted-foreground/80">
+                Automatisch aus Profiling &amp; Vertragscheck abgeleitet.
+              </small>
+              <Link
+                href={sealthHref}
+                className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-sm font-extrabold text-primary-foreground transition-colors hover:bg-primary-deep"
+              >
+                Empfehlung öffnen
+                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </div>
+          </article>
         </div>
-      )}
     </div>
   )
 }

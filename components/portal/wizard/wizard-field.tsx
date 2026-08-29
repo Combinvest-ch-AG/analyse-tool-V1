@@ -1,6 +1,10 @@
 "use client"
 
+import { useState } from "react"
+import { RotateCcw } from "lucide-react"
 import type { DetailField, Question, WizardAnswers } from "@/lib/wizard/schema"
+import { computeNetSalary, AHV_IV_EO_RATE, ALV_RATE } from "@/lib/engine/salary"
+import { formatCHF } from "@/lib/format"
 
 export function WizardField({
   question,
@@ -43,7 +47,12 @@ export function WizardField({
       ) : null}
 
       {q.type === "slider" ? (
-        <SliderField question={q} value={value} onChange={onChange} />
+        <>
+          <SliderField question={q} value={value} onChange={onChange} />
+          {q.salaryNet ? (
+            <SalaryNetPanel annualGross={typeof value === "number" ? value : 0} answers={answers} onChange={onDetailChange} />
+          ) : null}
+        </>
       ) : null}
 
       {q.type === "text" ? (
@@ -158,6 +167,136 @@ function SliderField({
         <b className="text-center text-lg font-extrabold tabular-nums text-foreground">{fmt(num)}</b>
         <span className="text-right">{fmt(q.max ?? 0)}</span>
       </div>
+    </div>
+  )
+}
+
+function SalaryNetPanel({
+  annualGross,
+  answers,
+  onChange,
+}: {
+  annualGross: number
+  answers: WizardAnswers
+  onChange: (key: string, value: WizardAnswers[string]) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  if (annualGross <= 0) return null
+
+  const age = Math.max(18, Math.min(70, Number(answers.alter) || 35))
+  const monthlyGross = annualGross / 12
+  const b = computeNetSalary(monthlyGross, age)
+  const override = typeof answers.netto === "number" ? answers.netto : null
+  const isManual = override != null
+  const net = isManual ? override : Math.round(b.net)
+
+  return (
+    <div className="rounded-2xl border border-primary/25 bg-primary/[0.05] p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-sm font-extrabold tracking-tight text-foreground">Nettolohn (Schätzung)</span>
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+            isManual ? "bg-accent text-primary" : "bg-success/10 text-success"
+          }`}
+        >
+          {isManual ? "manuell" : "automatisch"}
+        </span>
+      </div>
+
+      <dl className="space-y-1.5 text-[13px]">
+        <DeductionRow label="Bruttolohn / Monat" value={Math.round(b.gross)} sign="" strong />
+        <DeductionRow label={`AHV / IV / EO (${(AHV_IV_EO_RATE * 100).toFixed(1)} %)`} value={Math.round(b.ahvIvEo)} sign="−" />
+        <DeductionRow label={`ALV (${(ALV_RATE * 100).toFixed(1)} %)`} value={Math.round(b.alv)} sign="−" />
+        <DeductionRow
+          label={`BVG Pensionskasse (${(b.bvgRate * 100).toFixed(1)} %)`}
+          value={Math.round(b.bvg)}
+          sign="−"
+          hint={b.bvgRate === 0 ? "18–24: kein Sparbeitrag" : `Alter ${age}`}
+        />
+      </dl>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-primary/15 pt-3">
+        <span className="text-sm font-black text-foreground">Nettolohn / Monat</span>
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <div className="flex items-stretch overflow-hidden rounded-lg border border-primary/40 bg-card">
+              <span className="flex items-center px-2 text-xs font-semibold text-muted-foreground">CHF</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={50}
+                autoFocus
+                defaultValue={net}
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  onChange("netto", e.target.value === "" || !Number.isFinite(v) ? null : Math.max(0, v))
+                }}
+                aria-label="Nettolohn manuell eingeben"
+                className="w-28 border-0 bg-transparent px-2 py-2 text-right text-sm font-black tabular-nums text-foreground outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
+            >
+              OK
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <span className="text-lg font-black tabular-nums text-foreground">{formatCHF(net)}</span>
+            {isManual ? (
+              <button
+                type="button"
+                onClick={() => onChange("netto", null)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-primary"
+              >
+                <RotateCcw className="h-3 w-3" /> Auto
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary/10"
+            >
+              Anpassen
+            </button>
+          </div>
+        )}
+      </div>
+
+      <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
+        Automatisch aus dem Bruttolohn geschätzt (Arbeitnehmeranteile AHV/IV/EO, ALV und altersabhängiger BVG-Anteil).
+        Kennen Sie den exakten Nettolohn, tippen Sie ihn direkt ein – er wird ins Budget übernommen.
+      </p>
+    </div>
+  )
+}
+
+function DeductionRow({
+  label,
+  value,
+  sign,
+  hint,
+  strong,
+}: {
+  label: string
+  value: number
+  sign: string
+  hint?: string
+  strong?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between text-muted-foreground">
+      <span>
+        {label}
+        {hint ? <span className="ml-1 text-[11px] opacity-70">· {hint}</span> : null}
+      </span>
+      <span className={`tabular-nums ${strong ? "font-bold text-foreground" : ""}`}>
+        {sign} {formatCHF(value)}
+      </span>
     </div>
   )
 }

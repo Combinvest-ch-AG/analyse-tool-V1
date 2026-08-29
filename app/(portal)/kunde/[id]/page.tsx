@@ -69,7 +69,9 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
   const annualGross = Math.max(0, Number(answers.brutto) || 0)
   const salaryAge = Math.max(18, Math.min(70, Number(answers.alter) || 35))
   const monthlyGross = annualGross > 0 ? annualGross / 12 : customer.monthly_income ?? 0
+  const netOverride = typeof answers.netto === "number" ? Math.max(0, answers.netto) : null
   const salary = monthlyGross > 0 ? computeNetSalary(monthlyGross, salaryAge) : null
+  const netMonthly = netOverride != null ? netOverride : salary ? Math.round(salary.net) : null
 
   const contact = [
     customer.email && { icon: Mail, text: customer.email },
@@ -162,11 +164,16 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
               <IncomeRow label="Bruttolohn / Jahr" value={formatCHF(Math.round(salary.gross * 12))} />
               <IncomeRow label="Bruttolohn / Monat" value={formatCHF(Math.round(salary.gross))} />
               <IncomeRow label="Sozialabzüge / Monat" value={`− ${formatCHF(Math.round(salary.totalDeductions))}`} muted />
-              <IncomeRow label="Nettolohn / Monat (ca.)" value={formatCHF(Math.round(salary.net))} strong />
+              <IncomeRow
+                label={netOverride != null ? "Nettolohn / Monat (erfasst)" : "Nettolohn / Monat (ca.)"}
+                value={formatCHF(netMonthly ?? Math.round(salary.net))}
+                strong
+              />
             </dl>
             <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
-              Geschätzt aus dem Bruttolohn (AHV/IV/EO, ALV und altersabhängiger BVG-Anteil). Der exakte Nettolohn lässt
-              sich im Budgetrechner überschreiben.
+              {netOverride != null
+                ? "Nettolohn wurde im Profiling manuell erfasst. Die Sozialabzüge sind eine Schätzung (AHV/IV/EO, ALV, BVG)."
+                : "Geschätzt aus dem Bruttolohn (AHV/IV/EO, ALV und altersabhängiger BVG-Anteil). Der exakte Nettolohn lässt sich im Profiling oder Budgetrechner überschreiben."}
             </p>
           </div>
         )}

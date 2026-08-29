@@ -36,6 +36,8 @@ export type Question = {
   inputmode?: "numeric" | "text"
   maxlength?: number
   directInput?: boolean
+  /** Zeigt unter dem (jährlichen) Bruttolohn die Netto-Berechnung mit AHV/ALV/BVG-Abzügen. */
+  salaryNet?: boolean
   details?: DetailField[]
   visibleWhen?: { id: string; values: string[] }
 }
@@ -167,6 +169,7 @@ export const QUESTIONS: Question[] = [
     def: 0,
     fmt: chf,
     directInput: true,
+    salaryNet: true,
   },
   {
     id: "kk_prio", t: "Was ist Ihnen bei der Gesundheitsvorsorge wichtig?", sub: "Mehrfachauswahl möglich", type: "multi",

@@ -70,6 +70,7 @@ export default async function BudgetPage({
     }
   }
   const annualGrossIncome = Math.max(0, Number(snapshot.answers?.brutto) || 0)
+  const profiledAge = Math.max(18, Math.min(70, Number(snapshot.answers?.alter) || 35))
   const importedCosts = contractCosts(snapshot.contracts ?? {})
   const savedData = storedBudgetData(snapshot.calculatorResults?.budget?.inputs?.data)
   return (
@@ -86,7 +87,10 @@ export default async function BudgetPage({
     >
       <BudgetCalc
         ctx={ctx}
-        defaults={annualGrossIncome > 0 ? { monthlyIncome: annualGrossIncome / 12, profiledIncome: true } : undefined}
+        defaults={{
+          age: profiledAge,
+          ...(annualGrossIncome > 0 ? { monthlyIncome: annualGrossIncome / 12, profiledIncome: true } : {}),
+        }}
         importedCosts={importedCosts}
         savedData={savedData}
       />

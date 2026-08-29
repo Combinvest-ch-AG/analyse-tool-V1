@@ -1,9 +1,10 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, Mail, Phone, MapPin, Cake, FileText, LineChart, ArrowRight } from "lucide-react"
-import { getCustomerDetail, type AnalysisStatus, type CustomerRow } from "@/lib/data/portal"
+import { getCustomerDetail, type AnalysisStatus, type AnalysisRow, type CustomerRow } from "@/lib/data/portal"
 import { StartAnalysisButton } from "@/components/portal/start-analysis-button"
 import { EditCustomerDialog } from "@/components/portal/edit-customer-dialog"
+import { computeNetSalary } from "@/lib/engine/salary"
 import { initials, fullName, formatDate, formatCHF } from "@/lib/format"
 
 const STATUS_LABEL: Record<AnalysisStatus, string> = {
@@ -13,7 +14,6 @@ const STATUS_LABEL: Record<AnalysisStatus, string> = {
   cancelled: "Abgebrochen",
 }
 
-const GENDER_LABEL: Record<string, string> = { male: "Männlich", female: "Weiblich", other: "Divers" }
 const LANGUAGE_LABEL: Record<string, string> = { de: "Deutsch", fr: "Französisch", it: "Italienisch", en: "Englisch" }
 const CUSTOMER_STATUS_LABEL: Record<string, string> = {
   lead: "Lead",
@@ -34,6 +34,27 @@ function displayAddress(c: CustomerRow): string {
   return [line1, line2, c.country_code].filter(Boolean).join(", ")
 }
 
+/** Geschlecht aus Kundenzeile oder – als Fallback – aus der Profiling-Antwort (M/W). */
+function genderLabel(customerGender: string | null, answerGender: unknown): string | null {
+  const raw = (String(customerGender ?? "").trim() || String(answerGender ?? "").trim()).toLowerCase()
+  if (["m", "male", "männlich", "mann"].includes(raw)) return "Männlich"
+  if (["w", "f", "female", "weiblich", "frau"].includes(raw)) return "Weiblich"
+  if (["other", "divers", "d"].includes(raw)) return "Divers"
+  return null
+}
+
+/** Flache Antwortmap der jüngsten Analyse mit Inhalt (analyses ist nach updated_at desc sortiert). */
+function analysisAnswers(analyses: AnalysisRow[]): Record<string, unknown> {
+  for (const a of analyses) {
+    const snap = a.latest_snapshot
+    const answers = snap && typeof snap === "object" ? (snap as { answers?: unknown }).answers : null
+    if (answers && typeof answers === "object" && !Array.isArray(answers) && Object.keys(answers).length > 0) {
+      return answers as Record<string, unknown>
+    }
+  }
+  return {}
+}
+
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const detail = await getCustomerDetail(id)
@@ -41,6 +62,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
 
   const { customer, analyses, contracts } = detail
   const activeAnalysis = analyses.find((a) => a.status === "draft" || a.status === "in_progress")
+
+  // Aus der Analyse übernommene Angaben (nur lesen, Kundenzeile bleibt unberührt).
+  const answers = analysisAnswers(analyses)
+  const gender = genderLabel(customer.gender, answers.geschlecht)
+  const annualGross = Math.max(0, Number(answers.brutto) || 0)
+  const salaryAge = Math.max(18, Math.min(70, Number(answers.alter) || 35))
+  const monthlyGross = annualGross > 0 ? annualGross / 12 : customer.monthly_income ?? 0
+  const salary = monthlyGross > 0 ? computeNetSalary(monthlyGross, salaryAge) : null
 
   const contact = [
     customer.email && { icon: Mail, text: customer.email },
@@ -108,11 +137,10 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           <DataRow label="Kundentyp" value={CUSTOMER_TYPE_LABEL[customer.customer_type] ?? customer.customer_type} />
           <DataRow label="Status" value={CUSTOMER_STATUS_LABEL[customer.status ?? ""] ?? customer.status} />
           {customer.customer_type === "company" && <DataRow label="Firmenname" value={customer.company_name} />}
-          <DataRow label="Anrede" value={customer.salutation} />
           <DataRow label="Vorname" value={customer.first_name} />
           <DataRow label="Nachname" value={customer.last_name} />
           <DataRow label="Geburtsdatum" value={customer.birthdate ? formatDate(customer.birthdate) : null} />
-          <DataRow label="Geschlecht" value={customer.gender ? (GENDER_LABEL[customer.gender] ?? customer.gender) : null} />
+          <DataRow label="Geschlecht" value={gender} />
           <DataRow label="E-Mail" value={customer.email} />
           <DataRow label="Telefon" value={customer.phone} />
           <DataRow label="Adresse" value={displayAddress(customer) || null} />
@@ -120,11 +148,28 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
             label="Sprache"
             value={customer.preferred_language ? (LANGUAGE_LABEL[customer.preferred_language] ?? customer.preferred_language) : null}
           />
-          <DataRow
-            label="Monatseinkommen"
-            value={customer.monthly_income != null ? formatCHF(customer.monthly_income) : null}
-          />
         </dl>
+
+        {salary && (
+          <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-sm font-bold text-foreground">Einkommen</span>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                aus Analyse
+              </span>
+            </div>
+            <dl className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+              <IncomeRow label="Bruttolohn / Jahr" value={formatCHF(Math.round(salary.gross * 12))} />
+              <IncomeRow label="Bruttolohn / Monat" value={formatCHF(Math.round(salary.gross))} />
+              <IncomeRow label="Sozialabzüge / Monat" value={`− ${formatCHF(Math.round(salary.totalDeductions))}`} muted />
+              <IncomeRow label="Nettolohn / Monat (ca.)" value={formatCHF(Math.round(salary.net))} strong />
+            </dl>
+            <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
+              Geschätzt aus dem Bruttolohn (AHV/IV/EO, ALV und altersabhängiger BVG-Anteil). Der exakte Nettolohn lässt
+              sich im Budgetrechner überschreiben.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* Analyses history */}
@@ -218,6 +263,31 @@ function DataRow({ label, value }: { label: string; value?: string | null }) {
     <div className="flex items-center justify-between gap-4 border-b border-border/60 py-3">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="text-right text-sm font-medium text-foreground">{value || "–"}</dd>
+    </div>
+  )
+}
+
+function IncomeRow({
+  label,
+  value,
+  muted,
+  strong,
+}: {
+  label: string
+  value: string
+  muted?: boolean
+  strong?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-primary/10 py-2.5 last:border-0 sm:[&:nth-last-child(2)]:border-0">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd
+        className={`text-right text-sm tabular-nums ${
+          strong ? "font-bold text-foreground" : muted ? "text-muted-foreground" : "font-medium text-foreground"
+        }`}
+      >
+        {value}
+      </dd>
     </div>
   )
 }

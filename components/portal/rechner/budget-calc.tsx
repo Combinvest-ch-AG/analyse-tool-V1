@@ -2,16 +2,20 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Trash2, ArrowRight } from "lucide-react"
+import { Trash2, ArrowRight, RotateCcw } from "lucide-react"
 import { formatCHF } from "@/lib/format"
 import { budgetPalette } from "@/lib/data/chart-colors"
 import { CalcActionBar, type CalcContext } from "@/components/portal/rechner/calc-action-bar"
 import { BudgetSankey } from "@/components/portal/rechner/budget-sankey"
 import { BudgetDonut } from "@/components/portal/rechner/budget-donut"
+import { computeNetSalary, bvgEmployeeRate, AHV_IV_EO_RATE, ALV_RATE } from "@/lib/engine/salary"
+
+const SALARY_KEY = "salary:net"
 
 export type BudgetItem = { name: string; amount: number; sourceKey?: string }
 export type BudgetCategory = { name: string; color: string; subs: BudgetItem[] }
-export type BudgetData = { income: BudgetItem[]; cats: BudgetCategory[] }
+export type SalaryState = { grossMonthly: number; age: number; netOverride: number | null }
+export type BudgetData = { income: BudgetItem[]; cats: BudgetCategory[]; salary?: SalaryState }
 export type ImportedBudgetCost = {
   sourceKey: string
   name: string
@@ -21,24 +25,52 @@ export type ImportedBudgetCost = {
 
 const PALETTE = budgetPalette
 
+/**
+ * Stellt sicher, dass ein Lohn-State und eine abgeleitete Nettolohn-Zeile
+ * existieren. Migriert ältere Budgets, die noch eine "Bruttolohn"-Einkommens-
+ * zeile (sourceKey "profile:brutto") führten, auf das neue Lohn-Modell.
+ */
+function ensureSalary(data: BudgetData, fallbackGross: number, age: number) {
+  if (!data.salary) {
+    const legacy = data.income.find(
+      (item) => item.sourceKey === "profile:brutto" || item.name?.startsWith("Bruttolohn"),
+    )
+    const gross = legacy && legacy.amount > 0 ? Math.round(legacy.amount) : fallbackGross
+    data.salary = { grossMonthly: gross, age, netOverride: null }
+    data.income = data.income.filter(
+      (item) => item.sourceKey !== "profile:brutto" && !item.name?.startsWith("Bruttolohn"),
+    )
+  }
+  syncNetLine(data)
+}
+
+/** Schreibt den berechneten (oder manuell überschriebenen) Nettolohn als Einkommenszeile. */
+function syncNetLine(data: BudgetData) {
+  const salary = data.salary
+  if (!salary) return
+  const net = salary.netOverride != null ? salary.netOverride : Math.round(computeNetSalary(salary.grossMonthly, salary.age).net)
+  const line = data.income.find((item) => item.sourceKey === SALARY_KEY)
+  if (line) {
+    line.amount = net
+    line.name = "Nettolohn"
+  } else {
+    data.income.unshift({ name: "Nettolohn", amount: net, sourceKey: SALARY_KEY })
+  }
+}
+
 function defaultData(
   monthlyIncome?: number,
   profiledIncome = false,
   importedCosts: ImportedBudgetCost[] = [],
   savedData?: BudgetData,
+  age = 35,
 ): BudgetData {
   const lohn = monthlyIncome && monthlyIncome > 0 ? Math.round(monthlyIncome) : 0
   const data: BudgetData = savedData
     ? structuredClone(savedData)
     : {
-        income: [
-          {
-            name: profiledIncome ? "Bruttolohn (aus Profiling)" : "Lohn (netto)",
-            amount: lohn,
-            sourceKey: profiledIncome ? "profile:brutto" : undefined,
-          },
-          { name: "Nebeneinkommen", amount: 0 },
-        ],
+        salary: { grossMonthly: lohn, age, netOverride: null },
+        income: [{ name: "Nebeneinkommen", amount: 0 }],
         cats: [
           { name: "Fixkosten", color: PALETTE[0], subs: [{ name: "Miete", amount: 0 }, { name: "Steuern", amount: 0 }] },
           { name: "Leben", color: PALETTE[1], subs: [{ name: "Essen", amount: 0 }, { name: "Transport", amount: 0 }, { name: "Freizeit", amount: 0 }] },
@@ -46,18 +78,7 @@ function defaultData(
         ],
       }
 
-  if (profiledIncome && lohn > 0) {
-    const existingIncome = data.income.find(
-      (item) => item.sourceKey === "profile:brutto" || item.name === "Bruttolohn (aus Profiling)",
-    )
-    if (existingIncome) {
-      existingIncome.name = "Bruttolohn (aus Profiling)"
-      existingIncome.amount = lohn
-      existingIncome.sourceKey = "profile:brutto"
-    } else {
-      data.income.unshift({ name: "Bruttolohn (aus Profiling)", amount: lohn, sourceKey: "profile:brutto" })
-    }
-  }
+  ensureSalary(data, lohn, age)
 
   data.cats.forEach((category) => {
     category.subs = category.subs.filter((item) => !item.sourceKey?.startsWith("contract:"))
@@ -88,13 +109,13 @@ export function BudgetCalc({
   savedData,
   ctx,
 }: {
-  defaults?: { monthlyIncome?: number; profiledIncome?: boolean }
+  defaults?: { monthlyIncome?: number; profiledIncome?: boolean; age?: number }
   importedCosts?: ImportedBudgetCost[]
   savedData?: BudgetData
   ctx?: CalcContext
 }) {
   const [data, setData] = useState(() =>
-    defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData),
+    defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData, defaults?.age),
   )
   const [flowView, setFlowView] = useState<"flow" | "split">("flow")
 
@@ -140,7 +161,7 @@ export function BudgetCalc({
           ],
         })}
         onReset={() =>
-          setData(defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData))
+          setData(defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData, defaults?.age))
         }
       />
 
@@ -248,16 +269,27 @@ export function BudgetCalc({
           onAdd={() => update((d) => d.income.push({ name: "Weitere Einnahme", amount: 0 }))}
           addLabel="+ Einkommen hinzufügen"
         >
-          {data.income.map((x, i) => (
-            <Row
-              key={i}
-              name={x.name}
-              amount={x.amount}
-              onName={(v) => update((d) => { d.income[i].name = v })}
-              onAmount={(v) => update((d) => { d.income[i].amount = v })}
-              onDelete={() => update((d) => { d.income.splice(i, 1) })}
+          {data.salary && (
+            <SalaryPanel
+              salary={data.salary}
+              onGross={(v) => update((d) => { d.salary!.grossMonthly = v; syncNetLine(d) })}
+              onAge={(v) => update((d) => { d.salary!.age = v; syncNetLine(d) })}
+              onNetOverride={(v) => update((d) => { d.salary!.netOverride = v; syncNetLine(d) })}
+              onResetNet={() => update((d) => { d.salary!.netOverride = null; syncNetLine(d) })}
             />
-          ))}
+          )}
+          {data.income.map((x, i) =>
+            x.sourceKey === SALARY_KEY ? null : (
+              <Row
+                key={i}
+                name={x.name}
+                amount={x.amount}
+                onName={(v) => update((d) => { d.income[i].name = v })}
+                onAmount={(v) => update((d) => { d.income[i].amount = v })}
+                onDelete={() => update((d) => { d.income.splice(i, 1) })}
+              />
+            ),
+          )}
         </Group>
 
         {data.cats.map((c, ci) => (
@@ -302,6 +334,149 @@ export function BudgetCalc({
         Alle Beträge beruhen auf Ihren Eingaben. Die Darstellung wird auf ganze Franken gerundet, intern wird exakt gerechnet.
       </p>
     </>
+  )
+}
+
+function SalaryPanel({
+  salary,
+  onGross,
+  onAge,
+  onNetOverride,
+  onResetNet,
+}: {
+  salary: SalaryState
+  onGross: (v: number) => void
+  onAge: (v: number) => void
+  onNetOverride: (v: number) => void
+  onResetNet: () => void
+}) {
+  const b = computeNetSalary(salary.grossMonthly, salary.age)
+  const isManual = salary.netOverride != null
+  const net = isManual ? salary.netOverride! : Math.round(b.net)
+
+  return (
+    <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
+      {/* Bruttolohn */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-foreground">Bruttolohn / Monat</span>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            Alter
+            <input
+              type="number"
+              inputMode="numeric"
+              min={18}
+              max={70}
+              value={salary.age}
+              onChange={(e) => onAge(clamp(Number(e.target.value)))}
+              aria-label="Alter für BVG-Berechnung"
+              className="w-14 rounded-md border border-border bg-background px-2 py-1 text-right text-xs font-bold tabular-nums text-foreground focus:border-primary focus:outline-none"
+            />
+          </label>
+        </div>
+        <AmountStepper value={salary.grossMonthly} onChange={onGross} />
+      </div>
+
+      {/* Abzüge */}
+      <div className="mt-3 space-y-1.5 border-t border-primary/15 pt-3 text-[13px]">
+        <DeductionRow label={`AHV / IV / EO (${(AHV_IV_EO_RATE * 100).toFixed(1)} %)`} value={b.ahvIvEo} />
+        <DeductionRow label={`ALV (${(ALV_RATE * 100).toFixed(1)} %)`} value={b.alv} />
+        <DeductionRow
+          label={`BVG Pensionskasse (${(b.bvgRate * 100).toFixed(1)} %)`}
+          value={b.bvg}
+          hint={b.bvgRate === 0 ? "18–24: kein Sparbeitrag" : undefined}
+        />
+        <div className="flex items-center justify-between pt-1 text-muted-foreground">
+          <span className="font-semibold">Total Abzüge</span>
+          <span className="tabular-nums font-bold">− {formatCHF(Math.round(b.totalDeductions))}</span>
+        </div>
+      </div>
+
+      {/* Nettolohn */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-primary/15 pt-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-black text-foreground">Nettolohn / Monat</span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+              isManual ? "bg-accent text-primary" : "bg-success/10 text-success"
+            }`}
+          >
+            {isManual ? "manuell" : "automatisch"}
+          </span>
+          {isManual && (
+            <button
+              type="button"
+              onClick={onResetNet}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-primary"
+            >
+              <RotateCcw className="h-3 w-3" /> Auto
+            </button>
+          )}
+        </div>
+        <div className="flex items-stretch overflow-hidden rounded-lg border border-primary/40 bg-background">
+          <span className="flex items-center px-2 text-xs font-semibold text-muted-foreground">CHF</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            step={50}
+            value={net}
+            onChange={(e) => onNetOverride(clamp(Number(e.target.value)))}
+            aria-label="Nettolohn (überschreibbar)"
+            className="w-28 border-0 bg-transparent px-2 py-2 text-right text-sm font-black tabular-nums text-foreground focus:outline-none"
+          />
+        </div>
+      </div>
+      <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
+        Automatisch aus dem Bruttolohn geschätzt (Arbeitnehmeranteile). Kennen Sie den exakten Nettolohn, tragen Sie ihn
+        direkt ein – er wird als Einkommen ins Budget übernommen.
+      </p>
+    </div>
+  )
+}
+
+function DeductionRow({ label, value, hint }: { label: string; value: number; hint?: string }) {
+  return (
+    <div className="flex items-center justify-between text-muted-foreground">
+      <span>
+        {label}
+        {hint ? <span className="ml-1 text-[11px] opacity-70">· {hint}</span> : null}
+      </span>
+      <span className="tabular-nums">− {formatCHF(Math.round(value))}</span>
+    </div>
+  )
+}
+
+function AmountStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-stretch overflow-hidden rounded-lg border border-border bg-background">
+      <button
+        type="button"
+        onClick={() => onChange(clamp(value - 100))}
+        aria-label="Minus"
+        className="w-8 bg-secondary/60 text-lg leading-none text-muted-foreground hover:bg-accent hover:text-primary"
+      >
+        –
+      </button>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        step={100}
+        value={value}
+        onChange={(e) => onChange(clamp(Number(e.target.value)))}
+        aria-label="Bruttolohn pro Monat"
+        className="w-28 border-0 bg-transparent px-2 py-2 text-right text-sm font-bold tabular-nums text-foreground focus:outline-none"
+      />
+      <button
+        type="button"
+        onClick={() => onChange(clamp(value + 100))}
+        aria-label="Plus"
+        className="w-8 bg-secondary/60 text-lg leading-none text-muted-foreground hover:bg-accent hover:text-primary"
+      >
+        +
+      </button>
+    </div>
   )
 }
 

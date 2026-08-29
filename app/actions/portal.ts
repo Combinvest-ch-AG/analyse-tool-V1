@@ -1,5 +1,6 @@
 "use server"
 
+import { z } from "zod"
 import { revalidatePath } from "next/cache"
 import { after } from "next/server"
 import { createClient } from "@/lib/supabase/server"
@@ -20,6 +21,100 @@ function notifyCatalystMilestone(
   after(async () => {
     await notifyCatalyst(analysisId, opts.complete ? "completed" : "saved")
   })
+}
+
+/**
+ * SSOT for the customer profile. Mirrors the DB CHECK constraints:
+ * customer_type ∈ {private, company}, status ∈ {lead,active,inactive,archived},
+ * monthly_income ≥ 0, and a private customer needs a name while a company needs
+ * a company name. Empty strings coerce to null so cleared fields round-trip.
+ */
+const nullableStr = (max: number) =>
+  z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+    z.string().trim().max(max).nullable(),
+  )
+
+const CustomerUpdateSchema = z
+  .object({
+    customer_type: z.enum(["private", "company"]),
+    salutation: nullableStr(20),
+    first_name: nullableStr(120),
+    last_name: nullableStr(120),
+    company_name: nullableStr(200),
+    birthdate: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+      z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, "Ungültiges Geburtsdatum.")
+        .nullable(),
+    ),
+    gender: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+      z.enum(["male", "female", "other"]).nullable(),
+    ),
+    email: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+      z
+        .string()
+        .trim()
+        .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Ungültige E-Mail-Adresse.")
+        .max(200)
+        .nullable(),
+    ),
+    phone: nullableStr(50),
+    street: nullableStr(200),
+    house_number: nullableStr(20),
+    postcode: nullableStr(20),
+    city: nullableStr(120),
+    country_code: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? null : typeof v === "string" ? v.trim().toUpperCase() : v),
+      z.string().length(2, "Ländercode muss 2 Buchstaben sein.").nullable(),
+    ),
+    monthly_income: z.preprocess(
+      (v) => (v === "" || v == null ? null : Number(v)),
+      z.number({ message: "Ungültiger Betrag." }).min(0, "Einkommen darf nicht negativ sein.").nullable(),
+    ),
+    preferred_language: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+      z.enum(["de", "fr", "it", "en"]).nullable(),
+    ),
+    status: z.enum(["lead", "active", "inactive", "archived"]),
+  })
+  .strict()
+  .refine(
+    (d) => (d.customer_type === "company" ? !!d.company_name : !!d.first_name || !!d.last_name),
+    { message: "Bei Privatpersonen ist ein Name, bei Firmen der Firmenname erforderlich." },
+  )
+
+export type UpdateCustomerResult = { ok: true } | { ok: false; error: string }
+
+/**
+ * Persists edits to a customer profile. Auth wall runs before any mutation and
+ * RLS scopes the row to the advisor's organization, so no explicit org filter
+ * is needed. All fields are validated through the Zod SSOT above.
+ */
+export async function updateCustomer(customerId: string, input: unknown): Promise<UpdateCustomerResult> {
+  const advisor = await getCurrentAdvisor()
+  if (!advisor) return { ok: false, error: "Nicht angemeldet." }
+  if (!customerId) return { ok: false, error: "Kunde nicht gefunden." }
+
+  const parsed = CustomerUpdateSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe." }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from("customers")
+    .update({ ...parsed.data, updated_at: new Date().toISOString() })
+    .eq("id", customerId)
+
+  if (error) return { ok: false, error: error.message }
+
+  revalidatePath(`/kunde/${customerId}`)
+  revalidatePath("/dashboard")
+  return { ok: true }
 }
 
 export type CreateCustomerResult =

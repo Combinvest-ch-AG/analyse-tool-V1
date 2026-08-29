@@ -373,6 +373,7 @@ export const PRODUCT_DEFINITIONS: ProductDefinition[] = [
   { id: "Kredit", label: "Kredit", category: "financing", description: "Privat- oder Konsumkredit" },
   { id: "Leasing", label: "Leasing", category: "financing", description: "Fahrzeug- oder Objektleasing" },
   { id: "Kreditkarte", label: "Kreditkarte", category: "financing", description: "Karte mit Jahres- oder Monatsgebühr" },
+  { id: "Miete", label: "Miete / Wohnen", category: "subscriptions", description: "Wohnungs- oder Hausmiete inkl. Nebenkosten" },
   { id: "Mobilfunkabo", label: "Handyabo", category: "subscriptions", description: "Mobilfunk und Gerät" },
   { id: "Internet & TV", label: "Internet & TV", category: "subscriptions", description: "Internet-, Festnetz- und TV-Paket" },
   { id: "Streaming", label: "Film & Serien", category: "subscriptions", description: "Netflix, Disney+, Max und weitere" },
@@ -390,16 +391,35 @@ export const INTERVALS: Record<string, string> = {
   monthly: "Monatlich", quarterly: "Vierteljährlich", semiannual: "Halbjährlich", annual: "Jährlich", oneoff: "Einmalig",
 }
 
-const FINANCIAL_COMPANIES = [
-  "Agrisano", "Allianz Suisse", "Appenzeller Versicherungen", "Assura", "Atupri", "AXA", "Baloise", "Basler Kantonalbank",
-  "Bank Cler", "Banque Cantonale Vaudoise", "Banque Cantonale de Genève", "Cembra Money Bank", "Concordia", "CSS",
-  "Die Mobiliar", "EGK", "elipsLife", "Everon", "Generali Schweiz", "Glarner Kantonalbank", "Groupe Mutuel", "Helsana", "Helvetia",
-  "Hypothekarbank Lenzburg", "KPT", "Luzerner Kantonalbank", "Migros Bank", "Neon", "Obwaldner Kantonalbank", "ÖKK", "Pax",
-  "PostFinance", "Protekta", "Raiffeisen", "Sanitas", "Schwyzer Kantonalbank", "Simpego", "Smile", "Solothurner Kantonalbank",
-  "St. Galler Kantonalbank", "Swiss Life", "Swissquote", "Sympany", "Thurgauer Kantonalbank", "UBS", "Valiant", "Vaudoise",
-  "VIAC", "Visana", "Yuh", "Zuger Kantonalbank", "Zürcher Kantonalbank", "Zurich Versicherung",
-  "frankly", "findependent", "Saxo Bank Schweiz", "Selma Finance", "True Wealth",
+const HEALTH_INSURERS = [
+  "Agrisano", "Aquilana", "Assura", "Atupri", "Avenir Assurance", "Birchmeier", "Concordia", "CSS", "EGK", "Easy Sana",
+  "Galenos", "Groupe Mutuel", "Helsana", "Innova", "KPT", "Mutuel Assurance", "ÖKK", "Philos", "Rhenusana", "Sana24",
+  "Sanagate", "Sanavals", "Sanitas", "sodalis", "Steffisburg", "SWICA", "Sympany", "Visana", "vivacare", "Vivao Sympany",
 ]
+
+const INSURERS = [
+  "Allianz Suisse", "Appenzeller Versicherungen", "AXA", "Baloise", "CAP Rechtsschutz", "Coop Rechtsschutz", "Dextra",
+  "Die Mobiliar", "elipsLife", "Emmental Versicherung", "Fortuna Rechtsschutz", "Generali Schweiz", "GVB", "Helvetia",
+  "Orion Rechtsschutz", "Pax", "Protekta", "Simpego", "Smile", "Swiss Life", "TCS", "Vaudoise", "Zurich Versicherung",
+]
+
+const BANKS = [
+  "Aargauische Kantonalbank", "Alternative Bank Schweiz", "Appenzeller Kantonalbank", "Bank Avera", "Bank Cler", "Bank WIR",
+  "Banca dello Stato del Cantone Ticino", "Banque Cantonale du Jura", "Banque Cantonale de Genève", "Banque Cantonale Neuchâteloise",
+  "Banque Cantonale Vaudoise", "Basellandschaftliche Kantonalbank", "Basler Kantonalbank", "Berner Kantonalbank (BEKB)",
+  "Cembra Money Bank", "Clientis", "Cornèr Bank", "Freiburger Kantonalbank", "Glarner Kantonalbank", "Graubündner Kantonalbank",
+  "Hypothekarbank Lenzburg", "Luzerner Kantonalbank", "Migros Bank", "Neon", "Nidwaldner Kantonalbank", "Obwaldner Kantonalbank",
+  "PostFinance", "Raiffeisen", "Regiobank", "Schaffhauser Kantonalbank", "Schwyzer Kantonalbank", "Solothurner Kantonalbank",
+  "St. Galler Kantonalbank", "Thurgauer Kantonalbank", "UBS", "Urner Kantonalbank", "Valiant", "Walliser Kantonalbank",
+  "Zuger Kantonalbank", "Zürcher Kantonalbank",
+]
+
+const INVEST_PENSION = [
+  "Alpian", "Clevercircles", "Descartes Finance", "Everon", "findependent", "finpension", "frankly", "Inyova", "kaspar&",
+  "Saxo Bank Schweiz", "Selma Finance", "Swissquote", "True Wealth", "VIAC", "Yuh",
+]
+
+const FINANCIAL_COMPANIES = [...HEALTH_INSURERS, ...INSURERS, ...BANKS, ...INVEST_PENSION]
 
 const SUBSCRIPTION_COMPANIES = [
   "Netflix", "Disney+", "Spotify", "Max (HBO)", "Apple TV+", "Apple Music", "Amazon Prime Video", "YouTube Premium",
@@ -412,6 +432,9 @@ export const COMPANIES = [...new Set([...FINANCIAL_COMPANIES, ...SUBSCRIPTION_CO
   .sort((a, b) => a.localeCompare(b, "de-CH"))
 
 export const PROVIDERS_BY_PRODUCT: Record<string, string[]> = {
+  Krankenkasse: ["CSS", "Helsana", "SWICA", "Sanitas", "Groupe Mutuel", "Concordia", "Visana", "Innova", "KPT", "ÖKK", "Sympany", "Atupri", "Assura"],
+  Rechtsschutz: ["Protekta", "CAP Rechtsschutz", "Orion Rechtsschutz", "Coop Rechtsschutz", "Fortuna Rechtsschutz", "Dextra", "AXA", "Die Mobiliar", "TCS"],
+  Hypothek: ["UBS", "Raiffeisen", "Zürcher Kantonalbank", "Berner Kantonalbank (BEKB)", "Migros Bank", "PostFinance", "Valiant", "Helvetia", "Swiss Life"],
   Vermögensverwaltung: ["Everon", "True Wealth", "Selma Finance", "Swissquote", "UBS", "Zürcher Kantonalbank", "Raiffeisen"],
   "Depot / Anlagekonto": ["Everon", "Swissquote", "Saxo Bank Schweiz", "Yuh", "Neon", "UBS", "Zürcher Kantonalbank", "Raiffeisen"],
   "VorsorgeBank 3a": ["VIAC", "frankly", "finpension", "UBS", "Zürcher Kantonalbank", "Raiffeisen", "Migros Bank"],

@@ -64,12 +64,13 @@ function defaultData(
   importedCosts: ImportedBudgetCost[] = [],
   savedData?: BudgetData,
   age = 35,
+  netOverride: number | null = null,
 ): BudgetData {
   const lohn = monthlyIncome && monthlyIncome > 0 ? Math.round(monthlyIncome) : 0
   const data: BudgetData = savedData
     ? structuredClone(savedData)
     : {
-        salary: { grossMonthly: lohn, age, netOverride: null },
+        salary: { grossMonthly: lohn, age, netOverride },
         income: [{ name: "Nebeneinkommen", amount: 0 }],
         cats: [
           { name: "Fixkosten", color: PALETTE[0], subs: [{ name: "Miete", amount: 0 }, { name: "Steuern", amount: 0 }] },
@@ -109,13 +110,13 @@ export function BudgetCalc({
   savedData,
   ctx,
 }: {
-  defaults?: { monthlyIncome?: number; profiledIncome?: boolean; age?: number }
+  defaults?: { monthlyIncome?: number; profiledIncome?: boolean; age?: number; netOverride?: number | null }
   importedCosts?: ImportedBudgetCost[]
   savedData?: BudgetData
   ctx?: CalcContext
 }) {
   const [data, setData] = useState(() =>
-    defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData, defaults?.age),
+    defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData, defaults?.age, defaults?.netOverride ?? null),
   )
   const [flowView, setFlowView] = useState<"flow" | "split">("flow")
 
@@ -161,7 +162,7 @@ export function BudgetCalc({
           ],
         })}
         onReset={() =>
-          setData(defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData, defaults?.age))
+          setData(defaultData(defaults?.monthlyIncome, defaults?.profiledIncome, importedCosts, savedData, defaults?.age, defaults?.netOverride ?? null))
         }
       />
 

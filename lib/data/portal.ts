@@ -10,14 +10,20 @@ export type AnalysisStatus = "draft" | "in_progress" | "completed" | "cancelled"
 
 export type CustomerRow = {
   id: string
+  customer_type: string
+  salutation: string | null
   first_name: string
   last_name: string
+  company_name: string | null
   birthdate: string | null
   gender: string | null
   email: string | null
   phone: string | null
+  street: string | null
+  house_number: string | null
   postcode: string | null
   city: string | null
+  country_code: string | null
   monthly_income: number | null
   preferred_language: string | null
   status: string | null
@@ -66,7 +72,7 @@ export type ContractRow = {
 }
 
 const CUSTOMER_COLUMNS =
-  "id,first_name,last_name,birthdate,gender,email,phone,postcode,city,monthly_income,preferred_language,status,created_at,updated_at"
+  "id,customer_type,salutation,first_name,last_name,company_name,birthdate,gender,email,phone,street,house_number,postcode,city,country_code,monthly_income,preferred_language,status,created_at,updated_at"
 const ANALYSIS_COLUMNS =
   "id,customer_id,title,status,current_step,current_question,progress_percent,latest_snapshot,lock_version,started_at,completed_at,created_at,updated_at"
 const CONTRACT_COLUMNS =

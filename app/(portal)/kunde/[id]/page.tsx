@@ -1,8 +1,9 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, Mail, Phone, MapPin, Cake, FileText, LineChart, ArrowRight } from "lucide-react"
-import { getCustomerDetail, type AnalysisStatus } from "@/lib/data/portal"
+import { getCustomerDetail, type AnalysisStatus, type CustomerRow } from "@/lib/data/portal"
 import { StartAnalysisButton } from "@/components/portal/start-analysis-button"
+import { EditCustomerDialog } from "@/components/portal/edit-customer-dialog"
 import { initials, fullName, formatDate, formatCHF } from "@/lib/format"
 
 const STATUS_LABEL: Record<AnalysisStatus, string> = {
@@ -10,6 +11,27 @@ const STATUS_LABEL: Record<AnalysisStatus, string> = {
   in_progress: "In Bearbeitung",
   completed: "Abgeschlossen",
   cancelled: "Abgebrochen",
+}
+
+const GENDER_LABEL: Record<string, string> = { male: "Männlich", female: "Weiblich", other: "Divers" }
+const LANGUAGE_LABEL: Record<string, string> = { de: "Deutsch", fr: "Französisch", it: "Italienisch", en: "Englisch" }
+const CUSTOMER_STATUS_LABEL: Record<string, string> = {
+  lead: "Lead",
+  active: "Aktiv",
+  inactive: "Inaktiv",
+  archived: "Archiviert",
+}
+const CUSTOMER_TYPE_LABEL: Record<string, string> = { private: "Privatperson", company: "Firma" }
+
+function displayName(c: CustomerRow): string {
+  if (c.customer_type === "company") return c.company_name || fullName(c.first_name, c.last_name)
+  return fullName(c.first_name, c.last_name)
+}
+
+function displayAddress(c: CustomerRow): string {
+  const line1 = [c.street, c.house_number].filter(Boolean).join(" ")
+  const line2 = [c.postcode, c.city].filter(Boolean).join(" ")
+  return [line1, line2, c.country_code].filter(Boolean).join(", ")
 }
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -48,7 +70,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           </span>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {fullName(customer.first_name, customer.last_name)}
+              {displayName(customer)}
             </h1>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
               {contact.map((c, i) => {
@@ -76,8 +98,37 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         )}
       </div>
 
-      {/* Analyses history */}
+      {/* Customer data */}
       <section className="mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-foreground">Kundendaten</h2>
+          <EditCustomerDialog customer={customer} />
+        </div>
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-0 sm:grid-cols-2">
+          <DataRow label="Kundentyp" value={CUSTOMER_TYPE_LABEL[customer.customer_type] ?? customer.customer_type} />
+          <DataRow label="Status" value={CUSTOMER_STATUS_LABEL[customer.status ?? ""] ?? customer.status} />
+          {customer.customer_type === "company" && <DataRow label="Firmenname" value={customer.company_name} />}
+          <DataRow label="Anrede" value={customer.salutation} />
+          <DataRow label="Vorname" value={customer.first_name} />
+          <DataRow label="Nachname" value={customer.last_name} />
+          <DataRow label="Geburtsdatum" value={customer.birthdate ? formatDate(customer.birthdate) : null} />
+          <DataRow label="Geschlecht" value={customer.gender ? (GENDER_LABEL[customer.gender] ?? customer.gender) : null} />
+          <DataRow label="E-Mail" value={customer.email} />
+          <DataRow label="Telefon" value={customer.phone} />
+          <DataRow label="Adresse" value={displayAddress(customer) || null} />
+          <DataRow
+            label="Sprache"
+            value={customer.preferred_language ? (LANGUAGE_LABEL[customer.preferred_language] ?? customer.preferred_language) : null}
+          />
+          <DataRow
+            label="Monatseinkommen"
+            value={customer.monthly_income != null ? formatCHF(customer.monthly_income) : null}
+          />
+        </dl>
+      </section>
+
+      {/* Analyses history */}
+      <section className="mt-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-foreground">Analysen</h2>
           {activeAnalysis && <StartAnalysisButton customerId={customer.id} variant="secondary" label="Weitere starten" />}
@@ -159,5 +210,14 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
         </div>
       </section>
     </main>
+  )
+}
+
+function DataRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-border/60 py-3">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="text-right text-sm font-medium text-foreground">{value || "–"}</dd>
+    </div>
   )
 }

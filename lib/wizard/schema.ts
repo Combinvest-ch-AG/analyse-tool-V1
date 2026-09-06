@@ -419,7 +419,7 @@ const BANKS = [
 
 const INVEST_PENSION = [
   "Alpian", "Clevercircles", "Descartes Finance", "Everon", "findependent", "finpension", "frankly", "Inyova", "kaspar&",
-  "Saxo Bank Schweiz", "Selma Finance", "Swissquote", "True Wealth", "VIAC", "Yuh",
+  "Saxo Bank Schweiz", "Selma Finance", "Swissquote", "True Wealth", "VIAC", "Yuh", "Zugerberg Finanz",
 ]
 
 const FINANCIAL_COMPANIES = [...HEALTH_INSURERS, ...INSURERS, ...BANKS, ...INVEST_PENSION]

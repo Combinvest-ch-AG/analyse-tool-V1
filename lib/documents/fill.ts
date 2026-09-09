@@ -87,7 +87,7 @@ export const CUSTOMER_SIGN_ANCHORS: Record<string, SignAnchor> = {
   "triveso-company": { page: "first", x: 305, y: 120, w: 195, h: 26 },
   pension: { page: "first", x: 78, y: 138, w: 190, h: 28 },
   generalvollmacht: { page: "first", x: 78, y: 138, w: 190, h: 28 },
-  kk: { page: "first", x: 358, y: 325, w: 95, h: 20 },
+  kk: { page: "first", x: 340, y: 326, w: 86, h: 20 },
   vag: { page: "last", x: 330, y: 470, w: 175, h: 34 },
   protocol: { page: "last", x: 305, y: 250, w: 190, h: 28 },
   pk: { page: "last", x: 290, y: 292, w: 165, h: 24 },
@@ -124,7 +124,7 @@ export type FillInput = {
  */
 export async function fillDocument(input: FillInput): Promise<Uint8Array> {
   const { id, type, form: f, protocol, pk, cancel, templateBytes, customerSigPng, advisorSigPng, PDFLib } = input
-  const { PDFDocument, StandardFonts, rgb, PDFName } = PDFLib
+  const { PDFDocument, StandardFonts, rgb, PDFName, PDFDict, PDFRawStream } = PDFLib
 
   const pdf = await PDFDocument.load(templateBytes as ArrayBuffer, { ignoreEncryption: true })
   const full = (f.company && type === "company" ? f.company + " / " : "") + f.firstName + " " + f.lastName
@@ -189,12 +189,31 @@ export async function fillDocument(input: FillInput): Promise<Uint8Array> {
   }
 
   const ink = rgb(0.07, 0.12, 0.2)
-  const white = rgb(1, 1, 1)
   const pages = pdf.getPages()
 
   /** Entfernt alle Annotationen einer Seite (verwaiste Widgets / Alt-Overlays). */
   const stripAnnots = (page: (typeof pages)[number]) => {
     page.node.set(PDFName.of("Annots"), pdf.context.obj([]))
+  }
+
+  /**
+   * Leert die Form-XObjects (Overlays) einer Seite. Manche gescannten Vorlagen
+   * legen ausgefüllte Alt-Daten (Namen, Unterschriften) als Form-XObject-Overlay
+   * über das leere Formular. Das Leeren des Streams gibt das unberührte
+   * Blankoformular frei und entfernt sämtliche Fremd-Personendaten (Datenschutz).
+   */
+  const clearOverlayForms = (page: (typeof pages)[number]) => {
+    const res = page.node.Resources()
+    const xobjects = res?.lookup(PDFName.of("XObject"), PDFDict)
+    if (!xobjects) return
+    for (const [, ref] of xobjects.entries()) {
+      const stream = pdf.context.lookup(ref)
+      const dict = (stream as { dict?: unknown })?.dict
+      const subtype = (dict as { get?: (n: unknown) => unknown })?.get?.(PDFName.of("Subtype"))
+      if (subtype?.toString() === "/Form" && dict) {
+        pdf.context.assign(ref, PDFRawStream.of(dict as never, new Uint8Array([])))
+      }
+    }
   }
 
   type Page = ReturnType<typeof pdf.getPages>[number]
@@ -267,22 +286,16 @@ export async function fillDocument(input: FillInput): Promise<Uint8Array> {
     signAdvisor()
   }
   if (id === "kk") {
-    // Der Contentstream der Vorlage hinterlässt eine CTM-Verschiebung, die
-    // angehängte Zeichnungen verschiebt. Wir betten die Vorlage als Seite auf
-    // eine frische Leinwand ein – dadurch liegt unser Overlay in sauberen
-    // Koordinaten. Zusätzlich enthält die Vorlage eingebrannte Alt-Daten einer
-    // früheren Kundin (Name + zwei Unterschriften), die wir aus
-    // Datenschutzgründen übermalen.
-    const src = pages[0]
-    const embedded = await pdf.embedPage(src)
-    pdf.removePage(0)
-    const kkPage = pdf.insertPage(0, [595, 842])
-    kkPage.drawPage(embedded, { x: 0, y: 0, width: 595, height: 842 })
-    kkPage.drawRectangle({ x: 98, y: 771, width: 224, height: 18, color: white }) // Alt-Name Absender
-    kkPage.drawRectangle({ x: 350, y: 325, width: 112, height: 28, color: white }) // Alt-Unterschrift Zeile 1
-    kkPage.drawRectangle({ x: 350, y: 299, width: 112, height: 24, color: white }) // Alt-Unterschrift Zeile 2
+    const kkPage = pages[0]
+    // Die Vorlage enthält eingebrannte Alt-Daten einer früheren Kundin (Name
+    // "Linda Suska" + zwei Unterschriften). Sie stecken in einem Form-XObject-
+    // Overlay und einer Stamp-Annotation über dem leeren Formular. Wir entfernen
+    // beide, wodurch das unberührte Blankoformular frei wird – keine fremden
+    // Personendaten mehr im Dokument (Datenschutz), ohne Übermalen.
+    stripAnnots(kkPage)
+    clearOverlayForms(kkPage)
     // Absenderblock (versicherte Person)
-    text(kkPage, full, 105, 776, 9)
+    text(kkPage, full, 105, 778, 9)
     text(kkPage, f.street, 105, 752, 9)
     text(kkPage, f.zip + " " + f.city, 105, 727, 9)
     text(kkPage, f.phone, 105, 702, 9)
@@ -294,9 +307,9 @@ export async function fillDocument(input: FillInput): Promise<Uint8Array> {
     text(kkPage, full, 105, 327, 9)
     text(kkPage, f.birthdate, 250, 327, 9)
     drawSig(customerImage, CUSTOMER_SIGN_ANCHORS.kk, kkPage)
-    // Gekündigter Bereich + Termin (KVG obere, VVG untere Linie)
-    if (cancel.kkScope.includes("KVG")) text(kkPage, cancel.kkDate, 460, 334, 8)
-    if (cancel.kkScope.includes("VVG")) text(kkPage, cancel.kkDate, 460, 319, 8)
+    // Gekündigter Bereich + Termin (KVG obere, VVG untere Linie der ersten Zeile)
+    if (cancel.kkScope.includes("KVG")) text(kkPage, cancel.kkDate, 468, 335, 8)
+    if (cancel.kkScope.includes("VVG")) text(kkPage, cancel.kkDate, 468, 321, 8)
   }
   if (id === "vag") {
     const vagFirst = pages[0]

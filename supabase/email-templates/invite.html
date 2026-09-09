@@ -1,0 +1,71 @@
+<!--
+  Combinvest — Einladung (Invite user)
+  Supabase Dashboard: Authentication → Emails → "Invite user"
+  Verfügbare Variablen: {{ .ConfirmationURL }} {{ .TokenHash }} {{ .Token }} {{ .SiteURL }} {{ .Email }}
+  Hinweis: Die Einladung erstellt den Auth-User; der Klick loggt direkt ein (wie ein Magic Link).
+-->
+<div style="margin:0;padding:0;background-color:#f4f7fb;">
+  <div style="font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#f4f7fb;padding:40px 20px;color:#111d36;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;">
+      <tr>
+        <td style="background-color:#ffffff;border:1px solid #e3e9f1;border-radius:16px;padding:40px;">
+
+          <!-- Wordmark -->
+          <div style="text-align:center;margin-bottom:32px;">
+            <img src="{{ .SiteURL }}/combinvest-logo.png" alt="Combinvest" width="150" style="display:inline-block;height:auto;border:0;outline:none;text-decoration:none;">
+            <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#687386;margin-top:6px;">Berater-Portal</div>
+          </div>
+
+          <h1 style="font-size:22px;font-weight:700;margin:0 0 12px;text-align:center;letter-spacing:-0.4px;color:#111d36;">Willkommen im Team</h1>
+
+          <p style="font-size:15px;line-height:1.6;color:#687386;text-align:center;margin:0 0 28px;">
+            Sie wurden zum Combinvest Berater-Portal eingeladen. Mit einem Klick aktivieren Sie Ihren Zugang und sind sofort eingeloggt &ndash; ganz ohne Passwort.
+          </p>
+
+          <!-- Primary button -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td align="center">
+                <a href="{{ .SiteURL }}/auth/verify?token_hash={{ .TokenHash }}&type=invite&next=/dashboard"
+                   style="display:inline-block;background-color:#3978f6;color:#ffffff;text-decoration:none;padding:15px 36px;border-radius:10px;font-size:15px;font-weight:700;">
+                  Zugang aktivieren
+                </a>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Divider with label -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:32px 0 24px;">
+            <tr>
+              <td style="border-top:1px solid #e3e9f1;"></td>
+              <td style="width:1px;white-space:nowrap;padding:0 12px;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#a3adbf;">oder mit Code</td>
+              <td style="border-top:1px solid #e3e9f1;"></td>
+            </tr>
+          </table>
+
+          <p style="font-size:14px;line-height:1.6;color:#687386;text-align:center;margin:0 0 16px;">
+            Alternativ diesen Code auf der Anmeldeseite eingeben:
+          </p>
+
+          <!-- Code block -->
+          <div style="text-align:center;margin:0 0 8px;">
+            <span style="display:inline-block;background-color:#eef3fb;border:1px solid #e3e9f1;border-radius:12px;padding:16px 28px;font-size:32px;font-weight:800;letter-spacing:10px;color:#245bd2;font-family:'SF Mono',Menlo,Consolas,monospace;">{{ .Token }}</span>
+          </div>
+
+          <hr style="border:none;border-top:1px solid #e3e9f1;margin:32px 0 20px;">
+
+          <p style="font-size:12px;color:#a3adbf;text-align:center;margin:0;line-height:1.5;">
+            Diese Einladung ist nur für <strong style="color:#687386;">{{ .Email }}</strong> bestimmt und läuft aus Sicherheitsgründen bald ab.<br>
+            Falls Sie keine Einladung erwarten, können Sie diese E-Mail ignorieren.
+          </p>
+
+        </td>
+      </tr>
+      <tr>
+        <td style="text-align:center;padding-top:24px;">
+          <p style="font-size:12px;color:#a3adbf;margin:0;">&copy; Combinvest &middot; Hausimollstrasse 3, 4622 Egerkingen</p>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>

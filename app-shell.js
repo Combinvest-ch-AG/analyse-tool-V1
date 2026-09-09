@@ -53,7 +53,7 @@
     var themeNames={investment:"Vermögen",pensiongap:"Vorsorge","property-creation":"Lebensstandard",health:"Gesundheit","real-estate":"Immobilien",children:"Kinder","values-protection":"Versicherungen","tax-advantage":"Steuern"};
     var names={
       "franchise.html":"Franchise-Vergleich","zusatzversicherung.html":"Zusatzversicherungen","versicherungsberatung.html":"Versicherungsübersicht","versicherungscheck.html":"Sach- und Motorfahrzeug",
-      "vorsorgerechner.html":"Vorsorgelücke","rentenrechner.html":"AHV-Rente","immobilienrechner.html":"Tragbarkeit","budgetrechner.html":"Budget","vermoegensrechner.html":"Vermögensrechner",
+      "vorsorgerechner.html":"Vorsorgelückenanalyse","rentenrechner.html":"AHV-Rente","immobilienrechner.html":"Tragbarkeit","budgetrechner.html":"Budget","vermoegensrechner.html":"Vermögensrechner",
       "anlegerprofil.html":"Anlegerprofil","pk-ausweis.html":"PK-Ausweis","freizuegigkeitskonto.html":"Freizügigkeitskonto","abschluss.html":"Analyseabschluss","dokumente.html":"Dokumente"
     };
     if(page==="thema.html")return themeNames[params.get("t")]||"Themenberatung";

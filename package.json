@@ -12,7 +12,7 @@
     "test:affordability": "node --test engine/affordability-engine.test.mjs",
     "serve": "python3 -m http.server 3000",
     "lint": "eslint . --ignore-pattern node_modules",
-    "dev": "npm run serve & npm run test:watch"
+    "dev": "npm run serve"
   },
   "dependencies": {
     "chart.js": "^4.4.1"

@@ -48,6 +48,7 @@ export function CalcActionBar({
   const initialFingerprint = useRef<string | null>(null)
   const lastSavedFingerprint = useRef<string | null>(null)
   const sequence = useRef(Promise.resolve())
+  const retryCount = useRef(0)
   const mounted = useRef(true)
   const [state, setState] = useState<SaveState>(canSave ? "idle" : "standalone")
   const [savedAt, setSavedAt] = useState<Date | null>(null)
@@ -75,6 +76,7 @@ export function CalcActionBar({
         if (!mounted.current) return result.ok
         if (result.ok) {
           lastSavedFingerprint.current = currentFingerprint
+          retryCount.current = 0
           setSavedAt(new Date(result.savedAt))
           setState("saved")
           return true
@@ -118,6 +120,24 @@ export function CalcActionBar({
     window.addEventListener("beforeunload", warn)
     return () => window.removeEventListener("beforeunload", warn)
   }, [state])
+
+  // A failed autosave (e.g. a transient network blip) must not leave the state
+  // unsaved until the advisor edits again. Retry automatically with capped
+  // exponential backoff, but only while the latest payload is still unsaved, so
+  // the retry stops itself once the data is safe or superseded by a new edit.
+  useEffect(() => {
+    if (state !== "error" || !canSave) {
+      if (state === "saved" || state === "idle" || state === "standalone") retryCount.current = 0
+      return
+    }
+    if (retryCount.current >= 4) return
+    const delay = Math.min(8000, 1500 * 2 ** retryCount.current)
+    const timer = window.setTimeout(() => {
+      retryCount.current += 1
+      if (JSON.stringify(payloadRef.current) !== lastSavedFingerprint.current) void persist(false)
+    }, delay)
+    return () => window.clearTimeout(timer)
+  }, [state, canSave, persist])
 
   const backHref = ctx.analysisId ? `/analyse/${ctx.analysisId}` : "/rechner"
   const backLabel = ctx.analysisId ? "Zur Risikoanalyse" : "Zu den Rechnern"

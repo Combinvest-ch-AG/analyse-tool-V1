@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, ArrowRight, CheckCircle2, Download, FileText, Loader2 } from "lucide-react"
+import { ArrowLeft, ArrowRight, CheckCircle2, Download, FileText, Loader2, Mail, Copy, Check } from "lucide-react"
 import { saveDocuments } from "@/app/actions/portal"
+import { createSignatureRequest } from "@/app/actions/signatures"
 import { SignaturePad, type SignaturePadHandle } from "./signature-pad"
+import { ReturnedSignatures } from "./returned-signatures"
 
 type DocDef = { id: string; name: string; tag: string; file: string; checked?: boolean }
 
@@ -166,6 +168,12 @@ export function DocumentBuilder({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const initialAutosave = useRef(true)
+  const [emailBusy, setEmailBusy] = useState(false)
+  const [emailStatus, setEmailStatus] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [signLink, setSignLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [sentTick, setSentTick] = useState(0)
 
   useEffect(() => {
     if (initialAutosave.current) {
@@ -266,7 +274,11 @@ export function DocumentBuilder({
     return true
   }
 
-  async function createPdf(def: DocDef, PDFLib: typeof import("pdf-lib")) {
+  async function createPdf(
+    def: DocDef,
+    PDFLib: typeof import("pdf-lib"),
+    opts?: { skipCustomer?: boolean; skipAdvisor?: boolean },
+  ) {
     const { PDFDocument, StandardFonts, rgb, PDFName, PDFDict, PDFRawStream, PDFRef } = PDFLib
     const bytes = await fetch(def.file).then((r) => {
       if (!r.ok) throw new Error(def.name)
@@ -358,8 +370,8 @@ export function DocumentBuilder({
       const raw = await fetch(handle.toDataURL()).then((r) => r.arrayBuffer())
       return pdf.embedPng(raw)
     }
-    const customerImage = await embedSignature(customerRef.current)
-    const advisorImage = advisorLater ? null : await embedSignature(advisorRef.current)
+    const customerImage = opts?.skipCustomer ? null : await embedSignature(customerRef.current)
+    const advisorImage = opts?.skipAdvisor || advisorLater ? null : await embedSignature(advisorRef.current)
 
     type Page = ReturnType<typeof pdf.getPages>[number]
     type Img = Awaited<ReturnType<typeof pdf.embedPng>>
@@ -578,6 +590,66 @@ export function DocumentBuilder({
       console.error("[v0] PDF generation failed:", e)
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function sendByEmail() {
+    setEmailError(null)
+    setEmailStatus(null)
+    setSignLink(null)
+    if (!f.email) {
+      setEmailError("Bitte im Schritt 'Kontakt' eine Kunden-E-Mail erfassen.")
+      return
+    }
+    if (!consent) {
+      setEmailError("Bitte die Bestätigung des Kunden aktivieren.")
+      return
+    }
+    if (selectedDefs.length === 0) {
+      setEmailError("Bitte mindestens ein Dokument auswählen.")
+      return
+    }
+    setEmailBusy(true)
+    try {
+      const PDFLib = await import("pdf-lib")
+      const documents: { id: string; name: string; base64: string }[] = []
+      for (const def of selectedDefs) {
+        const bytes = await createPdf(def, PDFLib, { skipCustomer: true, skipAdvisor: true })
+        documents.push({ id: def.id, name: def.name, base64: bytesToBase64(bytes) })
+      }
+      const res = await createSignatureRequest({
+        analysisId,
+        customerId,
+        customerEmail: f.email,
+        customerName: `${f.firstName} ${f.lastName}`.trim(),
+        documents,
+      })
+      if (!res.ok) {
+        setEmailError(res.error ?? "Der Versand ist fehlgeschlagen.")
+        return
+      }
+      setSignLink(res.url ?? null)
+      setEmailStatus(
+        res.emailSent
+          ? "E-Mail an den Kunden versendet. Der Link ist 14 Tage gültig."
+          : "Anfrage erstellt. Der automatische Versand ist nicht konfiguriert – bitte den Link unten manuell teilen.",
+      )
+      setSentTick((t) => t + 1)
+      await saveDocuments({
+        analysisId,
+        documents: {
+          customerId,
+          selected,
+          documentNames: selectedDefs.map((d) => d.name),
+          status: "sent-for-remote-signature",
+          signedAt: new Date().toISOString(),
+        },
+      })
+    } catch (e) {
+      setEmailError("Die PDFs konnten nicht vorbereitet werden. Bitte Eingaben prüfen.")
+      console.error("[v0] remote sign send failed:", e)
+    } finally {
+      setEmailBusy(false)
     }
   }
 
@@ -927,6 +999,49 @@ export function DocumentBuilder({
               <strong>Rechtlicher Hinweis:</strong> Die gezeichneten Signaturen werden technisch als einfache elektronische Signaturen dokumentiert. Eine qualifizierte elektronische Signatur nach ZertES benötigt einen anerkannten Signaturdienst.
             </div>
 
+            <div className="mt-4 rounded-xl border border-border p-4">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-bold text-foreground">Alternativ: per E-Mail zur Unterschrift senden</h3>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Der Kunde erhält einen sicheren Link an <strong className="text-foreground">{f.email || "seine E-Mail-Adresse"}</strong> und
+                unterschreibt bequem auf dem eigenen Gerät. Ihre Beraterunterschrift ergänzen Sie danach im Abschnitt unten. Das Kundenfeld oben können Sie dafür leer lassen.
+              </p>
+              <button
+                type="button"
+                onClick={sendByEmail}
+                disabled={emailBusy}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-primary bg-primary/5 px-4 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
+              >
+                {emailBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                {emailBusy ? "Wird gesendet …" : "Zum Unterschreiben senden"}
+              </button>
+              {emailError && <p className="mt-2 text-sm font-semibold text-destructive">{emailError}</p>}
+              {emailStatus && (
+                <p className="mt-2 flex items-start gap-2 text-sm font-semibold text-success">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none" /> {emailStatus}
+                </p>
+              )}
+              {signLink && (
+                <div className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-background p-2.5">
+                  <input readOnly value={signLink} className="min-w-0 flex-1 bg-transparent text-xs text-muted-foreground outline-none" aria-label="Signatur-Link" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(signLink)
+                      setCopied(true)
+                      window.setTimeout(() => setCopied(false), 1500)
+                    }}
+                    className="inline-flex flex-none items-center gap-1 text-xs font-bold text-primary"
+                  >
+                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copied ? "Kopiert" : "Kopieren"}
+                  </button>
+                </div>
+              )}
+            </div>
+
             {status && (
               <div className="mt-4 flex items-start gap-2 rounded-xl bg-success/10 p-3.5 text-sm font-semibold text-success">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none" /> {status}
@@ -947,6 +1062,8 @@ export function DocumentBuilder({
                 </Link>
               </div>
             )}
+
+            <ReturnedSignatures analysisId={analysisId} refreshKey={sentTick} />
           </Panel>
         )}
 
@@ -971,6 +1088,15 @@ export function DocumentBuilder({
       </div>
     </div>
   )
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ""
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
 }
 
 const INPUT =

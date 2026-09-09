@@ -263,7 +263,8 @@ export async function fillDocument(input: FillInput): Promise<Uint8Array> {
   const signAdvisor = () => drawSig(advisorImage, ADVISOR_SIGN_ANCHORS[id])
 
   if (id === "private" || id === "company") {
-    text(pages[0], f.salutation, 140, 651, 9)
+    // Anrede (Herr/Frau) deutlich ÜBER die Linie setzen, nicht auf die Linie.
+    text(pages[0], f.salutation, 140, 656, 9)
     signCustomer()
     signAdvisor()
   }
@@ -307,9 +308,16 @@ export async function fillDocument(input: FillInput): Promise<Uint8Array> {
     text(kkPage, full, 105, 327, 9)
     text(kkPage, f.birthdate, 250, 327, 9)
     drawSig(customerImage, CUSTOMER_SIGN_ANCHORS.kk, kkPage)
-    // Gekündigter Bereich + Termin (KVG obere, VVG untere Linie der ersten Zeile)
-    if (cancel.kkScope.includes("KVG")) text(kkPage, cancel.kkDate, 468, 335, 8)
-    if (cancel.kkScope.includes("VVG")) text(kkPage, cancel.kkDate, 468, 321, 8)
+    // Gekündigter Bereich ankreuzen (X in ☐) + Termin eintragen. KVG obere,
+    // VVG untere Linie der ersten Personenzeile.
+    if (cancel.kkScope.includes("KVG")) {
+      text(kkPage, "X", 444, 336, 8)
+      text(kkPage, cancel.kkDate, 468, 335, 8)
+    }
+    if (cancel.kkScope.includes("VVG")) {
+      text(kkPage, "X", 444, 323, 8)
+      text(kkPage, cancel.kkDate, 468, 321, 8)
+    }
   }
   if (id === "vag") {
     const vagFirst = pages[0]

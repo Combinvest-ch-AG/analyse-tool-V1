@@ -7,6 +7,7 @@ import { saveDocuments } from "@/app/actions/portal"
 import { createSignatureRequest } from "@/app/actions/signatures"
 import { SignaturePad, type SignaturePadHandle } from "./signature-pad"
 import { ReturnedSignatures } from "./returned-signatures"
+import { fillDocument } from "@/lib/documents/fill"
 
 type DocDef = { id: string; name: string; tag: string; file: string; checked?: boolean }
 
@@ -162,6 +163,7 @@ export function DocumentBuilder({
     kkDate: "",
   })
   const [advisorLater, setAdvisorLater] = useState(Boolean(draft.advisorLater))
+  const [signMode, setSignMode] = useState<"onsite" | "email">("onsite")
   const [consent, setConsent] = useState(Boolean(draft.consent))
   const [status, setStatus] = useState<string | null>(null)
   const [downloads, setDownloads] = useState<{ name: string; url: string; file: string }[]>([])
@@ -256,10 +258,6 @@ export function DocumentBuilder({
         setError("Bitte geben Sie die AHV-Nummer ein.")
         return false
       }
-      if (!pk.jobs.some((j) => j.from && j.to && j.employer)) {
-        setError("Bitte erfassen Sie mindestens ein früheres Arbeitsverhältnis vollständig.")
-        return false
-      }
       if (pk.death.enabled && (!pk.death.deathDate || !pk.death.survivorLast || !pk.death.survivorFirst || !pk.death.relationship)) {
         setError("Bitte vervollständigen Sie die Angaben zum Todesfall.")
         return false
@@ -279,269 +277,33 @@ export function DocumentBuilder({
     PDFLib: typeof import("pdf-lib"),
     opts?: { skipCustomer?: boolean; skipAdvisor?: boolean },
   ) {
-    const { PDFDocument, StandardFonts, rgb, PDFName, PDFDict, PDFRawStream, PDFRef } = PDFLib
     const bytes = await fetch(def.file).then((r) => {
       if (!r.ok) throw new Error(def.name)
       return r.arrayBuffer()
     })
-    const pdf = await PDFDocument.load(bytes, { ignoreEncryption: true })
-    const full = (f.company && type === "company" ? f.company + " / " : "") + f.firstName + " " + f.lastName
-    const address = f.street + ", " + f.zip + " " + f.city
-
-    // Feldwert setzen und dabei eine kompakte, gut lesbare Schriftgroesse erzwingen.
-    // Ohne explizite Groesse skalieren die Vorlagen-Felder auf Auto-Groesse: der Text
-    // wird riesig, schwebt ueber den Linien und laeuft am Rand ueber (z. B. die E-Mail).
-    const safeField = (name: string, value: string, size = 10) => {
-      try {
-        const field = pdf.getForm().getTextField(name)
-        field.setText(value || "")
-        field.setFontSize(size)
-      } catch {
-        /* field not present */
-      }
-    }
-
-    if (def.id === "private" || def.id === "company") {
-      safeField("Name", full)
-      safeField("Strasse  Nr", f.street)
-      safeField("PLZ  Ort", f.zip + " " + f.city)
-      safeField("Telefonnummer", f.phone)
-      safeField("Email", f.email)
-      safeField("Text1", f.place + ", " + f.date)
-      safeField("Text2", f.place + ", " + f.date)
-    }
-    // Generalvollmacht nutzt dieselbe Vorlage wie die Vollmacht Vorsorgeinformationen.
-    if (def.id === "pension" || def.id === "generalvollmacht") {
-      const fields: Record<string, string> = {
-        "Text Box 1": full,
-        "Text Box 1_2": f.street,
-        "Text Box 1_3": f.zip + " " + f.city,
-        "Text Box 1_4": f.birthdate,
-        "Text Box 1_5": f.advisorName,
-        "Text Box 1_6": f.place + ", " + f.date,
-        "Text Box 1_7": f.place + ", " + f.date,
-      }
-      Object.entries(fields).forEach(([k, v]) => safeField(k, v))
-    }
-    if (def.id === "triveso-private") {
-      // Feldnamen sind zufällig; Zuordnung erfolgt über die exakte Position.
-      const fields: Record<string, string> = {
-        "Text-A0_PYS-9-8": f.salutation, // Anrede (links, y652)
-        "Text-QNCXd6HnhQ": f.birthdate, // Geburtsdatum (rechts, y653)
-        "Text-0N-N1EAc1l": f.firstName, // Vorname (links, y626)
-        "Text-j18-8a9oz5": f.lastName, // Nachname (rechts, y624)
-        "Text-3VQSSwokG-": f.street, // Strasse (links, y598)
-        "Text-TfylkX6tRv": f.zip + " " + f.city, // PLZ/Ort (rechts, y598)
-        "Text-3SUUcZKDzd": f.phone, // Telefon (links, y572)
-        "Text-Qpw5oP2k-c": f.email, // Email (rechts, y571)
-        "Text-8tapIkXUNW": (f.place || f.city) + ", " + f.date, // Ort/Datum Auftraggeber
-        "Text-qQJbfRMLiG": (f.place || f.city) + ", " + f.date, // Ort/Datum Auftragnehmer
-      }
-      Object.entries(fields).forEach(([k, v]) => safeField(k, v))
-    }
-    if (def.id === "triveso-company") {
-      const fields: Record<string, string> = {
-        "Text-3uqA1Rn3Ye": f.company || full, // Firma (breit, y626)
-        "Text-yagTWQstLB": full, // Name (links, y598)
-        "Text-kL5RHfqaAT": f.zip + " " + f.city, // PLZ/Ort (rechts, y598)
-        "Text-IqxFz4tNkR": f.street, // Strasse (links, y571)
-        "Text-qqJkVb3-Pl": f.phone + "  " + f.email, // Telefon/Email (rechts, y571)
-        "Text-ugfUrNU5WH": (f.place || f.city) + ", " + f.date, // Ort/Datum Auftraggeber
-        "Text-5Z-o08otbZ": (f.place || f.city) + ", " + f.date, // Ort/Datum Auftragnehmer
-      }
-      Object.entries(fields).forEach(([k, v]) => safeField(k, v))
-    }
-    const font = await pdf.embedFont(StandardFonts.Helvetica)
-    // Font explizit uebergeben: einige Vorlagen (z. B. Vorsorgevollmacht) haben eine
-    // Default-Appearance, die eine im Formular nicht vorhandene Schrift referenziert.
-    // Ohne Font scheitert die Neugenerierung still und die Felder bleiben leer.
-    try {
-      pdf.getForm().updateFieldAppearances(font)
-    } catch {
-      /* ignore */
-    }
-
-    const ink = rgb(0.07, 0.12, 0.2)
-    const pages = pdf.getPages()
-    const dateText = (f.place || f.city) + ", " + f.date
-
-    const embedSignature = async (handle: SignaturePadHandle | null) => {
+    // Signatur-Pads in PNG-Bytes wandeln (respektiert skip-Flags und "Berater später").
+    const padPng = async (handle: SignaturePadHandle | null) => {
       if (!handle || handle.isEmpty()) return null
       const raw = await fetch(handle.toDataURL()).then((r) => r.arrayBuffer())
-      return pdf.embedPng(raw)
+      return new Uint8Array(raw)
     }
-    const customerImage = opts?.skipCustomer ? null : await embedSignature(customerRef.current)
-    const advisorImage = opts?.skipAdvisor || advisorLater ? null : await embedSignature(advisorRef.current)
+    const customerSigPng = opts?.skipCustomer ? null : await padPng(customerRef.current)
+    const advisorSigPng = opts?.skipAdvisor || advisorLater ? null : await padPng(advisorRef.current)
 
-    type Page = ReturnType<typeof pdf.getPages>[number]
-    type Img = Awaited<ReturnType<typeof pdf.embedPng>>
-    const text = (page: Page, value: string, x: number, y: number, size = 9) => {
-      if (value) page.drawText(String(value).slice(0, 80), { x, y, size, font, color: ink })
-    }
-    const wrap = (page: Page, value: string, x: number, y: number, width: number, size: number, lineHeight: number, maxLines = 8) => {
-      const words = String(value || "").split(/\s+/)
-      let line = ""
-      const lines: string[] = []
-      for (const w of words) {
-        const test = (line + " " + w).trim()
-        if (font.widthOfTextAtSize(test, size) > width && line) {
-          lines.push(line)
-          line = w
-        } else line = test
-      }
-      if (line) lines.push(line)
-      lines.slice(0, maxLines).forEach((l, idx) => text(page, l, x, y - idx * lineHeight, size))
-    }
-    const sign = (page: Page, image: Img | null, x: number, y: number, w: number, h: number) => {
-      if (image) page.drawImage(image, { x, y, width: w, height: h })
-    }
-
-    if (def.id === "private" || def.id === "company") {
-      const mandate = pages[0]
-      text(mandate, f.salutation, 140, 646, 9)
-      sign(mandate, customerImage, 315, 124, 205, 28)
-      sign(mandate, advisorImage, 315, 78, 205, 28)
-    }
-    if (def.id === "triveso-private" || def.id === "triveso-company") {
-      // Ort/Datum-Felder liegen links (x≈50); die Unterschrift kommt rechts daneben.
-      const mandate = pages[0]
-      sign(mandate, customerImage, 300, 118, 210, 30)
-      sign(mandate, advisorImage, 300, 73, 210, 30)
-    }
-    if (def.id === "pension" || def.id === "generalvollmacht") {
-      const pension = pages[0]
-      sign(pension, customerImage, 72, 136, 205, 32)
-      sign(pension, advisorImage, 300, 136, 205, 32)
-    }
-    if (def.id === "kk") {
-      // Krankenkassen-Kündigung (KVG/VVG) – A4-Vorlage ohne Formularfelder.
-      const kkPage = pages[0]
-      // Die Vorlage traegt eingebrannte Alt-Daten der Vorbesitzerin (Name + zwei
-      // Unterschriften) in einem Form-XObject, das der Seiteninhalt zuoberst zeichnet –
-      // deshalb liegt es ueber allem, was wir ergaenzen. Wir leeren den Inhalt dieses
-      // XObjects, sodass nur die leere Vorlage bleibt und unsere Daten sichtbar sind.
-      try {
-        const res = kkPage.node.Resources()
-        const xobj = res?.lookup(PDFName.of("XObject"), PDFDict)
-        if (xobj) {
-          for (const [, value] of xobj.entries()) {
-            if (!(value instanceof PDFRef)) continue
-            const stream = kkPage.doc.context.lookup(value) as { dict?: unknown } | undefined
-            if (stream && "dict" in stream && stream.dict) {
-              kkPage.doc.context.assign(value, PDFRawStream.of(stream.dict as never, new Uint8Array([])))
-            }
-          }
-        }
-      } catch {
-        /* kein XObject */
-      }
-      // Kleiner Rest eines Alt-Zeichens ueber der ersten Absender-Linie uebermalen.
-      kkPage.drawRectangle({ x: 250, y: 780, width: 60, height: 12, color: rgb(1, 1, 1) })
-      // Absender-Block (versicherte Person) – Text sitzt knapp ueber den Linien.
-      text(kkPage, full, 60, 780, 9)
-      text(kkPage, f.street, 60, 761, 9)
-      text(kkPage, f.zip + " " + f.city, 60, 742, 9)
-      text(kkPage, f.phone, 60, 723, 9)
-      // Empfänger-Block (Einschreiben an die Krankenkasse)
-      text(kkPage, cancel.kkCompany, 357, 629, 9)
-      // Ort/Datum auf der Poststempel-Linie
-      text(kkPage, dateText, 60, 540, 9)
-      // Personenzeile 1: Name, Geburtsdatum, Unterschrift
-      text(kkPage, full, 60, 330, 9)
-      text(kkPage, f.birthdate, 246, 330, 9)
-      sign(kkPage, customerImage, 340, 326, 92, 20)
-      // "per"-Datum je nach gekündigtem Bereich (KVG obere, VVG untere Linie)
-      if (cancel.kkScope.includes("KVG")) text(kkPage, cancel.kkDate, 505, 343, 8)
-      if (cancel.kkScope.includes("VVG")) text(kkPage, cancel.kkDate, 505, 329, 8)
-    }
-    if (def.id === "vag") {
-      const vagFirst = pages[0]
-      const vag = pages[pages.length - 1]
-      text(vagFirst, f.advisorName, 364, 703, 9)
-      text(vagFirst, f.advisorStreet, 364, 681, 9)
-      text(vagFirst, f.advisorZipCity, 364, 659, 9)
-      text(vagFirst, f.finma, 364, 637, 9)
-      text(vag, dateText, 72, 590, 8)
-      text(vag, dateText, 324, 590, 8)
-      sign(vag, advisorImage, 72, 480, 200, 45)
-      sign(vag, customerImage, 324, 480, 200, 45)
-    }
-    if (def.id === "protocol") {
-      const first = pages[0]
-      const second = pages[1]
-      const third = pages[2]
-      const last = pages[pages.length - 1]
-      text(first, f.salutation, 171, 640, 9)
-      text(first, f.birthdate, 369, 640, 9)
-      text(first, f.firstName, 171, 619, 9)
-      text(first, f.lastName, 369, 619, 9)
-      text(first, f.street, 171, 596, 9)
-      text(first, f.zip + " " + f.city, 369, 596, 9)
-      text(first, f.phone, 171, 573, 9)
-      text(first, f.email, 369, 573, 9)
-      const meetingY: Record<string, number> = { Datenerhebung: 489, Beratungsgespräch: 470, Servicetermin: 450 }
-      text(first, "X", 92, meetingY[f.meetingType] || 489, 10)
-      const topicY: Record<string, number> = { pension: 374, health: 355, investment: 335, property: 316 }
-      protocol.topics.forEach((t) => text(first, "X", 92, topicY[t], 10))
-      text(first, protocol.contractCompany, 93, 230, 9)
-      text(first, protocol.contractBranch, 302, 230, 9)
-      const markAnswers = (page: Page, answers: string[], ys: number[]) =>
-        answers.forEach((a, i) => text(page, "X", a === "yes" ? 95 : 116, ys[i], 9))
-      markAnswers(second, protocol.answers.general, [660, 637, 613, 589, 565, 534, 504, 479])
-      if (protocol.topics.includes("health")) {
-        markAnswers(second, protocol.answers.health, [369, 328, 294])
-        wrap(second, protocol.motives.health, 100, 205, 395, 8, 11, 9)
-      }
-      if (protocol.topics.includes("investment")) {
-        markAnswers(third, protocol.answers.investment, [656, 621, 587])
-        wrap(third, protocol.motives.investment, 100, 515, 395, 8, 11, 9)
-      }
-      if (protocol.topics.includes("property")) {
-        markAnswers(third, protocol.answers.property, [298])
-        wrap(third, protocol.motives.property, 100, 235, 395, 8, 11, 9)
-      }
-      const cancellationY: Record<string, number> = { forward: 656, self: 634, none: 617 }
-      text(last, "X", 116, cancellationY[protocol.cancellation], 9)
-      text(last, dateText, 86, 250, 8)
-      sign(last, customerImage, 300, 247, 205, 34)
-      text(last, dateText, 86, 187, 8)
-      text(last, f.advisorName + (f.finma ? " | FINMA " + f.finma : ""), 300, 190, 7)
-      sign(last, advisorImage, 440, 184, 70, 28)
-    }
-    if (def.id === "pk") {
-      const pkFirst = pages[0]
-      const pkLast = pages[pages.length - 1]
-      text(pkFirst, f.lastName, 118, 625, 9)
-      text(pkFirst, f.firstName, 132, 602, 9)
-      text(pkFirst, f.birthdate, 155, 579, 9)
-      text(pkFirst, pk.ahvNumber, 298, 579, 9)
-      text(pkFirst, address, 163, 557, 9)
-      text(pkFirst, f.phone, 163, 466, 9)
-      if (pk.death.enabled) {
-        text(pkFirst, pk.death.deathDate, 149, 385, 8)
-        text(pkFirst, pk.death.survivorLast, 117, 339, 8)
-        text(pkFirst, pk.death.survivorFirst, 326, 339, 8)
-        text(pkFirst, pk.death.survivorBirth, 160, 317, 8)
-        text(pkFirst, pk.death.relationship, 351, 317, 8)
-        text(pkFirst, pk.death.survivorAddress, 149, 294, 8)
-      }
-      const jobY = [135, 110, 85, 60]
-      pk.jobs.forEach((j, i) => {
-        text(pkFirst, j.from, 82, jobY[i], 7)
-        text(pkFirst, j.to, 149, jobY[i], 7)
-        text(pkFirst, j.employer, 212, jobY[i], 7)
-        text(pkFirst, j.role, 358, jobY[i], 7)
-      })
-      text(pkLast, pk.previousPension, 149, 725, 9)
-      text(pkLast, pk.previousPensionAddress, 149, 703, 9)
-      const benefitY = [586, 575, 564, 552]
-      pk.benefits.forEach((a, i) => text(pkLast, "X", a === "yes" ? 303 : 337, benefitY[i], 9))
-      text(pkLast, dateText, 150, 309, 8)
-      sign(pkLast, customerImage, 285, 290, 180, 28)
-      const attachmentY = [118, 107, 95, 84, 72, 61]
-      pk.attachments.forEach((i) => text(pkLast, "X", 86, attachmentY[i], 9))
-    }
-    return pdf.save()
+    // SSOT: identische reine Fuellfunktion wie Remote-Signatur (signatures.ts)
+    // und das Validierungsskript. Alle Koordinaten/Fixes leben nur in fill.ts.
+    return fillDocument({
+      id: def.id,
+      type,
+      form: f,
+      protocol,
+      pk,
+      cancel,
+      templateBytes: bytes,
+      customerSigPng,
+      advisorSigPng,
+      PDFLib,
+    })
   }
 
   async function generate() {
@@ -854,20 +616,6 @@ export function DocumentBuilder({
                 </div>
 
                 <div className="mt-4 overflow-hidden rounded-xl border border-border">
-                  <h4 className="bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground">Frühere Arbeitsverhältnisse</h4>
-                  <div className="grid gap-3 p-4">
-                    {pk.jobs.map((job, i) => (
-                      <div key={i} className="grid gap-2 sm:grid-cols-4">
-                        <input className={INPUT} placeholder="Von (MM.JJJJ)" value={job.from} onChange={(e) => setPk((p) => ({ ...p, jobs: p.jobs.map((j, k) => (k === i ? { ...j, from: e.target.value } : j)) }))} />
-                        <input className={INPUT} placeholder="Bis (MM.JJJJ)" value={job.to} onChange={(e) => setPk((p) => ({ ...p, jobs: p.jobs.map((j, k) => (k === i ? { ...j, to: e.target.value } : j)) }))} />
-                        <input className={INPUT} placeholder="Arbeitgeber" value={job.employer} onChange={(e) => setPk((p) => ({ ...p, jobs: p.jobs.map((j, k) => (k === i ? { ...j, employer: e.target.value } : j)) }))} />
-                        <input className={INPUT} placeholder="Tätigkeit" value={job.role} onChange={(e) => setPk((p) => ({ ...p, jobs: p.jobs.map((j, k) => (k === i ? { ...j, role: e.target.value } : j)) }))} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4 overflow-hidden rounded-xl border border-border">
                   <h4 className="bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground">Bereits bezogene Rentenleistungen</h4>
                   {BENEFITS.map((b, i) => (
                     <div key={i} className="flex items-center justify-between gap-3 border-t border-border px-4 py-2.5">
@@ -956,7 +704,7 @@ export function DocumentBuilder({
         )}
 
         {panel === 5 && (
-          <Panel title="Prüfen & direkt unterschreiben" hint="Die Signaturen werden in jedem Original-PDF genau auf den vorgesehenen Linien platziert.">
+          <Panel title="Prüfen & unterschreiben" hint="Vor Ort gemeinsam unterschreiben – oder dem Kunden per E-Mail zur digitalen Unterschrift zustellen.">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-border p-4">
                 <h3 className="text-sm font-bold text-foreground">Kundendaten</h3>
@@ -973,6 +721,16 @@ export function DocumentBuilder({
               </div>
             </div>
 
+            <div role="tablist" aria-label="Unterschriftsart" className="mt-4 grid grid-cols-1 gap-2 rounded-xl border border-border p-1 sm:grid-cols-2">
+              <button type="button" role="tab" aria-selected={signMode === "onsite"} onClick={() => setSignMode("onsite")} className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors ${signMode === "onsite" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"}`}>
+                <FileText className="h-4 w-4" /> Vor Ort unterschreiben
+              </button>
+              <button type="button" role="tab" aria-selected={signMode === "email"} onClick={() => setSignMode("email")} className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors ${signMode === "email" ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"}`}>
+                <Mail className="h-4 w-4" /> Per E-Mail an Kunden senden
+              </button>
+            </div>
+
+            {signMode === "onsite" && (
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-border p-4">
                 <h3 className="text-sm font-bold text-foreground">Unterschrift Kunde</h3>
@@ -989,24 +747,28 @@ export function DocumentBuilder({
                 </label>
               </div>
             </div>
+            )}
 
             <label className="mt-4 flex items-start gap-2 rounded-xl border border-border p-3.5 text-sm text-foreground">
               <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-primary" />
               Kunde bestätigt die Richtigkeit der Angaben und den Erhalt der ausgewählten Unterlagen.
             </label>
 
+            {signMode === "onsite" && (
             <div className="mt-4 rounded-xl border border-warning/40 bg-warning/10 p-3.5 text-xs leading-relaxed text-foreground">
               <strong>Rechtlicher Hinweis:</strong> Die gezeichneten Signaturen werden technisch als einfache elektronische Signaturen dokumentiert. Eine qualifizierte elektronische Signatur nach ZertES benötigt einen anerkannten Signaturdienst.
             </div>
+            )}
 
+            {signMode === "email" && (
             <div className="mt-4 rounded-xl border border-border p-4">
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-bold text-foreground">Alternativ: per E-Mail zur Unterschrift senden</h3>
+                <h3 className="text-sm font-bold text-foreground">Per E-Mail zur Unterschrift senden</h3>
               </div>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 Der Kunde erhält einen sicheren Link an <strong className="text-foreground">{f.email || "seine E-Mail-Adresse"}</strong> und
-                unterschreibt bequem auf dem eigenen Gerät. Ihre Beraterunterschrift ergänzen Sie danach im Abschnitt unten. Das Kundenfeld oben können Sie dafür leer lassen.
+                unterschreibt bequem auf dem eigenen Gerät. Ihre Beraterunterschrift ergänzen Sie anschließend unten im Rücklauf.
               </p>
               <button
                 type="button"
@@ -1041,6 +803,7 @@ export function DocumentBuilder({
                 </div>
               )}
             </div>
+            )}
 
             {status && (
               <div className="mt-4 flex items-start gap-2 rounded-xl bg-success/10 p-3.5 text-sm font-semibold text-success">
@@ -1078,12 +841,12 @@ export function DocumentBuilder({
             <button type="button" onClick={next} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary-deep">
               Weiter <ArrowRight className="h-4 w-4" />
             </button>
-          ) : (
+          ) : signMode === "onsite" ? (
             <button type="button" onClick={generate} disabled={busy} className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary-deep disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
               {busy ? "PDFs werden erstellt …" : "Dokumentpaket erstellen"}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

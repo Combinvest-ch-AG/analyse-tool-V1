@@ -1249,10 +1249,21 @@ export async function buildAdvisoryReport(data: ReportData, locale: AppLocale = 
       rect(M, y - 2, equityWidth, 18, GREEN)
       rect(M + equityWidth, y - 2, firstWidth, 18, BLUE)
       rect(M + equityWidth + firstWidth, y - 2, Math.max(0, financingWidth - equityWidth - firstWidth), 18, ORANGE)
-      drawText(`Eigenmittel ${chf(equity)}`, M, y - 27, { size: 7.5, bold: true, color: GREEN })
-      drawText(`1. Hypothek ${chf(firstMortgage)}`, M + 157, y - 27, { size: 7.5, bold: true, color: BLUE_DARK })
-      drawText(`2. Hypothek ${chf(secondMortgage)}`, M + 344, y - 27, { size: 7.5, bold: true, color: ORANGE })
-      y -= 56
+      // Colour-coded legend in even columns so each label ties to its segment
+      // without the fixed offsets running off the page.
+      const financingParts: Array<[string, number, Col]> = [
+        ["Eigenmittel", equity, GREEN],
+        ["1. Hypothek", firstMortgage, BLUE],
+        ["2. Hypothek", secondMortgage, ORANGE],
+      ].filter((part) => (part[1] as number) > 0) as Array<[string, number, Col]>
+      const financingColWidth = financingParts.length ? CONTENT / financingParts.length : CONTENT
+      financingParts.forEach(([label, amount, tone], legendIndex) => {
+        const legendX = M + legendIndex * financingColWidth
+        roundRect(legendX, y - 30, 8, 8, 2, tone)
+        drawText(label, legendX + 13, y - 24, { size: 7.5, heavy: true, color: NAVY })
+        drawText(chf(amount), legendX + 13, y - 35, { size: 7.5, bold: true, color: MUTED })
+      })
+      y -= 60
 
       sectionTitle("Monatlicher Vergleich", "Eigentum und Vergleichsmiete")
       const comparisonMax = Math.max(ownership, cashflow, rent, 1)
@@ -1433,7 +1444,11 @@ export async function buildAdvisoryReport(data: ReportData, locale: AppLocale = 
     const factsToRender = isFranchiseReport ? [] : facts
     if (factsToRender.length) {
       sectionTitle("Berechnungsgrundlage", "Ihre verwendeten Angaben")
-      const columns = isAffordabilityReport && factsToRender.length >= 5 ? 3 : factsToRender.length > 4 ? 2 : 1
+      const columns = isAffordabilityReport
+        ? Math.min(3, Math.max(1, factsToRender.length))
+        : factsToRender.length > 4
+          ? 2
+          : 1
       const columnGap = columns === 3 ? 10 : 18
       const columnWidth = columns > 1 ? (CONTENT - columnGap * (columns - 1)) / columns : CONTENT
       factsToRender.forEach(([label, value], factIndex) => {

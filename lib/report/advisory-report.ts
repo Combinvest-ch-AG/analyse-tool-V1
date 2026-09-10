@@ -11,6 +11,8 @@ import {
   type PDFFont,
   type RGB,
 } from "pdf-lib"
+import { sankey as d3Sankey, sankeyLinkHorizontal } from "d3-sankey"
+import { sankeyColor } from "@/lib/data/chart-colors"
 
 type Col = [number, number, number]
 
@@ -347,6 +349,15 @@ function safe(value: unknown): string {
 
 function chf(value: unknown): string {
   return "CHF " + Math.round(Number(value) || 0).toLocaleString("de-CH")
+}
+
+// The Sankey shares the calculator's hex palette; pdf-lib needs 0..1 RGB triples.
+function hexToCol(hex: string): Col {
+  const clean = (hex || "").replace("#", "").trim()
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean.padEnd(6, "0").slice(0, 6)
+  const int = Number.parseInt(full, 16)
+  if (!Number.isFinite(int)) return [0.23, 0.42, 0.96]
+  return [((int >> 16) & 255) / 255, ((int >> 8) & 255) / 255, (int & 255) / 255]
 }
 
 function fmtDate(value?: string | null): string {
@@ -792,6 +803,156 @@ export async function buildAdvisoryReport(data: ReportData, locale: AppLocale = 
     return rowHeight
   }
 
+  // A dedicated, full-page money-flow Sankey for the budget: the same four-column
+  // income -> budget -> categories -> line-items view the advisor sees on screen,
+  // recomputed with d3-sankey and redrawn with pdf-lib so the printed report
+  // carries the complete flow, not just the summary bars.
+  function budgetSankeyPage(calc: ReportCalculator) {
+    const raw = calc.inputs && typeof calc.inputs === "object" ? (calc.inputs as Record<string, unknown>).data : undefined
+    const bd = raw && typeof raw === "object" ? (raw as { income?: unknown; cats?: unknown }) : null
+    const income = Array.isArray(bd?.income) ? (bd!.income as Array<{ name?: string; amount?: number }>) : []
+    const cats = Array.isArray(bd?.cats)
+      ? (bd!.cats as Array<{ name?: string; color?: string; subs?: Array<{ name?: string; amount?: number }> }>)
+      : []
+    const clampN = (v: number) => (!Number.isFinite(v) || v < 0 ? 0 : Math.min(v, 1e8))
+    const catTotal = (c: { subs?: Array<{ amount?: number }> }) =>
+      (c.subs ?? []).reduce((t, s) => t + clampN(Number(s?.amount)), 0)
+    if (!income.some((x) => clampN(Number(x?.amount)) > 0) && !cats.some((c) => catTotal(c) > 0)) return
+
+    const INCOME_COL = hexToCol(sankeyColor.income)
+    const BUDGET_COL = hexToCol(sankeyColor.budget)
+
+    interface SankeyN {
+      key: string
+      label: string
+      col: Col
+      column: number
+    }
+    interface SankeyL {
+      source: number
+      target: number
+      value: number
+      scol: Col
+    }
+    const nodes: SankeyN[] = []
+    const links: SankeyL[] = []
+    const map: Record<string, number> = {}
+    const nid = (key: string, label: string, col: Col, column: number) => {
+      if (!(key in map)) {
+        map[key] = nodes.length
+        nodes.push({ key, label, col, column })
+      }
+      return map[key]
+    }
+    const budgetIndex = nid("budget", "Budget", BUDGET_COL, 1)
+    income.forEach((x, i) => {
+      const amount = clampN(Number(x?.amount))
+      if (amount <= 0) return
+      links.push({ source: nid("inc" + i, x?.name || "Einnahme", INCOME_COL, 0), target: budgetIndex, value: amount, scol: INCOME_COL })
+    })
+    cats.forEach((c, ci) => {
+      const total = catTotal(c)
+      if (total <= 0) return
+      const catCol = hexToCol(c?.color || "#256abf")
+      const catIndex = nid("cat" + ci, c?.name || "Kategorie", catCol, 2)
+      links.push({ source: budgetIndex, target: catIndex, value: total, scol: BUDGET_COL })
+      ;(c.subs ?? []).forEach((s, si) => {
+        const amount = clampN(Number(s?.amount))
+        if (amount <= 0) return
+        links.push({ source: catIndex, target: nid("sub" + ci + "_" + si, s?.name || "Posten", catCol, 3), value: amount, scol: catCol })
+      })
+    })
+    if (!links.length) return
+
+    addPage(
+      "Budget · Geldfluss",
+      "Ihr monatlicher Geldfluss",
+      "Diese Übersicht zeigt, wie Ihr gesamtes Einkommen über das Budget auf die einzelnen Ausgabenkategorien und Posten verteilt wird.",
+    )
+
+    const legend: Array<[string, Col]> = [
+      ["Einkommen", INCOME_COL],
+      ["Budget", BUDGET_COL],
+      ["Ausgaben", hexToCol(cats.find((c) => catTotal(c) > 0)?.color || "#ee6a20")],
+    ]
+    let legendX = M
+    legend.forEach(([label, col]) => {
+      roundRect(legendX, y - 9, 10, 10, 2, col)
+      drawText(label, legendX + 15, y - 7, { size: 8, bold: true, color: MUTED })
+      legendX += 15 + textWidth(label, bold, 8) + 20
+    })
+    y -= 26
+
+    const boxLeft = M
+    const boxWidth = CONTENT
+    const boxTop = y
+    const boxHeight = Math.max(320, boxTop - 56)
+
+    let laid: ReturnType<ReturnType<typeof d3Sankey<SankeyN, SankeyL>>>
+    try {
+      const generator = d3Sankey<SankeyN, SankeyL>()
+        .nodeWidth(12)
+        .nodePadding(15)
+        .extent([
+          [1, 6],
+          [boxWidth - 1, boxHeight - 6],
+        ])
+      laid = generator({ nodes: nodes.map((d) => ({ ...d })), links: links.map((d) => ({ ...d })) })
+    } catch {
+      return
+    }
+    const linkPath = sankeyLinkHorizontal<SankeyN, SankeyL>()
+
+    // Ribbons first (stroked centrelines, no fill), then the thin nodes and labels on top.
+    laid.links.forEach((l) => {
+      const d = linkPath(l as never)
+      if (!d) return
+      page.drawSvgPath(d, {
+        x: boxLeft,
+        y: boxTop,
+        borderColor: color((l as unknown as SankeyL).scol),
+        borderWidth: Math.max(0.6, Number((l as { width?: number }).width) || 1),
+        borderOpacity: 0.5,
+      })
+    })
+
+    laid.nodes.forEach((n) => {
+      const x0 = Number(n.x0) || 0
+      const x1 = Number(n.x1) || 0
+      const y0 = Number(n.y0) || 0
+      const y1 = Number(n.y1) || 0
+      roundRect(boxLeft + x0, boxTop - y1, Math.max(1, x1 - x0), Math.max(1, y1 - y0), 2.5, (n as unknown as SankeyN).col)
+    })
+
+    const fit = (text: string, size: number, maxWidth: number) => {
+      let out = text
+      while (out.length > 3 && textWidth(out, heavy, size) > maxWidth) out = out.slice(0, -1)
+      return out === text ? text : out.trimEnd() + ".."
+    }
+
+    laid.nodes.forEach((n) => {
+      const x0 = Number(n.x0) || 0
+      const x1 = Number(n.x1) || 0
+      const centerY = boxTop - ((Number(n.y0) || 0) + (Number(n.y1) || 0)) / 2
+      const nameSize = 8
+      const valueSize = 7.5
+      const baseline = centerY - nameSize * 0.34
+      const value = chf((n as { value?: number }).value || 0)
+      const label = fit((n as unknown as SankeyN).label, nameSize, 150)
+      const nameW = textWidth(label, heavy, nameSize)
+      const valueW = textWidth(value, regular, valueSize)
+      if (x0 < boxWidth / 2) {
+        const tx = boxLeft + x1 + 6
+        drawText(label, tx, baseline, { size: nameSize, heavy: true, color: NAVY })
+        drawText(value, tx + nameW + 5, baseline, { size: valueSize, color: MUTED })
+      } else {
+        const tx = Math.max(boxLeft + 2, boxLeft + x0 - 6 - (nameW + 5 + valueW))
+        drawText(label, tx, baseline, { size: nameSize, heavy: true, color: NAVY })
+        drawText(value, tx + nameW + 5, baseline, { size: valueSize, color: MUTED })
+      }
+    })
+  }
+
   // Cover - deliberately minimal, editorial and readable on a phone.
   page = doc.addPage(PAGE)
   pages.push(page)
@@ -1088,10 +1249,21 @@ export async function buildAdvisoryReport(data: ReportData, locale: AppLocale = 
       rect(M, y - 2, equityWidth, 18, GREEN)
       rect(M + equityWidth, y - 2, firstWidth, 18, BLUE)
       rect(M + equityWidth + firstWidth, y - 2, Math.max(0, financingWidth - equityWidth - firstWidth), 18, ORANGE)
-      drawText(`Eigenmittel ${chf(equity)}`, M, y - 27, { size: 7.5, bold: true, color: GREEN })
-      drawText(`1. Hypothek ${chf(firstMortgage)}`, M + 157, y - 27, { size: 7.5, bold: true, color: BLUE_DARK })
-      drawText(`2. Hypothek ${chf(secondMortgage)}`, M + 344, y - 27, { size: 7.5, bold: true, color: ORANGE })
-      y -= 56
+      // Colour-coded legend in even columns so each label ties to its segment
+      // without the fixed offsets running off the page.
+      const financingParts: Array<[string, number, Col]> = [
+        ["Eigenmittel", equity, GREEN],
+        ["1. Hypothek", firstMortgage, BLUE],
+        ["2. Hypothek", secondMortgage, ORANGE],
+      ].filter((part) => (part[1] as number) > 0) as Array<[string, number, Col]>
+      const financingColWidth = financingParts.length ? CONTENT / financingParts.length : CONTENT
+      financingParts.forEach(([label, amount, tone], legendIndex) => {
+        const legendX = M + legendIndex * financingColWidth
+        roundRect(legendX, y - 30, 8, 8, 2, tone)
+        drawText(label, legendX + 13, y - 24, { size: 7.5, heavy: true, color: NAVY })
+        drawText(chf(amount), legendX + 13, y - 35, { size: 7.5, bold: true, color: MUTED })
+      })
+      y -= 60
 
       sectionTitle("Monatlicher Vergleich", "Eigentum und Vergleichsmiete")
       const comparisonMax = Math.max(ownership, cashflow, rent, 1)
@@ -1272,7 +1444,11 @@ export async function buildAdvisoryReport(data: ReportData, locale: AppLocale = 
     const factsToRender = isFranchiseReport ? [] : facts
     if (factsToRender.length) {
       sectionTitle("Berechnungsgrundlage", "Ihre verwendeten Angaben")
-      const columns = isAffordabilityReport && factsToRender.length >= 5 ? 3 : factsToRender.length > 4 ? 2 : 1
+      const columns = isAffordabilityReport
+        ? Math.min(3, Math.max(1, factsToRender.length))
+        : factsToRender.length > 4
+          ? 2
+          : 1
       const columnGap = columns === 3 ? 10 : 18
       const columnWidth = columns > 1 ? (CONTENT - columnGap * (columns - 1)) / columns : CONTENT
       factsToRender.forEach(([label, value], factIndex) => {
@@ -1301,6 +1477,9 @@ export async function buildAdvisoryReport(data: ReportData, locale: AppLocale = 
         color: MUTED,
       })
     }
+
+    // After the budget summary page, add a full page with the complete money-flow Sankey.
+    if (key === "budget") budgetSankeyPage(calculator)
   })
 
   // Closing page

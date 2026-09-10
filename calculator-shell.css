@@ -11,4 +11,36 @@ body.calc-unified input[type=number],body.calc-unified input[type=text],body.cal
 .calc-hover-tip{position:fixed;z-index:10000;max-width:290px;padding:9px 11px;border-radius:10px;background:var(--calc-navy);color:#fff;box-shadow:0 12px 28px rgba(16,38,75,.24);font-size:11px;font-weight:750;line-height:1.4;opacity:0;transform:translateY(5px);pointer-events:none;transition:opacity .12s,transform .12s}.calc-hover-tip.show{opacity:1;transform:none}
 .calc-unified .metric small,.calc-unified .fact .fl,.calc-unified .metrics span{font-size:11px!important;line-height:1.35}.calc-unified .metric b,.calc-unified .fact .fv,.calc-unified .metrics strong{font-variant-numeric:tabular-nums}.calc-unified .legend{gap:12px}.calc-unified .legend span{font-size:11px!important;font-weight:750}.calc-unified .chart-detail{font-size:12px!important;line-height:1.5}.calc-unified .chart-row{min-height:42px}.calc-unified .chart-label,.calc-unified .chart-value{font-size:12px!important}.calc-unified .stack span,.calc-unified .segment{transition:width .22s ease,filter .15s}.calc-unified .stack span:hover,.calc-unified .segment:hover{filter:brightness(.92)}
 @media(max-width:760px){.calc-standard-grid{grid-template-columns:1fr}.calc-standard-block+.calc-standard-block{border-left:0;border-top:1px solid var(--calc-line)}.calc-save-state{width:100%;margin-left:2px}.calc-actions{align-items:stretch}.calc-actions button,.calc-actions a{flex:1 1 calc(50% - 8px);text-align:center}.calc-range-control{grid-template-columns:minmax(0,1fr) 88px}.calc-source{margin-bottom:28px}.calc-hover-tip{max-width:calc(100vw - 28px)}}
-@media print{header,.app-shell,.calc-actions{display:none!important}body{background:#fff!important}.calc-standard-card,.card,.bdg-flowcard,.bdg-group{box-shadow:none!important;break-inside:avoid}.calc-source{margin-bottom:0}.calc-toast,.calc-hover-tip{display:none!important}}
+/* ---- Generischer PDF-/Druck-Report je Rechner-Sektion ---- */
+.calc-report{display:none;font-family:Manrope,system-ui,sans-serif;color:var(--calc-navy)}
+.calc-report .rep-top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid var(--calc-blue);padding-bottom:12px;margin-bottom:22px}
+.calc-report .rep-brand{font-weight:900;font-size:24px;letter-spacing:-.02em}
+.calc-report .rep-brand span{color:var(--calc-blue)}
+.calc-report .rep-brand small{display:block;font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--calc-muted);margin-top:4px}
+.calc-report .rep-title{text-align:right}
+.calc-report .rep-title h2{margin:0;font-size:18px;font-weight:900;letter-spacing:-.01em}
+.calc-report .rep-title .rep-date{color:var(--calc-muted);font-size:12px;font-weight:600;margin-top:3px}
+.calc-report .rep-sec{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--calc-muted);margin:22px 0 12px}
+.calc-report .rep-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.calc-report .rep-metric{border:1px solid var(--calc-line);border-radius:12px;padding:12px 14px;background:var(--calc-soft);break-inside:avoid}
+.calc-report .rep-metric .rl{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--calc-muted)}
+.calc-report .rep-metric .rv{font-size:18px;font-weight:900;margin-top:5px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.calc-report .rep-metric .rs{font-size:10px;color:var(--calc-muted);margin-top:2px;line-height:1.35}
+.calc-report .rep-table{border:1px solid var(--calc-line);border-radius:12px;overflow:hidden}
+.calc-report .rep-row{display:flex;justify-content:space-between;gap:12px;padding:9px 14px;font-size:12.5px;border-top:1px solid var(--calc-line)}
+.calc-report .rep-row:first-child{border-top:0}
+.calc-report .rep-row .rn{color:var(--calc-muted)}
+.calc-report .rep-row .ra{font-weight:750;font-variant-numeric:tabular-nums;white-space:nowrap}
+.calc-report .rep-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--calc-line);color:var(--calc-muted);font-size:10.5px;line-height:1.5}
+@media print{
+  @page{size:A4;margin:14mm}
+  header,.app-shell,.calc-actions,.calc-toast,.calc-hover-tip,.calc-basis-chip{display:none!important}
+  body{background:#fff!important}
+  .calc-standard-card,.card,.bdg-flowcard,.bdg-group{box-shadow:none!important;break-inside:avoid}
+  .calc-source{margin-bottom:0}
+  body.calc-has-report header,body.calc-has-report .ci-rail,body.calc-has-report .ci-context{display:none!important}
+  body.calc-has-report main{max-width:none!important;margin:0!important;padding:0!important}
+  body.calc-has-report main>*{display:none!important}
+  body.calc-has-report main>.calc-report{display:block!important}
+  .calc-report,.calc-report *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}

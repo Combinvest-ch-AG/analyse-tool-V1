@@ -46,12 +46,30 @@ export function AnalysisNotes({
   // Serialize writes so debounced saves never race and self-conflict on the
   // snapshot's optimistic lock version.
   const saveChain = useRef<Promise<void>>(Promise.resolve())
+  const retryCount = useRef(0)
 
   const persist = useCallback(async () => {
     setStatus("saving")
     const result = await saveNotes({ analysisId, notes: notesRef.current })
+    if (result.ok) retryCount.current = 0
     setStatus(result.ok ? "saved" : "error")
   }, [analysisId])
+
+  // Auto-retry a failed notes save with capped backoff so a transient error
+  // never silently loses what the advisor already typed.
+  useEffect(() => {
+    if (status !== "error") {
+      if (status === "saved" || status === "idle") retryCount.current = 0
+      return
+    }
+    if (retryCount.current >= 4) return
+    const delay = Math.min(8000, 2000 * 2 ** retryCount.current)
+    const t = setTimeout(() => {
+      retryCount.current += 1
+      saveChain.current = saveChain.current.catch(() => {}).then(() => persist())
+    }, delay)
+    return () => clearTimeout(t)
+  }, [status, persist])
 
   // Debounced autosave whenever any note changes. A longer debounce collapses
   // rapid typing into a single write, matching the wizard's autosave cadence.

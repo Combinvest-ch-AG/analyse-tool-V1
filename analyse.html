@@ -766,8 +766,14 @@ async function initAnalysis(){
   }
   function moduleData(key){if(!window.CombinvestCRM)return null;var raw=CombinvestCRM.load(key,null);return raw&&raw.data!==undefined?raw.data:raw;}
   function reportModules(){
-    var calculators={},keys=["wealth-sparen","wealth-zins","wealth-start","wealth-3a","wealth-steuer","wealth-inflation","wealth-kosten","wealth-ziel","ahv-retirement","real-estate-affordability"];
-    keys.forEach(function(key){var value=moduleData("calculator."+key);if(value)calculators[key]=value;});
+    var calculators={},keys=["wealth","wealth-sparen","wealth-zins","wealth-start","wealth-3a","wealth-steuer","wealth-inflation","wealth-kosten","wealth-ziel","ahv-retirement","real-estate-affordability"];
+    /* Zusaetzlich alle automatisch gespeicherten Rechner aus dem Index
+       aufnehmen, damit jede Bearbeitung im Bericht erscheint. Rich-Module
+       (budget, pension-gap) werden separat gerendert und hier ausgelassen. */
+    var skip={budget:1,"pension-gap":1};
+    var idx=(window.CombinvestCRM&&CombinvestCRM.data("calculator-index",{}))||{};
+    Object.keys(idx).forEach(function(k){if(!skip[k]&&keys.indexOf(k)<0)keys.push(k);});
+    keys.forEach(function(key){if(skip[key])return;var value=moduleData("calculator."+key);if(value)calculators[key]=value;});
     return{franchise:moduleData("franchise"),supplementary:moduleData("supplementaryInsurance"),insurance:moduleData("insurance-needs"),insuranceSummary:moduleData("insurance-summary"),pension:moduleData("pension-gap"),budget:moduleData("budget"),sealth:moduleData("sealth-check"),documents:moduleData("document-closing"),appointment:moduleData("closing-appointment"),calculators:calculators};
   }
   async function exportPdf(){

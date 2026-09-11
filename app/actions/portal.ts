@@ -451,13 +451,32 @@ export async function saveAnalysisSnapshot(input: {
     if (!advisor) return { ok: false, error: "Nicht angemeldet." }
 
     const supabase = await createClient()
+
+    // The wizard client only holds its OWN snapshot sections (answers,
+    // contracts, themeStatus, need_score, profiling_schema_version). The RPC
+    // REPLACES latest_snapshot wholesale, so writing the client snapshot as-is
+    // would erase every section owned by other flows on the same analysis —
+    // calculatorResults, notes, closing, documents and referral. Those flows
+    // run on the same page (wizard + notes) and on the calculator pages, so a
+    // 2.5s wizard autosave would silently wipe freshly saved calculator and
+    // note data. We therefore read the persisted snapshot and merge the wizard
+    // sections OVER it. The two domains never share top-level keys, so a
+    // shallow merge is exact: wizard keys are refreshed, everything else kept.
+    const { data: currentRow } = await supabase
+      .from("analyses")
+      .select("latest_snapshot")
+      .eq("id", input.analysisId)
+      .maybeSingle()
+    const currentSnapshot = (currentRow?.latest_snapshot as Record<string, unknown> | null) ?? {}
+    const mergedSnapshot = { ...currentSnapshot, ...input.snapshot }
+
     const { data, error } = await supabase.rpc("save_analysis_snapshot", {
       p_analysis_id: input.analysisId,
       p_expected_lock_version: input.expectedLockVersion,
       p_step: input.step,
       p_question: input.question,
       p_progress: input.progress,
-      p_snapshot: input.snapshot,
+      p_snapshot: mergedSnapshot,
       p_complete: input.complete ?? false,
       p_write_revision: input.writeRevision ?? false,
     })
